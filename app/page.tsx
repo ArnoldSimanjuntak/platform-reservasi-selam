@@ -1,48 +1,16 @@
 import HeroSection from "@/components/HeroSection";
 import ServiceCard from "@/components/ServiceCard";
+import Link from "next/link";
+import { getServices } from "@/lib/supabase";
 import type { Service } from "@/lib/supabase";
 
-// Mock Data for demonstration (Lembeh Focused)
-const mockServices: Service[] = [
-  {
-    id: "1",
-    name: "Private Macro Photography Boat",
-    type: "boat",
-    price: 1500000,
-    dive_site_category: "Muck",
-    image_url: "https://images.unsplash.com/photo-1544551763-46a42a4636e2?q=80&w=2069&auto=format&fit=crop",
-    description: "Kapal khusus fotografer dengan ruang kamera luas dan guide rasio 2:1."
-  },
-  {
-    id: "2",
-    name: "Master Guide - Nudibranch Specialist",
-    type: "instructor",
-    price: 750000,
-    dive_site_category: "Muck",
-    image_url: "https://images.unsplash.com/photo-1588615419958-392576dd2b38?q=80&w=1964&auto=format&fit=crop",
-    description: "Guide lokal legendaris dengan mata elang untuk menemukan critters langka."
-  },
-  {
-    id: "3",
-    name: "Mawali Wreck Dive Trip",
-    type: "boat",
-    price: 1200000,
-    dive_site_category: "Wreck",
-    image_url: "https://images.unsplash.com/photo-1622329244247-d5d888127393?q=80&w=1934&auto=format&fit=crop",
-    description: "Eksplorasi kapal karam Jepang Perang Dunia II di kedalaman 30m."
-  },
-  {
-    id: "4",
-    name: "Professional Macro Lens Rental",
-    type: "gear",
-    price: 350000,
-    dive_site_category: "Muck", // Gear valid for muck
-    image_url: "https://images.unsplash.com/photo-1627581134094-1cd74026bd2c?q=80&w=1974&auto=format&fit=crop",
-    description: "Lensa makro 100mm f/2.8L untuk kamera Canon. Hasil tajam maksimal."
-  },
-];
+// Revalidate data setiap 60 detik (ISR)
+export const revalidate = 60;
 
-export default function Home() {
+export default async function Home() {
+  // Fetch services dari Supabase
+  const { data: services, error } = await getServices();
+
   return (
     <main className="min-h-screen pb-20 bg-neutral">
       <HeroSection />
@@ -57,18 +25,33 @@ export default function Home() {
               <span className="text-primary">Minggu Ini</span>
             </h2>
           </div>
-          <button className="text-sm font-semibold text-primary hover:text-secondary transition-colors underline decoration-2 underline-offset-4">
+          <Link
+            href="/services"
+            className="text-sm font-semibold text-primary hover:text-secondary transition-colors underline decoration-2 underline-offset-4"
+          >
             Lihat Semua Layanan
-          </button>
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-          {mockServices.map((service) => (
-            <div key={service.id} className="h-full">
-              <ServiceCard service={service} />
-            </div>
-          ))}
-        </div>
+        {error ? (
+          <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-red-100">
+            <p className="text-red-500 font-semibold text-lg mb-2">Gagal memuat layanan.</p>
+            <p className="text-gray-500 text-sm">Silakan coba lagi nanti atau periksa koneksi internet Anda.</p>
+          </div>
+        ) : services && services.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+            {services.map((service: Service) => (
+              <Link key={service.id} href={`/services/${service.id}`} className="h-full block">
+                <ServiceCard service={service} />
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 bg-white rounded-2xl shadow-sm">
+            <p className="text-gray-500 text-lg">Belum ada layanan tersedia saat ini.</p>
+            <p className="text-gray-400 text-sm mt-2">Layanan baru akan segera ditambahkan.</p>
+          </div>
+        )}
       </section>
 
       {/* Why Choose Us / Value Prop for Lembeh */}

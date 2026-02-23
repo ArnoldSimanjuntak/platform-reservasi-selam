@@ -3,13 +3,13 @@ import { Search, Aperture, Anchor, Fish, ArrowRight } from "lucide-react";
 
 export default function HeroSection() {
     return (
-        <section className="relative w-full h-[85vh] min-h-[600px] flex items-center justify-center overflow-hidden">
+        <section className="relative w-full h-[85vh] min-h-[600px] flex items-center justify-center overflow-hidden pt-32 md:pt-0">
             {/* Background Image - Lembeh Style (Darker, Muck) */}
             <div className="absolute inset-0 z-0 bg-neutral-900">
                 <div className="absolute inset-0 bg-gradient-to-b from-[#023E8A]/50 via-[#03045E]/40 to-[#F8F9FA] z-10" />
                 {/* Placeholder for Lembeh Critter/Muck image */}
                 <div className="w-full h-full relative opacity-60">
-                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1544551763-46a42a4636e2?q=80&w=1920&auto=format&fit=crop')] bg-cover bg-center" />
+                    <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/lembeh/1920/1080')] bg-cover bg-center" />
                 </div>
             </div>
 

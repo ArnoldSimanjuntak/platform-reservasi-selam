@@ -91,7 +91,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
         <div className="group h-full flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
             <div className="relative h-56 w-full overflow-hidden bg-gray-100">
                 <Image
-                    src={service.image_url || "/images/placeholder.jpg"}
+                    src={service.image_url || `https://picsum.photos/seed/${service.type}/800/600`}
                     alt={service.name}
                     fill
                     className="object-cover transition-transform duration-700 group-hover:scale-110"

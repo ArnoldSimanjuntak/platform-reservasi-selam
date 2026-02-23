@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { WifiOff, RefreshCcw } from "lucide-react";
+import { WifiOff } from "lucide-react";
+import ReloadButton from "@/components/ReloadButton";
 
 export const metadata = {
     title: "Offline - Sulut Dive",
@@ -23,13 +24,7 @@ export default function OfflinePage() {
                 </p>
 
                 <div className="space-y-3">
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="w-full btn-primary flex items-center justify-center gap-2"
-                    >
-                        <RefreshCcw className="w-4 h-4" />
-                        Coba Lagi
-                    </button>
+                    <ReloadButton />
 
                     <Link
                         href="/services"

@@ -1,15 +1,13 @@
-import { supabase } from "@/lib/supabase";
+import { getServices } from "@/lib/supabase";
 import ServiceCard from "@/components/ServiceCard";
+import Link from "next/link";
 import type { Service } from "@/lib/supabase";
 
 export const revalidate = 60; // Revalidate data every 60 seconds
 
 export default async function ServicesPage() {
-    // Fetch services from Supabase
-    const { data: services, error } = await supabase
-        .from("services")
-        .select("*")
-        .order("created_at", { ascending: false });
+    // Fetch services dari Supabase menggunakan helper
+    const { data: services, error } = await getServices();
 
     if (error) {
         console.error("Error fetching services:", error);
