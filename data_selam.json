@@ -1,0 +1,632 @@
+[
+  {
+    "id_titik": "Batu Angus",
+    "nama_lokasi": "Batu Angus",
+    "lat": 1.5070808,
+    "lng": 125.2468088,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "25",
+    "habitat": "Coral",
+    "deskripsi": "This is a sheltered series of lava bowls offering good hard coral growth (esp. lettuce corals) in shallow depths, no current and visibility better than anywhere else in the Strait. The dive site is named Batu Angus because 'Batu' means rock and 'Angus' means burns, signifying the hardened lava rock in the water."
+  },
+  {
+    "id_titik": "Aw Shucks",
+    "nama_lokasi": "Aw Shucks",
+    "lat": 1.5008168,
+    "lng": 125.2424585,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "16",
+    "habitat": "Mixed",
+    "deskripsi": "Next to a pearl farm, this site has a verdant mix of coral and sponge growth in the shallows with a sand slope below. The first divers to explore this site proclaimed 'Aw Shucks!' after they found a lot of critters."
+  },
+  {
+    "id_titik": "Hey Nus",
+    "nama_lokasi": "Hey Nus",
+    "lat": 1.4990929,
+    "lng": 125.2422211,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "16",
+    "habitat": "Mixed",
+    "deskripsi": "It is a muck site with a gentle sand slope that drops down to coral patches in about 14-20 meter depth. There are a lot of scatterd Physogyra corals and rope sponges along the slope."
+  },
+  {
+    "id_titik": "Hairball",
+    "nama_lokasi": "Hairball",
+    "lat": 1.4974972,
+    "lng": 125.2422262,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "16",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "This is the most famous of the muck sites and one of the four most-dived sites in the Strait. The sand slope here is exceptionally rich."
+  },
+  {
+    "id_titik": "Surprise",
+    "nama_lokasi": "Surprise",
+    "lat": 1.4957328,
+    "lng": 125.241764,
+    "kedalaman_meter": "22",
+    "waktu_tempuh_kapal_menit": "15",
+    "habitat": "Mixed",
+    "deskripsi": "Located just south of Hairball, this site earned its name because divers are always surprised by what they find. The gentle sand slope transitions to rubble patches offering a mix of coral growth, sponges, and excellent macro subjects including frogfish and various nudibranchs."
+  },
+  {
+    "id_titik": "TK 1 2 3",
+    "nama_lokasi": "TK (Teluk Kambahu) 1, 2, 3",
+    "lat": 1.4934459,
+    "lng": 125.2366851,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "12",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "These are sheltered sites that are very popular: this entire area offers a wide variety of critters in shallow, easy conditions."
+  },
+  {
+    "id_titik": "Retak Larry",
+    "nama_lokasi": "Retak Larry (Larrys Crack)",
+    "lat": 1.4901425,
+    "lng": 125.2370284,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "Another sand site, but with a small stand of healthy coral in the shallows. This is the most popular site in Kambahu Bay."
+  },
+  {
+    "id_titik": "Magic Crack",
+    "nama_lokasi": "Magic Crack",
+    "lat": 1.4891269,
+    "lng": 125.2391822,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "16",
+    "habitat": "Mixed",
+    "deskripsi": "A continuance of the gentle sand slope, the highlight of this dive is a coral and rubble patch stretching from 12 – 27 meters and is the best place in Lembeh to find thorny seahorses."
+  },
+  {
+    "id_titik": "Magic Rock",
+    "nama_lokasi": "Magic Rock",
+    "lat": 1.4874288,
+    "lng": 125.2408288,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Mixed",
+    "deskripsi": "This site is named after a rock at 15m in the coral shallow area and sand slope which is a cleaning station where many different creatures can be found!"
+  },
+  {
+    "id_titik": "Nudi Retreat",
+    "nama_lokasi": "Nudi Retreat",
+    "lat": 1.4858198,
+    "lng": 125.2414241,
+    "kedalaman_meter": "29",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Mixed",
+    "deskripsi": "The most heavily-dived site in the strait, this is a lovely coral bowl in the shallows, turning into a sand slope with encrusted boulders down below."
+  },
+  {
+    "id_titik": "Makawide",
+    "nama_lokasi": "Makawide",
+    "lat": 1.4816689,
+    "lng": 125.2383698,
+    "kedalaman_meter": "29",
+    "waktu_tempuh_kapal_menit": "13",
+    "habitat": "Mixed",
+    "deskripsi": "Excellent coral growth in the shallows, with a wall like Nudi Retreat. On the silty slope below the wall rise a few rocky pinnacles."
+  },
+  {
+    "id_titik": "Jahir",
+    "nama_lokasi": "Jahir",
+    "lat": 1.4792372,
+    "lng": 125.2363678,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "A very popular muck site, just a black sand slope with some rope sponge growth and a few coral outcrops in the shallows."
+  },
+  {
+    "id_titik": "Aer Prang",
+    "nama_lokasi": "Aer Prang",
+    "lat": 1.473168,
+    "lng": 125.23428,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "7",
+    "habitat": "Mixed",
+    "deskripsi": "Air Prang is a large, spread-out gradual sand slope which is popular for night diving but also potentially great during the day."
+  },
+  {
+    "id_titik": "Sarena North",
+    "nama_lokasi": "Sarena North",
+    "lat": 1.4611905,
+    "lng": 125.2319444,
+    "kedalaman_meter": "30",
+    "waktu_tempuh_kapal_menit": "5",
+    "habitat": "Mixed",
+    "deskripsi": "This site located north of Sarena island has a coral slope at the top, sandy bottom and can be done as a deep dive."
+  },
+  {
+    "id_titik": "Slow Poke",
+    "nama_lokasi": "Slow Poke",
+    "lat": 1.4584234,
+    "lng": 125.2312148,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "A seldom-dived site between the more popular Retak Larry and Magic Crack, this gentle sand slope has some rubble and a single bommie."
+  },
+  {
+    "id_titik": "Serena Besar",
+    "nama_lokasi": "Serena Besar",
+    "lat": 1.4595817,
+    "lng": 125.2338971,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "5",
+    "habitat": "Mixed",
+    "deskripsi": "The site is a combination of coral, rubble area and a sandy bottom. In the shallow part the nice coral area and some time you can see juvenile barramundi cod."
+  },
+  {
+    "id_titik": "Nudi Falls",
+    "nama_lokasi": "Nudi Falls",
+    "lat": 1.4606494,
+    "lng": 125.2270824,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "7",
+    "habitat": "Mixed",
+    "deskripsi": "One of the three most-dived sites (along with Nudi Retreat & Hairball), a beautiful sheer wall with a rock pile below, then a sand slope."
+  },
+  {
+    "id_titik": "Serena Patah",
+    "nama_lokasi": "Serena Patah",
+    "lat": 1.4553863,
+    "lng": 125.2252391,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "8",
+    "habitat": "Mixed",
+    "deskripsi": "Located near the broken part of Serena island, this site features a mix of hard coral wall and sandy slope. Known for blue-ringed octopus sightings and ghost pipefish hiding among the sea fans and black coral growth."
+  },
+  {
+    "id_titik": "Critter Hunt",
+    "nama_lokasi": "Critter Hunt",
+    "lat": 1.4547109,
+    "lng": 125.224359,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "8",
+    "habitat": "Mixed",
+    "deskripsi": "It has a healthy reef in the shallows with many different species of anemones. A little bit deeper, there is a gentle rubble slope."
+  },
+  {
+    "id_titik": "Tanduk Rusa",
+    "nama_lokasi": "Tanduk Rusa",
+    "lat": 1.4604619,
+    "lng": 125.2238302,
+    "kedalaman_meter": "24",
+    "waktu_tempuh_kapal_menit": "7",
+    "habitat": "Mixed",
+    "deskripsi": "Named after the antler-shaped coral found here, this site features a mix of reef and rubble slope. Close to the Mawali Wreck, the shallows have vibrant hard coral growth while deeper sections offer soft corals and sponge gardens favored by nudibranchs."
+  },
+  {
+    "id_titik": "Mawali Wreck",
+    "nama_lokasi": "Mawali Wreck",
+    "lat": 1.4597112,
+    "lng": 125.2222424,
+    "kedalaman_meter": "30",
+    "waktu_tempuh_kapal_menit": "8",
+    "habitat": "Wreck",
+    "deskripsi": "A WWII-era Japanese freighter lying on its port side in 15–30 meters of water. The wreck is heavily encrusted with coral and sponges, hosting lionfish, pipefish, nudibranchs, and occasionally schooling barracuda and trevally."
+  },
+  {
+    "id_titik": "Police Pier",
+    "nama_lokasi": "Police Pier",
+    "lat": 1.4583598,
+    "lng": 125.2209549,
+    "kedalaman_meter": "18",
+    "waktu_tempuh_kapal_menit": "6",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "Named after the nearby police station, this classic muck dive site features dark volcanic sand scattered with rubble and debris. A hotspot for seahorses, scorpionfish, frogfish, and various crustaceans that make it one of Lembeh's most rewarding macro photography locations."
+  },
+  {
+    "id_titik": "Police Pier 2",
+    "nama_lokasi": "Police Pier 2",
+    "lat": 1.4574803,
+    "lng": 125.2202254,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "6",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "The second section of Police Pier extends along a darker volcanic sand slope. Rich in macro life including flamboyant cuttlefish, wonderpus, and coconut octopus, this area is also popular for night dives where mandarinfish and bobbit worms are regularly spotted."
+  },
+  {
+    "id_titik": "Pintu Kota",
+    "nama_lokasi": "Pintu Kota",
+    "lat": 1.4533976,
+    "lng": 125.2118496,
+    "kedalaman_meter": "22",
+    "waktu_tempuh_kapal_menit": "12",
+    "habitat": "Mixed",
+    "deskripsi": "This site marks the 'gateway to the city' (pintu kota) of Bitung's underwater realm. A gradual sand and coral slope dropping to 22 meters hosts ornate ghost pipefish, Ambon scorpionfish, and rare Pikachu nudibranchs among the scattered coral bommies."
+  },
+  {
+    "id_titik": "Pintu Kolada",
+    "nama_lokasi": "Pintu Kolada",
+    "lat": 1.4528506,
+    "lng": 125.2119784,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "12",
+    "habitat": "Mixed",
+    "deskripsi": "A popular site featuring coral gardens in the shallows at 5–7 meters transitioning into a sandy rubble slope. Known for the rare Pikachu nudibranch (Thecacera sp.) and wonderpus octopus, with excellent visibility most of the year."
+  },
+  {
+    "id_titik": "Pantai Parigi",
+    "nama_lokasi": "Pantai Parigi",
+    "lat": 1.4376035,
+    "lng": 125.1683287,
+    "kedalaman_meter": "15",
+    "waktu_tempuh_kapal_menit": "25",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "Located on the far western coast near Bitung harbor, this sheltered beach dive features a gentle sandy slope ideal for beginner divers and check dives. The shallow rubble area hosts juvenile fish, flatworms, and a variety of shrimp and crab species."
+  },
+  {
+    "id_titik": "Tanjung Kubur",
+    "nama_lokasi": "Tanjung Kubur",
+    "lat": 1.4323347,
+    "lng": 125.1883956,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "18",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "Named after the cemetery on the headland above, this muck site has a gradual dark sand slope with scattered rubble. Known for mimic octopus, snake eels, and stargazers. The volcanic substrate creates a dramatic contrast for macro photography."
+  },
+  {
+    "id_titik": "Madidir",
+    "nama_lokasi": "Madidir",
+    "lat": 1.4316652,
+    "lng": 125.1920502,
+    "kedalaman_meter": "18",
+    "waktu_tempuh_kapal_menit": "15",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "A sheltered muck site near the Madidir area of mainland Bitung. The dark volcanic sand slope is ideal for night diving and is famous for mandarinfish, bobbit worms, and various species of octopus hiding in coconut shells and discarded bottles."
+  },
+  {
+    "id_titik": "Beting Pasir",
+    "nama_lokasi": "Beting Pasir",
+    "lat": 1.4319328,
+    "lng": 125.1957766,
+    "kedalaman_meter": "16",
+    "waktu_tempuh_kapal_menit": "14",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "A sandbar formation (beting pasir) that creates a unique underwater landscape. The shallow sand flat transitions to a gentle slope hosting a variety of flatfish, snake eels, and pipefish. The sandy environment is also home to mantis shrimp and burrowing gobies."
+  },
+  {
+    "id_titik": "Tanjung Kuning",
+    "nama_lokasi": "Tanjung Kuning",
+    "lat": 1.4326407,
+    "lng": 125.1971928,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "13",
+    "habitat": "Mixed",
+    "deskripsi": "Named after the distinctive yellowish rock formations at the headland, this site offers a combination of rocky reef in the shallows and black sand slope below. Great for finding leaf scorpionfish, robust ghost pipefish, and fire urchin riders."
+  },
+  {
+    "id_titik": "Jiko 1",
+    "nama_lokasi": "Jiko 1",
+    "lat": 1.432748,
+    "lng": 125.1999823,
+    "kedalaman_meter": "22",
+    "waktu_tempuh_kapal_menit": "12",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "The first of the Jiko dive sites, located on the southern strait. A gradual volcanic sand slope with scattered rubble provides habitat for frogfish, seahorses, and various species of shrimp gobies. Night dives here reveal Spanish dancer nudibranchs."
+  },
+  {
+    "id_titik": "Jiko 2",
+    "nama_lokasi": "Jiko 2",
+    "lat": 1.4335846,
+    "lng": 125.2016131,
+    "kedalaman_meter": "24",
+    "waktu_tempuh_kapal_menit": "11",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "Continuing from Jiko 1, this section features a slightly steeper sand slope rich in macro subjects. Highlights include hairy frogfish, blue-ringed octopus, and various nudibranch species. Scattered rope sponges provide shelter for ornate ghost pipefish."
+  },
+  {
+    "id_titik": "Jiko 3",
+    "nama_lokasi": "Jiko 3",
+    "lat": 1.4331725,
+    "lng": 125.205454,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Mixed",
+    "deskripsi": "The deepest of the Jiko series, this site has a mix of sand, rubble, and coral outcrops. The coral patches between 10–15 meters attract cleaning stations visited by sweetlips, groupers, and batfish, while the sand slope below hosts coconut octopus and gobies."
+  },
+  {
+    "id_titik": "Divers Lodge House Reef",
+    "nama_lokasi": "Divers Lodge House Reef",
+    "lat": 1.4344596,
+    "lng": 125.2085225,
+    "kedalaman_meter": "18",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Mixed",
+    "deskripsi": "A convenient house reef accessible directly from the shore. The shallow coral area leads to a gentle muck slope perfect for unlimited day and night dives. Seahorses, cuttlefish, and juvenile fish are regularly spotted in the turtle grass beds."
+  },
+  {
+    "id_titik": "Pante Abo",
+    "nama_lokasi": "Pante Abo",
+    "lat": 1.4364219,
+    "lng": 125.2123634,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "A dark sand muck site on the Lembeh Island side featuring a gentle slope strewn with rope sponges and sea whips. Known for excellent critter sightings including flamboyant cuttlefish, devil scorpionfish, and a variety of shrimp species in the anemones."
+  },
+  {
+    "id_titik": "Kareko Pasir",
+    "nama_lokasi": "Kareko Pasir",
+    "lat": 1.4374087,
+    "lng": 125.2131144,
+    "kedalaman_meter": "22",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "The sandy version of the Kareko sites (kareko = coral, pasir = sand). A black volcanic sand slope with minimal coral cover but abundant macro life including mimic octopus, various flatfish, and burrowing shrimp gobies. Excellent for wide-angle muck shots."
+  },
+  {
+    "id_titik": "Kareko Batu",
+    "nama_lokasi": "Kareko Batu",
+    "lat": 1.4377952,
+    "lng": 125.2182396,
+    "kedalaman_meter": "24",
+    "waktu_tempuh_kapal_menit": "9",
+    "habitat": "Mixed",
+    "deskripsi": "The rocky counterpart of Kareko Pasir, this site features encrusted boulders (batu = rock) rising from the sand slope. The rocks are covered in sponges and soft corals attracting pygmy seahorses, leaf scorpionfish, and various pipefish species."
+  },
+  {
+    "id_titik": "Tanjung Tebal",
+    "nama_lokasi": "Tanjung Tebal",
+    "lat": 1.4394898,
+    "lng": 125.2227994,
+    "kedalaman_meter": "22",
+    "waktu_tempuh_kapal_menit": "8",
+    "habitat": "Mixed",
+    "deskripsi": "Named after the thick (tebal) headland promontory, this site features a healthy coral reef in the shallows dropping to a sandy slope. The coral area hosts cleaning stations with cleaner wrasse and shrimp, while the deeper sand reveals mimic octopus and snake eels."
+  },
+  {
+    "id_titik": "Air Bajo 1",
+    "nama_lokasi": "Air Bajo 1",
+    "lat": 1.4401871,
+    "lng": 125.2260325,
+    "kedalaman_meter": "18",
+    "waktu_tempuh_kapal_menit": "7",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "The first of three Air Bajo sites located in a sheltered bay. A shallow sandy flat at 4–6 meters transitions to a gradual slope ideal for spotting coconut octopus, seahorses, and the famous Lembeh Sea Dragon (pipefish). Perfect for long, relaxed macro dives."
+  },
+  {
+    "id_titik": "Air Bajo 2",
+    "nama_lokasi": "Air Bajo 2",
+    "lat": 1.4413026,
+    "lng": 125.2240155,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "7",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "Continuing south from Air Bajo 1, this section has slightly more rubble and coral fragments mixed into the sand. Known for excellent crustacean sightings including boxer crabs, harlequin shrimp, and emperor shrimp riding on sea cucumbers."
+  },
+  {
+    "id_titik": "Tanjung Lampu",
+    "nama_lokasi": "Tanjung Lampu",
+    "lat": 1.4539133,
+    "lng": 125.2371542,
+    "kedalaman_meter": "22",
+    "waktu_tempuh_kapal_menit": "6",
+    "habitat": "Mixed",
+    "deskripsi": "Named after the lighthouse (lampu = light) at the cape, this site offers a dramatic wall in the shallows transitioning to a sandy slope. The wall crevices shelter moray eels and lionfish, while the sand is home to robust ghost pipefish and leaf scorpionfish."
+  },
+  {
+    "id_titik": "Batu Sandar",
+    "nama_lokasi": "Batu Sandar",
+    "lat": 1.4551567,
+    "lng": 125.2411882,
+    "kedalaman_meter": "24",
+    "waktu_tempuh_kapal_menit": "5",
+    "habitat": "Mixed",
+    "deskripsi": "Large boulders (batu = rock) lean against each other creating swim-throughs and overhangs at 10–18 meters. The rock surfaces are blanketed in sponges and tunicates sheltering pygmy seahorses, while the surrounding sand hosts pairs of mandarinfish at dusk."
+  },
+  {
+    "id_titik": "Pearl Farm",
+    "nama_lokasi": "Pearl Farm",
+    "lat": 1.4598528,
+    "lng": 125.2434203,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "5",
+    "habitat": "Mixed",
+    "deskripsi": "Adjacent to a working pearl farm in the strait, the underwater infrastructure creates artificial reef habitats. The ropes and structures attract a rich community of frogfish, nudibranchs, and juvenile fish. The sandy bottom below is home to jawfish colonies and various gobies."
+  },
+  {
+    "id_titik": "Delima Point",
+    "nama_lokasi": "Delima Point",
+    "lat": 1.4593809,
+    "lng": 125.2407381,
+    "kedalaman_meter": "26",
+    "waktu_tempuh_kapal_menit": "5",
+    "habitat": "Coral",
+    "deskripsi": "A promontory point with healthy hard and soft coral growth from 5 to 26 meters. The reef wall attracts schooling fusiliers and anthias, while the crevices harbor moray eels and banded coral shrimp. A great site combining reef scenery with Lembeh's signature macro finds."
+  },
+  {
+    "id_titik": "Rojos",
+    "nama_lokasi": "Rojos",
+    "lat": 1.4609101,
+    "lng": 125.2377126,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "6",
+    "habitat": "Mixed",
+    "deskripsi": "Named after a local dive guide, Rojos features a coral reef in the shallows sloping to a sandy bottom. The transition zone between reef and sand is particularly productive for macro life, including ornate ghost pipefish, robust ghost pipefish, and various species of shrimpfish."
+  },
+  {
+    "id_titik": "Jarijari",
+    "nama_lokasi": "Jarijari",
+    "lat": 1.4703779,
+    "lng": 125.2445446,
+    "kedalaman_meter": "20",
+    "waktu_tempuh_kapal_menit": "10",
+    "habitat": "Sand & Rubble",
+    "deskripsi": "A fine muck diving site with a dark sand slope covered in scattered rubble and debris. Named after the local word for 'fingers,' referring to the finger-like coral formations. Known for Ambon scorpionfish, painted frogfish, and devil stinger sightings."
+  },
+  {
+    "id_titik": "Kungkungan House Reef",
+    "nama_lokasi": "Kungkungan House Reef",
+    "lat": 1.4714933,
+    "lng": 125.2476774,
+    "kedalaman_meter": "22",
+    "waktu_tempuh_kapal_menit": "12",
+    "habitat": "Mixed",
+    "deskripsi": "The easily accessible house reef of the iconic Kungkungan Bay Resort. A rich combination of coral shallows and sand slope supporting an incredible diversity of macro subjects available for diving day and night. A Lembeh institution for underwater photographers."
+  },
+  {
+    "id_titik": "Retak Becho",
+    "nama_lokasi": "Retak Becho",
+    "lat": 1.475287,
+    "lng": 125.2497503,
+    "kedalaman_meter": "26",
+    "waktu_tempuh_kapal_menit": "14",
+    "habitat": "Mixed",
+    "deskripsi": "This crack in the reef (retak = crack) features a distinctive fissure in the coral wall at 12 meters. The surrounding area offers a mix of coral bommies and rubble, supporting a range of macro life including various frogfish, nudibranchs, and blue-ringed octopus."
+  },
+  {
+    "id_titik": "Makawide 2",
+    "nama_lokasi": "Makawide 2",
+    "lat": 1.4785045,
+    "lng": 125.2499005,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "14",
+    "habitat": "Mixed",
+    "deskripsi": "The second section of the Makawide reef system, offering a steeper wall with beautiful soft coral growth and gorgonian sea fans. Below the wall, a sandy slope with rocky outcrops hosts banggai cardinalfish, leaf scorpionfish, and cuttlefish."
+  },
+  {
+    "id_titik": "Makawide 3",
+    "nama_lokasi": "Makawide 3",
+    "lat": 1.4801562,
+    "lng": 125.2496001,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "14",
+    "habitat": "Coral",
+    "deskripsi": "The most coral-rich section of the Makawide area, featuring a lush coral reef with excellent visibility. Dense hard coral gardens from 5–15 meters support a variety of reef fish including pygmy seahorses in the gorgonians, while deeper sandy areas offer classic muck finds."
+  },
+  {
+    "id_titik": "Batu Mera",
+    "nama_lokasi": "Batu Mera",
+    "lat": 1.4821029,
+    "lng": 125.2537286,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "16",
+    "habitat": "Mixed",
+    "deskripsi": "Named for the red-colored rocks (batu mera = red rock) at this site. Volcanic boulders encrusted with vibrant sponges and soft corals create a dramatic underwater landscape. Look for hawksbill turtles, schools of batfish, and various species of moray eels in the crevices."
+  },
+  {
+    "id_titik": "Pulau Putus",
+    "nama_lokasi": "Pulau Putus",
+    "lat": 1.4882838,
+    "lng": 125.256107,
+    "kedalaman_meter": "30",
+    "waktu_tempuh_kapal_menit": "18",
+    "habitat": "Coral",
+    "deskripsi": "This 'broken island' (pulau putus) site features a dramatic coral wall with overhangs and swim-throughs. The exposed position at the northeast coast of Lembeh brings nutrient-rich currents, attracting large sea fans, barrel sponges, and schooling reef fish."
+  },
+  {
+    "id_titik": "California Dreaming",
+    "nama_lokasi": "California Dreaming",
+    "lat": 1.4893563,
+    "lng": 125.2576304,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "20",
+    "habitat": "Coral",
+    "deskripsi": "One of Lembeh's rare vibrant coral reef dives, featuring two rocky peaks covered in soft corals, gorgonian fans, and whip corals. Unlike typical muck sites, this location is suited for wide-angle photography with excellent visibility and colorful reef scenery."
+  },
+  {
+    "id_titik": "Angels Window",
+    "nama_lokasi": "Angel's Window",
+    "lat": 1.4959408,
+    "lng": 125.2618465,
+    "kedalaman_meter": "30",
+    "waktu_tempuh_kapal_menit": "22",
+    "habitat": "Coral",
+    "deskripsi": "One of Lembeh's most iconic and photogenic dive sites. A twin-peaked coral pinnacle features a large natural archway (the 'window') at around 22 meters. Home to pygmy seahorses on the gorgonians, leaf scorpionfish, and various shrimp species in the overhangs."
+  },
+  {
+    "id_titik": "Dantehs Wall",
+    "nama_lokasi": "Dante's Wall",
+    "lat": 1.4969704,
+    "lng": 125.2633485,
+    "kedalaman_meter": "35",
+    "waktu_tempuh_kapal_menit": "23",
+    "habitat": "Coral",
+    "deskripsi": "A stunning sheer wall dive dropping to 35 meters at the northern tip of Lembeh Island. The wall is draped in magnificent black corals and large gorgonian fans. A cave in the shallows may harbor flashlight fish. This site can have significant current."
+  },
+  {
+    "id_titik": "Kaninahs Treasure",
+    "nama_lokasi": "Kainah's Treasure",
+    "lat": 1.5007024,
+    "lng": 125.26151,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "24",
+    "habitat": "Coral",
+    "deskripsi": "Named after a local diver who discovered this hidden gem, the site features a series of coral-encrusted boulders on a slope. Rich with soft corals and barrel sponges, it is a reliable spot for hawksbill turtles, barracuda, and rare nudibranchs."
+  },
+  {
+    "id_titik": "Jico Yance",
+    "nama_lokasi": "Jico Yance",
+    "lat": 1.5089877,
+    "lng": 125.2670068,
+    "kedalaman_meter": "30",
+    "waktu_tempuh_kapal_menit": "26",
+    "habitat": "Mixed",
+    "deskripsi": "Located on the exposed northeastern coast of Lembeh, this site has a mix of coral reef and sand. When currents are favorable, large pelagic fish such as barracuda and trevally can be spotted, alongside the usual macro subjects in the coral rubble areas."
+  },
+  {
+    "id_titik": "Batu Kapal",
+    "nama_lokasi": "Batu Kapal",
+    "lat": 1.5231969,
+    "lng": 125.2770809,
+    "kedalaman_meter": "35",
+    "waktu_tempuh_kapal_menit": "30",
+    "habitat": "Coral",
+    "deskripsi": "A series of impressive pinnacles off the far northern tip of Lembeh. This current-rich site is the best place in Lembeh for big fish encounters including reef sharks, eagle rays, large groupers, and schools of barracuda and trevally. Vibrant soft coral growth covers the pinnacles."
+  },
+  {
+    "id_titik": "Batu Kapal 2",
+    "nama_lokasi": "Batu Kapal 2",
+    "lat": 1.5221244,
+    "lng": 125.2775959,
+    "kedalaman_meter": "32",
+    "waktu_tempuh_kapal_menit": "30",
+    "habitat": "Coral",
+    "deskripsi": "The second set of pinnacles at Batu Kapal, slightly shallower and more sheltered. Dense soft coral gardens and sea fans attract schools of anthias and fusiliers. On the deeper sandy bottom, garden eels and sand-dwelling gobies create a unique contrast to the reef above."
+  },
+  {
+    "id_titik": "Pulau Dua",
+    "nama_lokasi": "Pulau Dua",
+    "lat": 1.5288851,
+    "lng": 125.2775336,
+    "kedalaman_meter": "25",
+    "waktu_tempuh_kapal_menit": "32",
+    "habitat": "Mixed",
+    "deskripsi": "A small twin island (pulau dua = two islands) off the northern tip of Lembeh. The rocky reef around the islets supports healthy hard coral growth with schools of damselfish and surgeonfish. Turtle sightings are common, and the deeper slopes offer muck diving opportunities."
+  },
+  {
+    "id_titik": "Pulau Susulina",
+    "nama_lokasi": "Pulau Susulina",
+    "lat": 1.5348482,
+    "lng": 125.2805377,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "35",
+    "habitat": "Coral",
+    "deskripsi": "A remote islet north of Lembeh surrounded by healthy coral reef. The exposed position brings strong nutrient-rich currents supporting large sea fans, barrel sponges, and dense coral growth. Pelagic fish including Napoleon wrasse and whitetip reef sharks patrol the outer reef."
+  },
+  {
+    "id_titik": "Batu Bunyan",
+    "nama_lokasi": "Batu Bunyan",
+    "lat": 1.5475221,
+    "lng": 125.2868255,
+    "kedalaman_meter": "30",
+    "waktu_tempuh_kapal_menit": "38",
+    "habitat": "Coral",
+    "deskripsi": "The most remote dive site on the northern end of the strait, featuring a large submerged rock formation with dramatic topography. Strong currents bring nutrient-rich water supporting lush coral growth, large gorgonians, and sightings of manta rays during the right season."
+  },
+  {
+    "id_titik": "Tanjung Nanas",
+    "nama_lokasi": "Tanjung Nanas",
+    "lat": 1.5527639,
+    "lng": 125.2935477,
+    "kedalaman_meter": "28",
+    "waktu_tempuh_kapal_menit": "40",
+    "habitat": "Coral",
+    "deskripsi": "The northernmost dive point in the Lembeh area, located on a windswept headland. This underexplored site features pristine coral walls dropping sharply to sandy depths. The remote location means encounters with larger marine life including whitetip reef sharks, green turtles, and large schools of pelagic fish are possible."
+  }
+]

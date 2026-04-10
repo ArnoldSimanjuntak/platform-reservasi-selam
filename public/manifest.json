@@ -1,7 +1,8 @@
 {
-  "name": "Lembeh Dive Reservation",
-  "short_name": "LembehDive",
-  "description": "Platform reservasi wisata selam khusus Muck Diving dan Fotografi Makro di Selat Lembeh, Bitung.",
+  "name": "SulutDive — Reservasi Selam Lembeh",
+  "short_name": "SulutDive",
+  "description": "Platform reservasi wisata selam dengan carrying capacity di Selat Lembeh, Bitung, Sulawesi Utara. Mendukung konservasi ekosistem laut.",
+  "id": "/",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F8F9FA",
@@ -67,13 +68,27 @@
   ],
   "shortcuts": [
     {
-      "name": "Katalog Lembeh",
-      "url": "/services",
-      "description": "Lihat paket diving Selat Lembeh"
+      "name": "Peta Dive Site",
+      "short_name": "Lokasi",
+      "url": "/lokasi",
+      "description": "Jelajahi spot selam Selat Lembeh",
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
-      "name": "Tiket Saya",
-      "url": "/bookings",
+      "name": "Katalog Layanan",
+      "short_name": "Layanan",
+      "url": "/services",
+      "description": "Lihat paket selam tersedia"
+    },
+    {
+      "name": "Dashboard Saya",
+      "short_name": "Dashboard",
+      "url": "/dashboard",
       "description": "Cek status reservasi"
     }
   ],

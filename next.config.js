@@ -3,74 +3,86 @@ const withPWA = require("next-pwa")({
     register: true,
     skipWaiting: true,
     disable: process.env.NODE_ENV === "development",
+    // ─── Offline Fallback ────────────────────────────────────
+    // Saat user offline dan halaman belum di-cache,
+    // service worker akan menampilkan /offline secara otomatis.
+    fallbacks: {
+        document: "/offline",
+    },
+    // ─── Runtime Caching Strategies ──────────────────────────
+    // Setiap rule mendefinisikan:
+    //   urlPattern  : regex URL yang cocok
+    //   handler     : strategi caching Workbox
+    //   options     : konfigurasi cache (nama, TTL, max entries)
     runtimeCaching: [
+        // ── 1. Google Fonts (CacheFirst — jarang berubah) ────
         {
             urlPattern: /^https:\/\/fonts\.(?:gstatic|googleapis)\.com\/.*/i,
             handler: "CacheFirst",
             options: {
-                cacheName: "google-fonts-webfonts",
+                cacheName: "google-fonts",
                 expiration: {
-                    maxEntries: 4,
-                    maxAgeSeconds: 365 * 24 * 60 * 60, // 365 days
+                    maxEntries: 10,
+                    maxAgeSeconds: 365 * 24 * 60 * 60, // 1 tahun
                 },
             },
         },
+        // ── 2. Leaflet Map Tiles (CacheFirst — aset statis) ──
+        // Tile peta OpenStreetMap yang digunakan oleh react-leaflet.
+        // CacheFirst: tile di-cache permanen setelah pertama kali diunduh.
+        // Ini krusial agar peta tetap terlihat saat offline di Lembeh.
         {
-            urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
-            handler: "StaleWhileRevalidate",
+            urlPattern: /^https:\/\/[abc]\.tile\.openstreetmap\.org\/.*/i,
+            handler: "CacheFirst",
             options: {
-                cacheName: "unsplash-images",
+                cacheName: "leaflet-map-tiles",
                 expiration: {
-                    maxEntries: 50,
-                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                    maxEntries: 200,                     // ±200 tile area Lembeh
+                    maxAgeSeconds: 30 * 24 * 60 * 60,   // 30 hari
                 },
             },
         },
+        // ── 3. Leaflet Library Assets (CacheFirst) ───────────
         {
-            urlPattern: /\/services/,
-            handler: "StaleWhileRevalidate",
+            urlPattern: /^https:\/\/unpkg\.com\/leaflet@.*/i,
+            handler: "CacheFirst",
             options: {
-                cacheName: "services-data",
+                cacheName: "leaflet-assets",
                 expiration: {
-                    maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxEntries: 10,
+                    maxAgeSeconds: 30 * 24 * 60 * 60,
                 },
             },
         },
+        // ── 4. Supabase REST API (NetworkFirst) ──────────────
+        // Data dari Supabase (services, dive_sites, bookings).
+        // NetworkFirst: selalu coba ambil data segar, tapi fallback
+        // ke cache jika offline (timeout 10 detik).
         {
-            urlPattern: /\/bookings/,
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
             handler: "NetworkFirst",
             options: {
-                cacheName: "bookings-data",
+                cacheName: "supabase-api",
                 networkTimeoutSeconds: 10,
                 expiration: {
-                    maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxEntries: 50,
+                    maxAgeSeconds: 24 * 60 * 60, // 24 jam
                 },
             },
         },
+        // ── 5. External Images — Unsplash / Picsum (SWR) ─────
         {
-            urlPattern: /\.(?:eot|otf|ttc|ttf|woff|woff2|font.css)$/i,
+            urlPattern: /^https:\/\/(images\.unsplash\.com|picsum\.photos)\/.*/i,
             handler: "StaleWhileRevalidate",
             options: {
-                cacheName: "static-font-assets",
-                expiration: {
-                    maxEntries: 4,
-                    maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
-                },
-            },
-        },
-        {
-            urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
-            handler: "StaleWhileRevalidate",
-            options: {
-                cacheName: "static-image-assets",
+                cacheName: "external-images",
                 expiration: {
                     maxEntries: 64,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxAgeSeconds: 30 * 24 * 60 * 60,
                 },
             },
         },
+        // ── 6. Next.js Image Optimization (SWR) ─────────────
         {
             urlPattern: /\/_next\/image\?url=.+$/i,
             handler: "StaleWhileRevalidate",
@@ -78,54 +90,59 @@ const withPWA = require("next-pwa")({
                 cacheName: "next-image",
                 expiration: {
                     maxEntries: 64,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxAgeSeconds: 24 * 60 * 60,
                 },
             },
         },
+        // ── 7. Static Font Assets (SWR) ──────────────────────
         {
-            urlPattern: /\.(?:mp3|wav|m4a)$/i,
-            handler: "CacheFirst",
+            urlPattern: /\.(?:eot|otf|ttc|ttf|woff|woff2|font\.css)$/i,
+            handler: "StaleWhileRevalidate",
             options: {
-                cacheName: "static-audio-assets",
+                cacheName: "static-fonts",
                 expiration: {
-                    maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxEntries: 10,
+                    maxAgeSeconds: 7 * 24 * 60 * 60,
                 },
             },
         },
+        // ── 8. Static Image Assets (SWR) ─────────────────────
         {
-            urlPattern: /\.(?:mp4|webm)$/i,
-            handler: "CacheFirst",
+            urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
+            handler: "StaleWhileRevalidate",
             options: {
-                cacheName: "static-video-assets",
+                cacheName: "static-images",
                 expiration: {
-                    maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxEntries: 64,
+                    maxAgeSeconds: 24 * 60 * 60,
                 },
             },
         },
+        // ── 9. JS Bundles (SWR) ──────────────────────────────
         {
             urlPattern: /\.(?:js)$/i,
             handler: "StaleWhileRevalidate",
             options: {
-                cacheName: "static-js-assets",
+                cacheName: "static-js",
                 expiration: {
-                    maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxEntries: 48,
+                    maxAgeSeconds: 24 * 60 * 60,
                 },
             },
         },
+        // ── 10. CSS Stylesheets (SWR) ────────────────────────
         {
             urlPattern: /\.(?:css|less)$/i,
             handler: "StaleWhileRevalidate",
             options: {
-                cacheName: "static-style-assets",
+                cacheName: "static-css",
                 expiration: {
                     maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxAgeSeconds: 24 * 60 * 60,
                 },
             },
         },
+        // ── 11. Next.js Data (SWR) ───────────────────────────
         {
             urlPattern: /\/_next\/data\/.+\/.+\.json$/i,
             handler: "StaleWhileRevalidate",
@@ -133,32 +150,48 @@ const withPWA = require("next-pwa")({
                 cacheName: "next-data",
                 expiration: {
                     maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxAgeSeconds: 24 * 60 * 60,
                 },
             },
         },
+        // ── 12. Internal API Routes (NetworkFirst) ───────────
         {
             urlPattern: /\/api\/.*$/i,
             handler: "NetworkFirst",
             options: {
-                cacheName: "apis",
+                cacheName: "api-routes",
+                networkTimeoutSeconds: 10,
                 expiration: {
                     maxEntries: 16,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxAgeSeconds: 24 * 60 * 60,
                 },
-                networkTimeoutSeconds: 10, // fall back to cache if api does not response within 10 seconds
             },
         },
+        // ── 13. Halaman Navigasi — /services, /lokasi (SWR) ──
+        // Halaman yang sering dikunjungi di-cache agar bisa
+        // diakses offline oleh penyelam di area tanpa sinyal.
+        {
+            urlPattern: /\/(services|lokasi|dashboard)(\/.*)?$/i,
+            handler: "StaleWhileRevalidate",
+            options: {
+                cacheName: "app-pages",
+                expiration: {
+                    maxEntries: 32,
+                    maxAgeSeconds: 24 * 60 * 60,
+                },
+            },
+        },
+        // ── 14. Catch-all (NetworkFirst) ─────────────────────
         {
             urlPattern: /.*/i,
             handler: "NetworkFirst",
             options: {
                 cacheName: "others",
+                networkTimeoutSeconds: 10,
                 expiration: {
                     maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
+                    maxAgeSeconds: 24 * 60 * 60,
                 },
-                networkTimeoutSeconds: 10,
             },
         },
     ],

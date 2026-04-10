@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#023E8A"/>
+      <stop offset="100%" style="stop-color:#0077B6"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <rect width="512" height="512" rx="92" fill="url(#bg)"/>
+  <!-- Wave decoration -->
+  <path d="M 77 282.85 Q 128 256 256 282.85 T 435 282.85" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="10"/>
+  <path d="M 77 304.33000000000004 Q 128 277.48 256 304.33000000000004 T 435 304.33000000000004" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="10"/>
+  <!-- Text -->
+  <text x="256" y="241.68" font-family="Arial, sans-serif" font-size="113" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">SD</text>
+  <text x="256" y="306.12" font-family="Arial, sans-serif" font-size="56" font-weight="500" fill="rgba(255,255,255,0.85)" text-anchor="middle" dominant-baseline="middle">DIVE</text>
+</svg>

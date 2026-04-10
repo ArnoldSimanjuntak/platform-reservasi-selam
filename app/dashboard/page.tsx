@@ -121,23 +121,23 @@ export default async function DashboardPage() {
                         {/* Bookings Placeholder */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                             <h3 className="text-lg font-semibold text-deepSea mb-4">
-                                Riwayat Booking
+                                My Bookings
                             </h3>
                             <div className="text-center py-8">
                                 <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
                                     <Calendar className="w-8 h-8 text-gray-300" />
                                 </div>
                                 <p className="text-gray-400 text-sm">
-                                    Belum ada booking. Mulai jelajahi paket selam!
+                                    Manage your upcoming and past diving trips.
                                 </p>
                                 <Link
-                                    href="/services"
+                                    href="/dashboard/bookings"
                                     className="inline-block mt-4 px-6 py-2.5 rounded-full text-sm font-semibold text-white transition-all hover:shadow-lg"
                                     style={{
                                         background: "linear-gradient(135deg, #023E8A, #0077B6)",
                                     }}
                                 >
-                                    Lihat Paket Selam
+                                    My Diving Trips
                                 </Link>
                             </div>
                         </div>

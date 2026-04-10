@@ -1,23 +1,22 @@
 "use client";
 
 import Image from "next/image";
-import { Ship, Anchor, Camera, ArrowRight, Loader2, Star, BookOpen } from "lucide-react";
+import { Ship, Anchor, Camera, ArrowRight, Loader2, Star } from "lucide-react";
 import type { Service } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { useState } from "react";
 
-interface ServiceCardProps {
+interface PremiumServiceCardProps {
     service: Service;
 }
 
-export default function ServiceCard({ service }: ServiceCardProps) {
+export default function PremiumServiceCard({ service }: PremiumServiceCardProps) {
     const [isBooking, setIsBooking] = useState(false);
 
     const getIcon = (type: string) => {
         switch (type) {
             case "boat": return <Ship className="w-5 h-5 mb-2 text-white/90" />;
             case "instructor": return <Anchor className="w-5 h-5 mb-2 text-white/90" />;
-            case "course": return <BookOpen className="w-5 h-5 mb-2 text-white/90" />;
             case "gear": return <Camera className="w-5 h-5 mb-2 text-white/90" />;
             default: return <Ship className="w-5 h-5 mb-2 text-white/90" />;
         }
@@ -67,7 +66,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
     };
 
     return (
-        <div className="group relative flex flex-col bg-white overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-500 rounded-2xl w-full h-full">
+        <div className="group relative flex flex-col bg-white overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-500 rounded-2xl w-full">
             {/* Image Container with Tall Aspect Ratio */}
             <div className="relative w-full aspect-[4/5] overflow-hidden bg-neutral-900">
                 <Image
@@ -102,7 +101,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
                     </h3>
 
                     {/* Hidden on default, appears on hover */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 mt-2 h-0 group-hover:h-auto overflow-hidden">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 mt-2">
                         {service.description && (
                             <p className="text-gray-200 text-sm line-clamp-2 mb-4 font-light">
                                 {service.description}
@@ -120,7 +119,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
             </div>
 
             {/* Bottom Info & Action Bar (White BG) */}
-            <div className="p-5 flex items-center justify-between bg-white border-t border-neutral-100 relative z-20 mt-auto">
+            <div className="p-5 flex items-center justify-between bg-white border-t border-neutral-100 relative z-20">
                 <div className="flex flex-col">
                     <span className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Mulai Dari</span>
                     <span className="text-xl font-bold text-deepSea">
@@ -131,7 +130,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
                 <button
                     onClick={handleBooking}
                     disabled={isBooking}
-                    className="flex items-center justify-center w-12 h-12 rounded-full bg-neutral-100 text-deepSea hover:bg-primary hover:text-white transition-all duration-300 disabled:opacity-50 shrink-0"
+                    className="flex items-center justify-center w-12 h-12 rounded-full bg-neutral-100 text-deepSea hover:bg-primary hover:text-white transition-all duration-300 disabled:opacity-50"
                 >
                     {isBooking ? (
                         <Loader2 className="w-5 h-5 animate-spin" />

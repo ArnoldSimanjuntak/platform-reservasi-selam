@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Menu, X, Anchor, User, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, Anchor, User, LogOut, ChevronDown, Calendar, ShoppingBag } from "lucide-react";
+import { useCartStore } from "@/lib/cart-store";
 import { createClient } from "@/lib/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -71,10 +72,11 @@ export default function Navbar() {
     if (isAuthPage) return null;
 
     const navLinks = [
-        { name: "Beranda", href: "/" },
-        { name: "Paket Selam", href: "/services" },
-        { name: "Lokasi", href: "/lokasi" },
-        { name: "Tentang Kami", href: "/#about" },
+        { name: "Home", href: "/" },
+        { name: "Dive Packages", href: "/services" },
+        { name: "Dive Map", href: "/lokasi" },
+        { name: "Route Planner", href: "/route-planner" },
+        { name: "About", href: "/#about" },
     ];
 
     const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
@@ -110,6 +112,9 @@ export default function Navbar() {
                             {link.name}
                         </Link>
                     ))}
+
+                    {/* Cart Button */}
+                    <CartIconButton isDark={isDark} />
 
                     {/* Auth Button */}
                     {isLoading ? (
@@ -158,6 +163,14 @@ export default function Navbar() {
                                         >
                                             <User className="w-4 h-4 text-gray-400" />
                                             Profil Saya
+                                        </Link>
+                                        <Link
+                                            href="/dashboard/bookings"
+                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                            onClick={() => setIsProfileMenuOpen(false)}
+                                        >
+                                            <Calendar className="w-4 h-4 text-gray-400" />
+                                            My Bookings
                                         </Link>
                                         <button
                                             onClick={handleSignOut}
@@ -233,6 +246,14 @@ export default function Navbar() {
                                 <User className="w-4 h-4 text-gray-400" />
                                 Profil Saya
                             </Link>
+                            <Link
+                                href="/dashboard/bookings"
+                                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                onClick={() => setIsMobileMenuOpen(false)}
+                            >
+                                <Calendar className="w-4 h-4 text-gray-400" />
+                                My Bookings
+                            </Link>
                             <button
                                 onClick={() => {
                                     setIsMobileMenuOpen(false);
@@ -256,5 +277,35 @@ export default function Navbar() {
                 </div>
             )}
         </nav>
+    );
+}
+
+// ─── Cart Icon with Badge (avoids hydration mismatch) ────────
+function CartIconButton({ isDark }: { isDark: boolean }) {
+    const openSidebar = useCartStore((s) => s.openSidebar);
+    const items = useCartStore((s) => s.items);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => setMounted(true), []);
+
+    const count = mounted ? items.length : 0;
+
+    return (
+        <button
+            onClick={openSidebar}
+            className={`relative p-2.5 rounded-full transition-colors ${
+                isDark
+                    ? "text-gray-600 hover:bg-gray-100"
+                    : "text-gray-200 hover:bg-white/20"
+            }`}
+            title="My Trip"
+        >
+            <ShoppingBag className="w-5 h-5" />
+            {count > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-in zoom-in duration-200">
+                    {count}
+                </span>
+            )}
+        </button>
     );
 }

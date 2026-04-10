@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google"; // Changed from Geist to Inter as per user pref usually, or keep Geist if preferred? User didn't specify font but Inter is safe. The previous layout used Inter.
+import { Inter } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import InstallPrompt from "@/components/InstallPrompt";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import CartSidebar from "@/components/CartSidebar";
 import "./globals.css";
 
 const inter = Inter({
@@ -10,32 +13,34 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Lembeh Dive - Muck Diving & Macro Photography Specialist",
+  title: "SulutDive — Reservasi Selam Lembeh",
   description:
-    "Pusat reservasi selam Selat Lembeh. Temukan guide spesialis makro, sewa kapal, dan perlengkapan selam terbaik di Bitung.",
+    "Platform reservasi selam Selat Lembeh dengan carrying capacity. Temukan guide spesialis makro, sewa kapal, dan perlengkapan selam terbaik di Bitung, Sulawesi Utara.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "LembehDive",
+    title: "SulutDive",
   },
   formatDetection: {
     telephone: false,
   },
   keywords: [
-    "lembeh strait",
+    "sulutdive",
+    "selat lembeh",
     "muck diving",
     "macro photography",
-    "onderwater",
     "bitung",
     "sulawesi utara",
-    "dive resort",
+    "reservasi selam",
+    "carrying capacity",
+    "konservasi laut",
   ],
-  authors: [{ name: "Lembeh Dive Platform" }],
+  authors: [{ name: "SulutDive Platform" }],
 };
 
 export const viewport: Viewport = {
-  themeColor: "#023E8A", // Deep Ocean Blue
+  themeColor: "#023E8A",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -49,15 +54,18 @@ export default function RootLayout({
   return (
     <html lang="id">
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body
         className={`${inter.variable} font-sans antialiased bg-neutral text-deepSea`}
       >
         <Navbar />
+        <CartSidebar />
         {children}
         <Footer />
+        <InstallPrompt />
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

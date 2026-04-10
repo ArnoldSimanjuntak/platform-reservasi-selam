@@ -9,7 +9,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export type UserRole = "customer" | "provider";
 export type ServiceType = "boat" | "instructor" | "gear";
 export type DiveSiteCategory = "Muck" | "Coral" | "Wreck";
-export type BookingStatus = "pending" | "confirmed" | "cancelled";
+export type BookingStatus = "pending" | "upcoming" | "in_progress" | "completed" | "cancelled";
 export type ZoneLevel = 1 | 2 | 3;
 export type ResourceType = "instructor" | "boat" | "gear";
 export type ResourceStatus = "available" | "in_use" | "maintenance";
@@ -90,6 +90,9 @@ export interface DiveSite {
     longitude?: number;
     image_url?: string;
     is_active?: boolean;
+    kedalaman_meter?: number;
+    waktu_tempuh_kapal_menit?: number;
+    habitat?: string;
     created_at?: string;
     updated_at?: string;
 }
@@ -125,6 +128,29 @@ export async function getDiveSites() {
         .from("dive_sites")
         .select("*")
         .order("zone_level", { ascending: true });
+}
+
+/**
+ * Fetch a single dive site by UUID.
+ */
+export async function getDiveSiteById(id: string) {
+    return supabase
+        .from("dive_sites")
+        .select("*")
+        .eq("id", id)
+        .single();
+}
+
+/**
+ * Fetch all available boat services (for booking page).
+ */
+export async function getBoatServices() {
+    return supabase
+        .from("services")
+        .select("*, provider:providers(id, name, location)")
+        .eq("type", "boat")
+        .eq("is_available", true)
+        .order("price", { ascending: true });
 }
 
 // ─── Provider Helpers ────────────────────────────────────────────

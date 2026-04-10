@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- =============================================
 -- 1. USERS TABLE
 -- =============================================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -24,7 +24,7 @@ CREATE INDEX idx_users_role ON users(role);
 -- =============================================
 -- 2. SERVICES TABLE (REVISED)
 -- =============================================
-CREATE TABLE services (
+CREATE TABLE IF NOT EXISTS services (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name VARCHAR(255) NOT NULL,
   description TEXT,
@@ -45,14 +45,18 @@ CREATE INDEX idx_services_provider ON services(provider_id);
 -- =============================================
 -- 3. BOOKINGS TABLE
 -- =============================================
-CREATE TABLE bookings (
+-- NOTE: user_id has NO FK to custom users table.
+-- It stores auth.uid() from Supabase Auth (auth.users).
+CREATE TABLE IF NOT EXISTS bookings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
   service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+  dive_site_id UUID,
   booking_date DATE NOT NULL,
-  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled')),
-  notes TEXT,
+  total_participants INTEGER NOT NULL DEFAULT 1 CHECK (total_participants > 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'upcoming', 'in_progress', 'completed', 'cancelled')),
   total_price DECIMAL(12, 2),
+  notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
