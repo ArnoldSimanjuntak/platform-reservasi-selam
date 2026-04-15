@@ -10,16 +10,19 @@ export interface BookingResult {
 }
 
 /**
- * Server Action: Membuat booking baru dengan validasi carrying capacity.
+ * Server Action: Membuat booking baru dengan validasi marketplace.
  *
  * Alur:
  * 1. Verifikasi user sudah login (auth session)
- * 2. Validasi input (serviceId, date, participants)
- * 3. Ambil max_capacity dari service
+ * 2. Validasi input (serviceId, date, participants, tanggal tidak lampau)
+ * 3. Ambil data service (max_capacity, price, provider_id, is_available)
+ *    3a. Validasi layanan masih tersedia (is_available)
+ *    3b. Validasi layanan memiliki provider (provider_id)
  * 4. Jika ada diveSiteId, ambil surcharge_fee dari dive_sites
  * 5. Hitung sisa kapasitas via get_remaining_capacity RPC
  * 6. Jika slot tidak cukup → return error + sisa slot
- * 7. Jika cukup → INSERT booking → return success
+ * 7. Hitung total_price (price × participants + surcharge)
+ * 8. INSERT booking dengan provider_id → return success
  */
 export async function createBooking(
     serviceId: string,
@@ -70,10 +73,10 @@ export async function createBooking(
         };
     }
 
-    // ─── 3. Ambil Data Service (max_capacity & price) ───────────
+    // ─── 3. Ambil Data Service (max_capacity, price, provider_id, is_available)
     const { data: service, error: serviceError } = await supabase
         .from("services")
-        .select("id, name, max_capacity, price")
+        .select("id, name, max_capacity, price, provider_id, is_available")
         .eq("id", serviceId)
         .single();
 
@@ -81,6 +84,23 @@ export async function createBooking(
         return {
             success: false,
             message: "Service not found.",
+        };
+    }
+
+    // ─── 3a. Validasi: Layanan harus tersedia ───────────────────
+    if (service.is_available === false) {
+        return {
+            success: false,
+            message: `Layanan "${service.name}" sedang tidak tersedia saat ini. Silakan pilih layanan lain.`,
+        };
+    }
+
+    // ─── 3b. Validasi: Layanan harus memiliki provider ──────────
+    if (!service.provider_id) {
+        console.error(`Service ${serviceId} has no provider_id assigned.`);
+        return {
+            success: false,
+            message: "Layanan ini belum terhubung ke penyedia jasa. Silakan hubungi admin.",
         };
     }
 
@@ -138,14 +158,16 @@ export async function createBooking(
         };
     }
 
-    // ─── 7. Hitung Total Harga & INSERT Booking ────────────────
+    // ─── 7. Hitung Total Harga ───────────────────────────────────
     const totalPrice = service.price * totalParticipants + surcharge;
 
+    // ─── 8. INSERT Booking dengan provider_id ───────────────────
     const { data: booking, error: bookingError } = await supabase
         .from("bookings")
         .insert({
             user_id: user.id,
             service_id: serviceId,
+            provider_id: service.provider_id || null,
             dive_site_id: diveSiteId || null,
             booking_date: bookingDate,
             total_participants: totalParticipants,
@@ -191,4 +213,105 @@ export async function getRemainingSlots(
     }
 
     return { remaining: data as number };
+}
+
+// ─── Status Management ──────────────────────────────────────────
+
+export type BookingStatusAction = "upcoming" | "in_progress" | "completed" | "cancelled";
+
+export interface StatusUpdateResult {
+    success: boolean;
+    message: string;
+}
+
+/**
+ * Server Action: Update status booking.
+ * Hanya pemilik layanan (provider) yang sah yang bisa mengubah status.
+ *
+ * Alur:
+ * 1. Verifikasi auth session
+ * 2. Ambil data booking + service + provider
+ * 3. Verifikasi bahwa user adalah owner dari provider yang memiliki service tersebut
+ * 4. Validasi transisi status yang diizinkan
+ * 5. Update status booking
+ */
+export async function updateBookingStatus(
+    bookingId: string,
+    newStatus: BookingStatusAction
+): Promise<StatusUpdateResult> {
+    const supabase = await createClient();
+
+    // ─── 1. Verifikasi Auth ─────────────────────────────────────
+    const {
+        data: { user },
+        error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+        return { success: false, message: "Silakan login terlebih dahulu." };
+    }
+
+    // ─── 2. Ambil booking beserta relasi service → provider ─────
+    const { data: booking, error: bookingError } = await supabase
+        .from("bookings")
+        .select("id, status, service_id, provider_id")
+        .eq("id", bookingId)
+        .single();
+
+    if (bookingError || !booking) {
+        return { success: false, message: "Booking tidak ditemukan." };
+    }
+
+    // ─── 3. Verifikasi Kepemilikan Provider ─────────────────────
+    // Cek apakah user yang login adalah owner dari provider
+    // yang memiliki layanan pada booking ini
+    const { data: provider, error: providerError } = await supabase
+        .from("providers")
+        .select("id")
+        .eq("id", booking.provider_id)
+        .eq("owner_user_id", user.id)
+        .single();
+
+    if (providerError || !provider) {
+        return {
+            success: false,
+            message: "Anda tidak memiliki izin untuk mengubah status booking ini.",
+        };
+    }
+
+    // ─── 4. Validasi Transisi Status ────────────────────────────
+    const allowedTransitions: Record<string, string[]> = {
+        pending: ["upcoming", "cancelled"],
+        upcoming: ["in_progress", "cancelled"],
+        in_progress: ["completed", "cancelled"],
+    };
+
+    const currentStatus = booking.status;
+    const allowed = allowedTransitions[currentStatus];
+
+    if (!allowed || !allowed.includes(newStatus)) {
+        return {
+            success: false,
+            message: `Tidak bisa mengubah status dari "${currentStatus}" ke "${newStatus}".`,
+        };
+    }
+
+    // ─── 5. Update Status ────────────────────────────────────────
+    const { error: updateError } = await supabase
+        .from("bookings")
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", bookingId);
+
+    if (updateError) {
+        console.error("Status update error:", updateError);
+        return {
+            success: false,
+            message: `Gagal memperbarui status: ${updateError.message}`,
+        };
+    }
+
+    return {
+        success: true,
+        message: `Status booking berhasil diubah menjadi "${newStatus}".`,
+    };
 }

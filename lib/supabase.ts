@@ -68,6 +68,7 @@ export interface Booking {
     id: string;
     user_id: string;
     service_id: string;
+    provider_id?: string;
     dive_site_id?: string;
     booking_date: string;
     total_participants: number;
@@ -175,6 +176,46 @@ export async function getProviderById(id: string) {
         .select("*, services(*), resources(*)")
         .eq("id", id)
         .single();
+}
+
+/**
+ * Fetch services owned by a specific provider.
+ * Used in provider dashboard to list their own services.
+ */
+export async function getServicesByProvider(providerId: string) {
+    return supabase
+        .from("services")
+        .select("*")
+        .eq("provider_id", providerId)
+        .order("created_at", { ascending: false });
+}
+
+// ─── Booking Helpers (Marketplace) ───────────────────────────────
+
+/**
+ * Fetch all bookings targeted to a specific provider.
+ * Requires the denormalized provider_id column on bookings table.
+ * Includes service name + type for display in provider dashboard.
+ */
+export async function getBookingsByProvider(providerId: string) {
+    return supabase
+        .from("bookings")
+        .select("*, service:services(id, name, type)")
+        .eq("provider_id", providerId)
+        .order("created_at", { ascending: false });
+}
+
+/**
+ * Fetch all bookings for a specific customer.
+ * RLS ensures only own bookings are returned.
+ * Includes service + provider info for display.
+ */
+export async function getBookingsByUser(userId: string) {
+    return supabase
+        .from("bookings")
+        .select("*, service:services(id, name, type, price, provider:providers(id, name))")
+        .eq("user_id", userId)
+        .order("booking_date", { ascending: false });
 }
 
 // ─── Resource Helpers ────────────────────────────────────────────

@@ -4,15 +4,22 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signUp } from "@/app/auth/actions";
-import { Anchor, Mail, Lock, User, Eye, EyeOff, Waves } from "lucide-react";
+import { Anchor, Mail, Lock, User, Eye, EyeOff, Waves, CheckCircle } from "lucide-react";
 
 export default function RegisterForm() {
     const searchParams = useSearchParams();
     const error = searchParams.get("error");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [role, setRole] = useState("");
+    const [validationError, setValidationError] = useState("");
 
     async function handleSubmit(formData: FormData) {
+        if (!role) {
+            setValidationError("Silakan pilih peran (Customer/Provider) terlebih dahulu.");
+            return;
+        }
+        setValidationError("");
         setIsLoading(true);
         await signUp(formData);
         setIsLoading(false);
@@ -81,7 +88,7 @@ export default function RegisterForm() {
             </div>
 
             {/* Register Card */}
-            <div className="relative z-10 w-full max-w-md mx-4">
+            <div className="relative z-10 w-full max-w-md mx-4 py-8">
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm mb-4">
@@ -114,8 +121,82 @@ export default function RegisterForm() {
                             {error}
                         </div>
                     )}
+                    {validationError && (
+                        <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-400/30 text-red-200 text-sm flex items-start gap-3">
+                            <div className="w-5 h-5 rounded-full bg-red-400/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span className="text-red-300 text-xs font-bold">!</span>
+                            </div>
+                            {validationError}
+                        </div>
+                    )}
 
                     <form action={handleSubmit} className="space-y-5">
+                        {/* Role Selection */}
+                        <div>
+                            <label className="block text-blue-200 text-sm font-medium mb-3">
+                                Daftar Sebagai
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <label
+                                    className={`relative flex cursor-pointer rounded-xl border p-4 transition-all focus:outline-none ${
+                                        role === "customer"
+                                            ? "border-cyan-400 bg-white/15 shadow-md"
+                                            : "border-white/10 bg-white/5 hover:bg-white/10"
+                                    }`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="role"
+                                        value="customer"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            setRole(e.target.value);
+                                            setValidationError("");
+                                        }}
+                                        required
+                                    />
+                                    <div className="flex w-full items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-white text-sm">Customer</span>
+                                            <span className="text-blue-200/70 text-xs mt-0.5">Wisatawan</span>
+                                        </div>
+                                        {role === "customer" && (
+                                            <CheckCircle className="h-5 w-5 text-cyan-400 opacity-90 shrink-0" />
+                                        )}
+                                    </div>
+                                </label>
+
+                                <label
+                                    className={`relative flex cursor-pointer rounded-xl border p-4 transition-all focus:outline-none ${
+                                        role === "provider"
+                                            ? "border-cyan-400 bg-white/15 shadow-md"
+                                            : "border-white/10 bg-white/5 hover:bg-white/10"
+                                    }`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="role"
+                                        value="provider"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            setRole(e.target.value);
+                                            setValidationError("");
+                                        }}
+                                        required
+                                    />
+                                    <div className="flex w-full items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-white text-sm">Provider</span>
+                                            <span className="text-blue-200/70 text-xs mt-0.5">Penyedia Jasa</span>
+                                        </div>
+                                        {role === "provider" && (
+                                            <CheckCircle className="h-5 w-5 text-cyan-400 opacity-90 shrink-0" />
+                                        )}
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
                         {/* Name */}
                         <div>
                             <label className="block text-blue-200 text-sm font-medium mb-2">
@@ -198,7 +279,7 @@ export default function RegisterForm() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full py-3.5 rounded-xl font-semibold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full py-3.5 rounded-xl font-semibold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                             style={{
                                 background: isLoading
                                     ? "rgba(255,255,255,0.1)"

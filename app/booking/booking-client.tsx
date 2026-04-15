@@ -255,7 +255,10 @@ export default function BookingPageClient({
                                                         <h3 className="font-semibold text-deepSea text-sm">
                                                             {service.name}
                                                         </h3>
-                                                        <p className="text-xs text-gray-500 mt-0.5">
+                                                        <p className="text-xs text-primary/70 mt-0.5">
+                                                            Disediakan oleh: {service.provider?.name || "—"}
+                                                        </p>
+                                                        <p className="text-xs text-gray-400 mt-0.5">
                                                             Maks. {service.max_capacity} peserta/hari
                                                         </p>
                                                     </div>
@@ -449,12 +452,31 @@ export default function BookingPageClient({
                                     </div>
 
                                     {/* CTA */}
+                                    {/* Client-side validation feedback */}
+                                    {!date && !result?.success && (
+                                        <p className="text-xs text-amber-600 flex items-center gap-1 mt-2">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            Pilih tanggal untuk mengaktifkan tombol booking.
+                                        </p>
+                                    )}
+                                    {date && guests > maxCapacity && (
+                                        <p className="text-xs text-red-600 flex items-center gap-1 mt-2">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            Jumlah peserta melebihi kapasitas maksimum ({maxCapacity}).
+                                        </p>
+                                    )}
+
                                     <button
                                         onClick={handleBooking}
                                         disabled={
                                             isPending ||
+                                            !date ||
+                                            guests < 1 ||
+                                            guests > maxCapacity ||
                                             (remainingSlots !== null &&
                                                 remainingSlots === 0) ||
+                                            (remainingSlots !== null &&
+                                                guests > remainingSlots) ||
                                             result?.success === true ||
                                             !selectedServiceId
                                         }
@@ -477,7 +499,7 @@ export default function BookingPageClient({
                                             </>
                                         ) : (
                                             <>
-                                                Pesan Sekarang
+                                                Konfirmasi Booking
                                                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                             </>
                                         )}
