@@ -1,0 +1,164 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+
+export interface CreateServiceResult {
+    success: boolean;
+    message: string;
+}
+
+/**
+ * Server Action: Menambah layanan baru untuk provider.
+ *
+ * Alur:
+ * 1. Verifikasi user yang sedang login
+ * 2. Ambil provider_id dari tabel providers via owner_user_id
+ * 3. Validasi input form
+ * 4. Upload gambar ke Supabase Storage (jika ada)
+ * 5. INSERT ke tabel services dengan provider_id otomatis
+ * 6. Revalidasi cache & redirect ke daftar layanan
+ */
+export async function createService(
+    formData: FormData
+): Promise<CreateServiceResult> {
+    const supabase = await createClient();
+
+    // ─── 1. Verifikasi autentikasi ────────────────────────────
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect("/auth/login");
+    }
+
+    // ─── 2. Ambil provider_id otomatis ────────────────────────
+    const { data: provider } = await supabase
+        .from("providers")
+        .select("id")
+        .eq("owner_user_id", user.id)
+        .single();
+
+    if (!provider) {
+        return {
+            success: false,
+            message: "Profil bisnis Anda belum lengkap. Silakan lengkapi terlebih dahulu.",
+        };
+    }
+
+    // ─── 3. Ekstrak & validasi input ──────────────────────────
+    const name = (formData.get("name") as string)?.trim();
+    const type = (formData.get("type") as string)?.trim();
+    const priceStr = formData.get("price") as string;
+    const maxCapacityStr = formData.get("max_capacity") as string;
+    const description = (formData.get("description") as string)?.trim();
+    const diveSiteCategory = (formData.get("dive_site_category") as string)?.trim() || null;
+    const imageFile = formData.get("image") as File | null;
+
+    if (!name || name.length < 3) {
+        return {
+            success: false,
+            message: "Nama layanan wajib diisi (minimal 3 karakter).",
+        };
+    }
+
+    const validTypes = ["boat", "instructor", "gear"];
+    if (!type || !validTypes.includes(type)) {
+        return {
+            success: false,
+            message: "Tipe layanan harus dipilih (boat, instructor, atau gear).",
+        };
+    }
+
+    const price = parseFloat(priceStr);
+    if (isNaN(price) || price < 0) {
+        return {
+            success: false,
+            message: "Harga harus berupa angka positif.",
+        };
+    }
+
+    const maxCapacity = parseInt(maxCapacityStr, 10);
+    if (isNaN(maxCapacity) || maxCapacity < 1) {
+        return {
+            success: false,
+            message: "Kapasitas maksimal harus minimal 1 orang.",
+        };
+    }
+
+    // ─── 4. Upload gambar ke Supabase Storage ─────────────────
+    let imageUrl: string | null = null;
+
+    if (imageFile && imageFile.size > 0) {
+        // Validasi tipe file
+        const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+        if (!allowedTypes.includes(imageFile.type)) {
+            return {
+                success: false,
+                message: "Format gambar harus JPEG, PNG, atau WebP.",
+            };
+        }
+
+        // Validasi ukuran (maks 5MB)
+        const maxSize = 5 * 1024 * 1024;
+        if (imageFile.size > maxSize) {
+            return {
+                success: false,
+                message: "Ukuran gambar maksimal 5MB.",
+            };
+        }
+
+        // Buat nama file unik: providerId/timestamp-originalname
+        const ext = imageFile.name.split(".").pop() || "jpg";
+        const fileName = `${provider.id}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from("service-images")
+            .upload(fileName, imageFile, {
+                cacheControl: "3600",
+                upsert: false,
+            });
+
+        if (uploadError) {
+            console.error("Upload gagal:", uploadError.message);
+            // Lanjutkan tanpa gambar jika bucket belum ada
+            // (jangan blokir pembuatan layanan)
+            console.warn("Melanjutkan tanpa gambar...");
+        } else {
+            // Dapatkan public URL
+            const { data: publicUrlData } = supabase.storage
+                .from("service-images")
+                .getPublicUrl(fileName);
+            imageUrl = publicUrlData.publicUrl;
+        }
+    }
+
+    // ─── 5. INSERT ke tabel services ──────────────────────────
+    const { error: insertError } = await supabase.from("services").insert({
+        provider_id: provider.id,
+        name,
+        type,
+        price,
+        max_capacity: maxCapacity,
+        description: description || null,
+        dive_site_category: diveSiteCategory,
+        image_url: imageUrl,
+        is_available: true,
+    });
+
+    if (insertError) {
+        console.error("Gagal menambah layanan:", insertError.message);
+        return {
+            success: false,
+            message: `Gagal menyimpan layanan. (${insertError.message})`,
+        };
+    }
+
+    // ─── 6. Revalidasi & redirect ─────────────────────────────
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/provider/services");
+    revalidatePath("/services");
+    redirect("/dashboard/provider/services");
+}

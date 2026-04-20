@@ -9,7 +9,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export type UserRole = "customer" | "provider";
 export type ServiceType = "boat" | "instructor" | "gear";
 export type DiveSiteCategory = "Muck" | "Coral" | "Wreck";
-export type BookingStatus = "pending" | "upcoming" | "in_progress" | "completed" | "cancelled";
+export type BookingStatus = "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
 export type ZoneLevel = 1 | 2 | 3;
 export type ResourceType = "instructor" | "boat" | "gear";
 export type ResourceStatus = "available" | "in_use" | "maintenance";
@@ -31,6 +31,10 @@ export interface Provider {
     description?: string;
     image_url?: string;
     is_active?: boolean;
+    primary_type?: string;
+    identity_card_url?: string;
+    certification_url?: string;
+    verification_status?: 'pending' | 'verified' | 'rejected';
     created_at?: string;
     updated_at?: string;
 }
@@ -64,6 +68,8 @@ export interface Resource {
     provider?: Provider;
 }
 
+export type PaymentStatus = "unpaid" | "pending_verification" | "paid" | "expired";
+
 export interface Booking {
     id: string;
     user_id: string;
@@ -74,6 +80,9 @@ export interface Booking {
     total_participants: number;
     status: BookingStatus;
     total_price: number;
+    payment_status?: PaymentStatus;
+    payment_deadline?: string;
+    payment_proof_url?: string;
     notes?: string;
     created_at?: string;
     updated_at?: string;
@@ -106,7 +115,8 @@ export interface DiveSite {
 export async function getServices() {
     return supabase
         .from("services")
-        .select("*, provider:providers(id, name, location)")
+        .select("*, provider:providers!inner(id, name, location)")
+        .eq("provider.verification_status", "verified")
         .order("created_at", { ascending: false });
 }
 
@@ -148,9 +158,10 @@ export async function getDiveSiteById(id: string) {
 export async function getBoatServices() {
     return supabase
         .from("services")
-        .select("*, provider:providers(id, name, location)")
+        .select("*, provider:providers!inner(id, name, location)")
         .eq("type", "boat")
         .eq("is_available", true)
+        .eq("provider.verification_status", "verified")
         .order("price", { ascending: true });
 }
 

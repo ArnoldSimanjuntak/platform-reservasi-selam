@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import InstallPrompt from "@/components/InstallPrompt";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import CartSidebar from "@/components/CartSidebar";
+import BottomNav from "@/components/BottomNav";
 import "./globals.css";
 
 const inter = Inter({
@@ -58,12 +59,13 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body
-        className={`${inter.variable} font-sans antialiased bg-neutral text-deepSea`}
+        className={`${inter.variable} font-sans antialiased bg-neutral text-deepSea max-md:pb-16`}
       >
         <Navbar />
         <CartSidebar />
         {children}
         <Footer />
+        <BottomNav />
         <InstallPrompt />
         <ServiceWorkerRegistration />
       </body>

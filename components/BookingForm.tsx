@@ -13,16 +13,21 @@ import {
     CheckCircle2,
     AlertTriangle,
     XCircle,
+    MapPin,
 } from "lucide-react";
 import { createBooking, getRemainingSlots } from "@/app/actions/booking";
 import { createClient } from "@/lib/supabase/client";
 import type { BookingResult } from "@/app/actions/booking";
+import type { DiveSite } from "@/lib/supabase";
 
 interface BookingFormProps {
     serviceId: string;
     serviceName: string;
     price: number;
     maxCapacity: number;
+    initialIsLoggedIn?: boolean;
+    isBoat?: boolean;
+    diveSites?: DiveSite[];
 }
 
 export default function BookingForm({
@@ -30,31 +35,50 @@ export default function BookingForm({
     serviceName,
     price,
     maxCapacity,
+    initialIsLoggedIn = false,
+    isBoat = false,
+    diveSites = [],
 }: BookingFormProps) {
     const router = useRouter();
     const [guests, setGuests] = useState(1);
     const [date, setDate] = useState("");
+    const [selectedDiveSiteId, setSelectedDiveSiteId] = useState<string>("");
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<BookingResult | null>(null);
     const [remainingSlots, setRemainingSlots] = useState<number | null>(null);
     const [isCheckingSlots, setIsCheckingSlots] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+    // Use server-provided auth state as initial value (reliable, from httpOnly cookies)
+    const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(initialIsLoggedIn);
 
-    // Check auth state on mount and listen to changes
+    // Listen for auth state changes (login/logout in another tab, token refresh, etc.)
     useEffect(() => {
         const supabase = createClient();
-        
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            setIsLoggedIn(!!user);
-        });
+
+        // If server didn't provide auth state, do a client-side check as fallback
+        if (initialIsLoggedIn === undefined) {
+            const checkAuth = async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user) {
+                    setIsLoggedIn(true);
+                    return;
+                }
+                const { data: { user } } = await supabase.auth.getUser();
+                setIsLoggedIn(!!user);
+            };
+            checkAuth();
+        }
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             (event, session) => {
                 setIsLoggedIn(!!session?.user);
+                if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+                    router.refresh();
+                }
             }
         );
 
         return () => subscription.unsubscribe();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Fetch remaining slots when date changes
@@ -87,7 +111,9 @@ export default function BookingForm({
         }).format(amount);
     };
 
-    const totalPrice = price * guests;
+    const selectedSite = isBoat ? diveSites.find(s => s.id === selectedDiveSiteId) : null;
+    const surcharge = selectedSite ? selectedSite.surcharge_fee : 0;
+    const totalPrice = (price * guests) + surcharge;
 
     // Minimum date = today (in local timezone, safe for WITA UTC+8)
     // Using manual local date construction to avoid UTC conversion issues
@@ -110,13 +136,29 @@ export default function BookingForm({
         if (!date) {
             setResult({
                 success: false,
-                message: "Please select a dive date first.",
+                message: "Pilih tanggal dive terlebih dahulu.",
+            });
+            return;
+        }
+
+        if (isBoat && !selectedDiveSiteId) {
+            setResult({
+                success: false,
+                message: "Pilih destinasi dive terlebih dahulu.",
             });
             return;
         }
 
         startTransition(async () => {
-            const bookingResult = await createBooking(serviceId, date, guests);
+            const bookingResult = await createBooking(serviceId, date, guests, isBoat ? selectedDiveSiteId : undefined);
+            
+            // If server says user is not logged in but client thinks they are,
+            // the cookie is stale — force a full page reload to resync middleware
+            if (!bookingResult.success && bookingResult.message.includes("log in") && isLoggedIn) {
+                window.location.reload();
+                return;
+            }
+            
             setResult(bookingResult);
 
             if (bookingResult.success) {
@@ -188,6 +230,31 @@ export default function BookingForm({
                             </p>
                             <p className="text-sm text-red-700 mt-1">{result.message}</p>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Destination Picker (Only for Boats) ────────── */}
+            {isBoat && (
+                <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-900 block">
+                        Pilih Destinasi
+                    </label>
+                    <div className="relative">
+                        <MapPin className="absolute left-3.5 top-3 w-5 h-5 text-gray-400" />
+                        <select
+                            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-slate-900 font-bold bg-white appearance-none cursor-pointer"
+                            value={selectedDiveSiteId}
+                            onChange={(e) => setSelectedDiveSiteId(e.target.value)}
+                            disabled={isPending}
+                        >
+                            <option value="" disabled>-- Pilih Spot Selam --</option>
+                            {diveSites.map(site => (
+                                <option key={site.id} value={site.id} className="text-slate-900 font-medium">
+                                    {site.name} {site.surcharge_fee > 0 ? `(+ ${formatPrice(site.surcharge_fee)})` : '(Gratis Zona Dekat)'}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
             )}
@@ -275,11 +342,23 @@ export default function BookingForm({
             </div>
 
             {/* ─── Total Summary ─────────────────────────────── */}
-            <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Estimated Total</span>
-                <span className="text-xl font-bold text-primary">
-                    {formatPrice(totalPrice)}
-                </span>
+            <div className="pt-4 border-t border-gray-100 flex flex-col gap-2">
+                <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600 font-medium">Subtotal ({guests} pax)</span>
+                    <span className="text-slate-900 font-bold">{formatPrice(price * guests)}</span>
+                </div>
+                {selectedSite && (
+                    <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-600 font-medium">Surcharge Jarak</span>
+                        <span className="text-slate-900 font-bold">{surcharge === 0 ? "Gratis" : formatPrice(surcharge)}</span>
+                    </div>
+                )}
+                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-50">
+                    <span className="text-slate-900 font-bold">Estimated Total</span>
+                    <span className="text-xl font-extrabold text-primary">
+                        {formatPrice(totalPrice)}
+                    </span>
+                </div>
             </div>
 
             {/* ─── CTA Buttons ──────────────────────────────── */}
@@ -288,7 +367,8 @@ export default function BookingForm({
                 disabled={
                     isPending ||
                     (remainingSlots !== null && remainingSlots === 0) ||
-                    result?.success === true
+                    result?.success === true ||
+                    (isBoat && !selectedDiveSiteId)
                 }
                 className="w-full btn-primary py-3.5 text-base flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
             >

@@ -1,16 +1,16 @@
 import { notFound } from "next/navigation";
-import { getServiceById } from "@/lib/supabase";
+import { getServiceById, getDiveSites } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import ServiceDetailClient from "@/components/ServiceDetailClient";
 import type { Metadata } from "next";
 
-// Force dynamic rendering since we fetch specific IDs
+// Force dynamic rendering — needs auth check + specific service ID
 export const dynamic = "force-dynamic";
 
 interface PageProps {
     params: Promise<{ id: string }>;
 }
 
-// Generate dynamic metadata based on fetched service data
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { id } = await params;
     const { data: service } = await getServiceById(id);
@@ -28,14 +28,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ServiceDetailPage({ params }: PageProps) {
     const { id } = await params;
 
-    // Fetch service dari Supabase menggunakan helper function
+    // Fetch service data
     const { data: service, error } = await getServiceById(id);
 
-    // Jika error atau data tidak ditemukan, tampilkan halaman 404
     if (error || !service) {
         console.error("Error fetching service:", error?.message || "Data tidak ditemukan");
         notFound();
     }
 
-    return <ServiceDetailClient service={service} />;
+    // Fetch dive sites if service is a boat
+    let diveSites = [];
+    if (service.type === "boat") {
+        const { data } = await getDiveSites();
+        if (data) diveSites = data;
+    }
+
+    // ─── Auth check di server (middleware sudah refresh cookies) ──
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    return (
+        <ServiceDetailClient
+            service={service}
+            initialIsLoggedIn={!!user}
+            userId={user?.id || null}
+            diveSites={diveSites}
+        />
+    );
 }

@@ -28,11 +28,13 @@ import type { DiveSite, Service } from "@/lib/supabase";
 interface BookingPageClientProps {
     diveSite: DiveSite;
     services: Service[];
+    initialIsLoggedIn: boolean;
 }
 
 export default function BookingPageClient({
     diveSite,
     services,
+    initialIsLoggedIn,
 }: BookingPageClientProps) {
     const router = useRouter();
     const [selectedServiceId, setSelectedServiceId] = useState<string>(
@@ -44,16 +46,26 @@ export default function BookingPageClient({
     const [result, setResult] = useState<BookingResult | null>(null);
     const [remainingSlots, setRemainingSlots] = useState<number | null>(null);
     const [isCheckingSlots, setIsCheckingSlots] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+    // Use server-provided auth state (reliable, from httpOnly cookies via middleware)
+    const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(initialIsLoggedIn);
 
     const selectedService = services.find((s) => s.id === selectedServiceId);
 
-    // Check auth on mount
+    // ─── Auth: Listen for runtime changes (logout, token refresh, etc.) ──
     useEffect(() => {
         const supabase = createClient();
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            setIsLoggedIn(!!user);
-        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                setIsLoggedIn(!!session?.user);
+                if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+                    router.refresh();
+                }
+            }
+        );
+
+        return () => subscription.unsubscribe();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Fetch remaining slots when date or service changes
@@ -116,6 +128,14 @@ export default function BookingPageClient({
                 guests,
                 diveSite.id
             );
+            
+            // If server says not logged in but client thinks we are,
+            // force reload to resync middleware cookies
+            if (!bookingResult.success && bookingResult.message.includes("log in") && isLoggedIn) {
+                window.location.reload();
+                return;
+            }
+            
             setResult(bookingResult);
 
             if (bookingResult.success) {

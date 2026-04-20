@@ -161,7 +161,10 @@ export async function createBooking(
     // ─── 7. Hitung Total Harga ───────────────────────────────────
     const totalPrice = service.price * totalParticipants + surcharge;
 
-    // ─── 8. INSERT Booking dengan provider_id ───────────────────
+    // ─── 8. Hitung Payment Deadline (24 jam dari sekarang) ────────
+    const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    // ─── 9. INSERT Booking dengan provider_id + payment info ─────
     const { data: booking, error: bookingError } = await supabase
         .from("bookings")
         .insert({
@@ -173,6 +176,8 @@ export async function createBooking(
             total_participants: totalParticipants,
             total_price: totalPrice,
             status: "pending",
+            payment_status: "unpaid",
+            payment_deadline: paymentDeadline,
         })
         .select("id")
         .single();
@@ -217,7 +222,7 @@ export async function getRemainingSlots(
 
 // ─── Status Management ──────────────────────────────────────────
 
-export type BookingStatusAction = "upcoming" | "in_progress" | "completed" | "cancelled";
+export type BookingStatusAction = "confirmed" | "in_progress" | "completed" | "cancelled";
 
 export interface StatusUpdateResult {
     success: boolean;
@@ -233,7 +238,9 @@ export interface StatusUpdateResult {
  * 2. Ambil data booking + service + provider
  * 3. Verifikasi bahwa user adalah owner dari provider yang memiliki service tersebut
  * 4. Validasi transisi status yang diizinkan
- * 5. Update status booking
+ * 5. Untuk in_progress: validasi tanggal = hari ini
+ * 6. Update status booking
+ * 7. Broadcast notifikasi realtime ke wisatawan jika dive dimulai
  */
 export async function updateBookingStatus(
     bookingId: string,
@@ -251,10 +258,10 @@ export async function updateBookingStatus(
         return { success: false, message: "Silakan login terlebih dahulu." };
     }
 
-    // ─── 2. Ambil booking beserta relasi service → provider ─────
+    // ─── 2. Ambil booking beserta relasi ─────────────────────────
     const { data: booking, error: bookingError } = await supabase
         .from("bookings")
-        .select("id, status, service_id, provider_id")
+        .select("id, status, service_id, provider_id, user_id, booking_date, service:services(id, name)")
         .eq("id", bookingId)
         .single();
 
@@ -263,8 +270,6 @@ export async function updateBookingStatus(
     }
 
     // ─── 3. Verifikasi Kepemilikan Provider ─────────────────────
-    // Cek apakah user yang login adalah owner dari provider
-    // yang memiliki layanan pada booking ini
     const { data: provider, error: providerError } = await supabase
         .from("providers")
         .select("id")
@@ -281,8 +286,8 @@ export async function updateBookingStatus(
 
     // ─── 4. Validasi Transisi Status ────────────────────────────
     const allowedTransitions: Record<string, string[]> = {
-        pending: ["upcoming", "cancelled"],
-        upcoming: ["in_progress", "cancelled"],
+        pending: ["confirmed", "cancelled"],
+        confirmed: ["in_progress", "cancelled"],
         in_progress: ["completed", "cancelled"],
     };
 
@@ -296,7 +301,20 @@ export async function updateBookingStatus(
         };
     }
 
-    // ─── 5. Update Status ────────────────────────────────────────
+    // ─── 5. Untuk in_progress: validasi tanggal = hari ini ──────
+    if (newStatus === "in_progress") {
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+        if (booking.booking_date !== todayStr) {
+            return {
+                success: false,
+                message: `Dive hanya bisa dimulai pada tanggal booking (${booking.booking_date}). Hari ini: ${todayStr}.`,
+            };
+        }
+    }
+
+    // ─── 6. Update Status ────────────────────────────────────────
     const { error: updateError } = await supabase
         .from("bookings")
         .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -304,14 +322,50 @@ export async function updateBookingStatus(
 
     if (updateError) {
         console.error("Status update error:", updateError);
+
+        // Handle specific RLS / permission errors
+        if (updateError.code === "42501" || updateError.message.includes("policy")) {
+            return {
+                success: false,
+                message: "Gagal memperbarui: Anda tidak memiliki izin (kebijakan RLS). Hubungi admin.",
+            };
+        }
+
         return {
             success: false,
             message: `Gagal memperbarui status: ${updateError.message}`,
         };
     }
 
+    // ─── 7. Broadcast Realtime ke wisatawan jika dive dimulai ────
+    if (newStatus === "in_progress") {
+        try {
+            const serviceName = (booking.service as { name?: string })?.name || "Layanan";
+            await supabase.channel(`booking-updates-${booking.user_id}`).send({
+                type: "broadcast",
+                event: "dive_started",
+                payload: {
+                    bookingId,
+                    serviceName,
+                    message: `Aktivitas selam Anda (${serviceName}) telah dimulai! 🤿`,
+                    startedAt: new Date().toISOString(),
+                },
+            });
+        } catch (broadcastError) {
+            // Non-critical — don't fail the status update if broadcast fails
+            console.warn("Realtime broadcast failed (non-critical):", broadcastError);
+        }
+    }
+
+    const statusLabels: Record<string, string> = {
+        confirmed: "Dikonfirmasi",
+        in_progress: "Berlangsung",
+        completed: "Selesai",
+        cancelled: "Dibatalkan",
+    };
+
     return {
         success: true,
-        message: `Status booking berhasil diubah menjadi "${newStatus}".`,
+        message: `Status booking berhasil diubah menjadi "${statusLabels[newStatus] || newStatus}".`,
     };
 }

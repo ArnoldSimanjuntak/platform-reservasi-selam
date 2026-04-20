@@ -14,15 +14,18 @@ import {
     Clock,
     Info,
 } from "lucide-react";
-import type { Service } from "@/lib/supabase";
+import type { Service, DiveSite } from "@/lib/supabase";
 import BookingForm from "@/components/BookingForm";
 import AddToTripButton from "@/components/AddToTripButton";
 
 interface ServiceDetailClientProps {
     service: Service;
+    initialIsLoggedIn: boolean;
+    userId: string | null;
+    diveSites?: DiveSite[];
 }
 
-export default function ServiceDetailClient({ service }: ServiceDetailClientProps) {
+export default function ServiceDetailClient({ service, initialIsLoggedIn, userId, diveSites = [] }: ServiceDetailClientProps) {
     // Dummy features data based on service type
     const features = [
         { icon: Camera, label: "Camera Room", description: "Dedicated room for rinsing & camera setup" },
@@ -189,6 +192,9 @@ export default function ServiceDetailClient({ service }: ServiceDetailClientProp
                                         serviceName={service.name}
                                         price={service.price}
                                         maxCapacity={service.max_capacity}
+                                        initialIsLoggedIn={initialIsLoggedIn}
+                                        isBoat={service.type === "boat"}
+                                        diveSites={diveSites}
                                     />
 
                                     <AddToTripButton

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getDiveSiteById, getBoatServices } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import BookingPageClient from "./booking-client";
 import type { Metadata } from "next";
 
@@ -17,25 +18,29 @@ interface BookingPageProps {
 export default async function BookingPage({ searchParams }: BookingPageProps) {
     const { dive_site: diveSiteId } = await searchParams;
 
-    // Jika tidak ada dive_site param, redirect ke halaman lokasi
     if (!diveSiteId) {
         redirect("/lokasi");
     }
 
-    // Fetch dive site detail
     const { data: diveSite, error: siteError } = await getDiveSiteById(diveSiteId);
 
     if (siteError || !diveSite) {
         redirect("/lokasi");
     }
 
-    // Fetch available boat services
     const { data: services } = await getBoatServices();
+
+    // ─── Auth check di server (reliable, dari httpOnly cookies via middleware) ─
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
 
     return (
         <BookingPageClient
             diveSite={diveSite}
             services={services || []}
+            initialIsLoggedIn={!!user}
         />
     );
 }

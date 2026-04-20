@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Menu, X, Anchor, User, LogOut, ChevronDown, Calendar, ShoppingBag } from "lucide-react";
+import { Menu, X, Anchor, User, LogOut, ChevronDown, Calendar, ShoppingBag, Ship, ClipboardList, UserCog } from "lucide-react";
 import { useCartStore } from "@/lib/cart-store";
 import { createClient } from "@/lib/supabase/client";
+import { signOut as serverSignOut } from "@/app/auth/actions";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export default function Navbar() {
@@ -13,6 +14,7 @@ export default function Navbar() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [user, setUser] = useState<SupabaseUser | null>(null);
+    const [userRole, setUserRole] = useState<string>("customer");
     const [isLoading, setIsLoading] = useState(true);
     const pathname = usePathname();
     const router = useRouter();
@@ -33,11 +35,26 @@ export default function Navbar() {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    // Listen to auth state changes
+    // Listen to auth state changes + fetch role
     useEffect(() => {
         // Get initial session
         supabase.auth.getUser().then(({ data: { user } }) => {
             setUser(user);
+            if (user) {
+                // Ambil role dari user_metadata (tersedia langsung)
+                const metaRole = user.user_metadata?.role || "customer";
+                setUserRole(metaRole);
+
+                // Juga cek dari tabel users untuk data freshness
+                supabase
+                    .from("users")
+                    .select("role")
+                    .eq("id", user.id)
+                    .single()
+                    .then(({ data }) => {
+                        if (data?.role) setUserRole(data.role);
+                    });
+            }
             setIsLoading(false);
         });
 
@@ -46,6 +63,11 @@ export default function Navbar() {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
+            if (session?.user) {
+                setUserRole(session.user.user_metadata?.role || "customer");
+            } else {
+                setUserRole("customer");
+            }
         });
 
         return () => subscription.unsubscribe();
@@ -64,20 +86,37 @@ export default function Navbar() {
     async function handleSignOut() {
         await supabase.auth.signOut();
         setUser(null);
+        setUserRole("customer");
         setIsProfileMenuOpen(false);
+        try {
+            await serverSignOut();
+        } catch (e) {
+            // Ignore redirect error boundary
+        }
         router.push("/");
         router.refresh();
     }
 
     if (isAuthPage) return null;
 
-    const navLinks = [
+    // ─── Role-Based Navigation Links ─────────────────────────
+    const customerNavLinks = [
         { name: "Home", href: "/" },
         { name: "Dive Packages", href: "/services" },
         { name: "Dive Map", href: "/lokasi" },
         { name: "Route Planner", href: "/route-planner" },
-        { name: "About", href: "/#about" },
+        { name: "About", href: "/about" },
     ];
+
+    const providerNavLinks = [
+        { name: "Home", href: "/" },
+        { name: "Manajemen Kapal", href: "/dashboard/provider/services" },
+        { name: "Daftar Pesanan", href: "/dashboard/provider/orders" },
+        { name: "Profil Bisnis", href: "/dashboard/provider/setup" },
+    ];
+
+    const isProvider = userRole === "provider";
+    const navLinks = user && isProvider ? providerNavLinks : customerNavLinks;
 
     const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
 
@@ -113,8 +152,8 @@ export default function Navbar() {
                         </Link>
                     ))}
 
-                    {/* Cart Button */}
-                    <CartIconButton isDark={isDark} />
+                    {/* Cart Button — hanya untuk customer */}
+                    {!isProvider && <CartIconButton isDark={isDark} />}
 
                     {/* Auth Button */}
                     {isLoading ? (
@@ -153,25 +192,71 @@ export default function Navbar() {
                                         <p className="text-xs text-gray-500 truncate">
                                             {user.email}
                                         </p>
+                                        {isProvider && (
+                                            <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary tracking-wide">
+                                                PROVIDER
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="py-1">
-                                        <Link
-                                            href="/dashboard"
-                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                                            onClick={() => setIsProfileMenuOpen(false)}
-                                        >
-                                            <User className="w-4 h-4 text-gray-400" />
-                                            Profil Saya
-                                        </Link>
-                                        <Link
-                                            href="/dashboard/bookings"
-                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                                            onClick={() => setIsProfileMenuOpen(false)}
-                                        >
-                                            <Calendar className="w-4 h-4 text-gray-400" />
-                                            My Bookings
-                                        </Link>
+                                        {isProvider ? (
+                                            /* Provider dropdown items */
+                                            <>
+                                                <Link
+                                                    href="/dashboard"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <User className="w-4 h-4 text-gray-400" />
+                                                    Dashboard
+                                                </Link>
+                                                <Link
+                                                    href="/dashboard/provider/services"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <Ship className="w-4 h-4 text-gray-400" />
+                                                    Manajemen Kapal
+                                                </Link>
+                                                <Link
+                                                    href="/dashboard/provider/orders"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <ClipboardList className="w-4 h-4 text-gray-400" />
+                                                    Daftar Pesanan
+                                                </Link>
+                                                <Link
+                                                    href="/dashboard/provider/setup"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <UserCog className="w-4 h-4 text-gray-400" />
+                                                    Profil Bisnis
+                                                </Link>
+                                            </>
+                                        ) : (
+                                            /* Customer dropdown items */
+                                            <>
+                                                <Link
+                                                    href="/dashboard"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <User className="w-4 h-4 text-gray-400" />
+                                                    Profil Saya
+                                                </Link>
+                                                <Link
+                                                    href="/dashboard/bookings"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <Calendar className="w-4 h-4 text-gray-400" />
+                                                    Booking Saya
+                                                </Link>
+                                            </>
+                                        )}
                                         <button
                                             onClick={handleSignOut}
                                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -237,23 +322,71 @@ export default function Navbar() {
                                     <p className="text-sm font-semibold text-gray-900">{userName}</p>
                                     <p className="text-xs text-gray-500">{user.email}</p>
                                 </div>
+                                {isProvider && (
+                                    <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">
+                                        PROVIDER
+                                    </span>
+                                )}
                             </div>
-                            <Link
-                                href="/dashboard"
-                                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                                <User className="w-4 h-4 text-gray-400" />
-                                Profil Saya
-                            </Link>
-                            <Link
-                                href="/dashboard/bookings"
-                                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                            >
-                                <Calendar className="w-4 h-4 text-gray-400" />
-                                My Bookings
-                            </Link>
+
+                            {isProvider ? (
+                                /* Provider mobile items */
+                                <>
+                                    <Link
+                                        href="/dashboard"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <User className="w-4 h-4 text-gray-400" />
+                                        Dashboard
+                                    </Link>
+                                    <Link
+                                        href="/dashboard/provider/services"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <Ship className="w-4 h-4 text-gray-400" />
+                                        Manajemen Kapal
+                                    </Link>
+                                    <Link
+                                        href="/dashboard/provider/orders"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <ClipboardList className="w-4 h-4 text-gray-400" />
+                                        Daftar Pesanan
+                                    </Link>
+                                    <Link
+                                        href="/dashboard/provider/setup"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <UserCog className="w-4 h-4 text-gray-400" />
+                                        Profil Bisnis
+                                    </Link>
+                                </>
+                            ) : (
+                                /* Customer mobile items */
+                                <>
+                                    <Link
+                                        href="/dashboard"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <User className="w-4 h-4 text-gray-400" />
+                                        Profil Saya
+                                    </Link>
+                                    <Link
+                                        href="/dashboard/bookings"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <Calendar className="w-4 h-4 text-gray-400" />
+                                        Booking Saya
+                                    </Link>
+                                </>
+                            )}
+
                             <button
                                 onClick={() => {
                                     setIsMobileMenuOpen(false);
@@ -309,3 +442,4 @@ function CartIconButton({ isDark }: { isDark: boolean }) {
         </button>
     );
 }
+

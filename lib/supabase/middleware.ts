@@ -57,6 +57,19 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
+    // Jika provider mengakses landing page (/) atau halaman /services, redirect ke dashboard (provider view)
+    if (user && (request.nextUrl.pathname === "/" || request.nextUrl.pathname.startsWith("/services"))) {
+        // Asumsi user_metadata.role atau tabel user harus dicek.
+        // Di middleware kita hanya punya akses ke user_metadata yang di set waktu register.
+        const role = user.user_metadata?.role;
+        if (role === "provider") {
+            const url = request.nextUrl.clone();
+            // Catatan: Dashboard utama (`/dashboard`) secara otomatis merender ProviderDashboardView jika role === provider.
+            url.pathname = "/dashboard";
+            return NextResponse.redirect(url);
+        }
+    }
+
     // IMPORTANT: You *must* return the supabaseResponse object as it is.
     // If you're creating a new response object with NextResponse.next(), make sure to:
     // 1. Pass the request in it

@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { MapPin, X, Navigation, Loader2 } from "lucide-react";
-import { getDiveSites } from "@/lib/supabase";
-import type { DiveSite } from "@/lib/supabase";
+import { getDiveSites, getBoatServices } from "@/lib/supabase";
+import type { DiveSite, Service } from "@/lib/supabase";
+import { MapPin, X, Navigation, Loader2, Ship, Anchor } from "lucide-react";
 
 // Fallback positions jika data dari DB belum ada latitude/longitude
 const fallbackPositions: Record<string, { top: string; left: string }> = {
@@ -24,12 +24,16 @@ export default function InteractiveDiveMap() {
     const router = useRouter();
     const [selectedSite, setSelectedSite] = useState<DiveSite | null>(null);
     const [sites, setSites] = useState<DiveSite[]>([]);
+    const [boats, setBoats] = useState<Service[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         getDiveSites().then(({ data }) => {
             if (data) setSites(data);
             setIsLoading(false);
+        });
+        getBoatServices().then(({ data }) => {
+            if (data) setBoats(data);
         });
     }, []);
 
@@ -40,6 +44,9 @@ export default function InteractiveDiveMap() {
         // Spread evenly if no fallback match
         return { top: `${20 + idx * 25}%`, left: `${30 + idx * 20}%` };
     };
+
+    const formatPrice = (amount: number) =>
+        new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount);
 
     return (
         <div className="relative w-full h-[70vh] min-h-[500px] overflow-hidden rounded-3xl bg-blue-50 border-4 border-white shadow-xl group/map">
@@ -99,21 +106,21 @@ export default function InteractiveDiveMap() {
                 className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-[2rem] shadow-[0_-20px_40px_rgba(0,0,0,0.15)] z-30 transition-transform duration-500 ease-out ${selectedSite ? 'translate-y-0' : 'translate-y-full'}`}
             >
                 {selectedSite && (
-                    <div className="p-6 md:p-8">
+                    <div className="p-6 md:p-8 max-h-[80vh] overflow-y-auto">
                         {/* Drag Handle */}
                         <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 cursor-pointer" onClick={() => setSelectedSite(null)} />
 
                         <div className="flex justify-between items-start mb-6">
                             <div>
                                 <h3 className="text-2xl font-bold text-[#03045E]">{selectedSite.name}</h3>
-                                <div className="flex items-center gap-1.5 mt-2 text-gray-500 font-medium">
+                                <div className="flex items-center gap-1.5 mt-2 text-gray-700 font-medium tracking-wide">
                                     <Navigation className="w-4 h-4 text-secondary" />
                                     <span>{getZoneLabel(selectedSite.zone_level)}</span>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setSelectedSite(null)}
-                                className="p-2.5 bg-gray-50 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                                className="p-2.5 bg-gray-50 rounded-full hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
                                 aria-label="Tutup"
                             >
                                 <X className="w-5 h-5" />
@@ -122,20 +129,62 @@ export default function InteractiveDiveMap() {
 
                         {/* Description */}
                         {selectedSite.description && (
-                            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                            <p className="text-sm text-slate-700 font-medium mb-4 leading-relaxed">
                                 {selectedSite.description}
                             </p>
                         )}
 
                         {/* Surcharge Info */}
                         <div className="mb-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 flex justify-between items-center">
-                            <span className="text-gray-600 font-medium">Biaya Tambahan Jarak</span>
-                            <span className="font-bold text-lg text-[#023E8A]">
+                            <span className="text-slate-800 font-bold">Biaya Tambahan Jarak</span>
+                            <span className="font-extrabold text-lg text-[#023E8A]">
                                 {selectedSite.surcharge_fee === 0 ? "Gratis" : `+ Rp ${selectedSite.surcharge_fee.toLocaleString('id-ID')}`}
                             </span>
                         </div>
 
-                        {/* CTA Button → Navigate to booking */}
+                        {/* Boats List */}
+                        <div className="mb-6">
+                            <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                                <Ship className="w-5 h-5 text-primary" />
+                                Kapal Terdaftar untuk Spot Ini
+                            </h4>
+                            {boats.length === 0 ? (
+                                <p className="text-sm text-slate-500 italic">Memuat daftar kapal...</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {boats.slice(0, 3).map((boat) => (
+                                        <button
+                                            key={boat.id}
+                                            onClick={() => router.push(`/booking?dive_site=${selectedSite.id}`)}
+                                            className="w-full p-4 rounded-xl border border-gray-200 text-left hover:border-primary hover:bg-blue-50/50 transition-all group/boat"
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-500 group-hover/boat:bg-primary group-hover/boat:text-white flex items-center justify-center transition-colors">
+                                                        <Anchor className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-bold text-slate-900 text-sm">{boat.name}</h3>
+                                                        <p className="text-xs text-slate-600 font-medium mt-0.5">Maks. {boat.max_capacity} pax · {boat.provider?.name}</p>
+                                                    </div>
+                                                </div>
+                                                <span className="font-bold text-primary text-sm whitespace-nowrap">
+                                                    {formatPrice(boat.price)}
+                                                    <span className="text-xs text-slate-500 font-normal block text-right">/pax</span>
+                                                </span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {boats.length > 3 && (
+                                        <p className="text-xs text-center font-bold text-slate-500 mt-2">
+                                            + {boats.length - 3} kapal lainnya tersedia
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Main CTA */}
                         <button
                             onClick={() => router.push(`/booking?dive_site=${selectedSite.id}`)}
                             className="w-full bg-[#023E8A] hover:bg-[#03045E] text-white font-bold py-4 rounded-xl shadow-[0_8px_20px_rgba(2,62,138,0.25)] hover:shadow-[0_4px_10px_rgba(2,62,138,0.2)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-lg"
