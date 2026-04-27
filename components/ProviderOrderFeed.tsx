@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { updateBookingStatus } from "@/app/actions/booking";
 import type { BookingStatusAction } from "@/app/actions/booking";
-import { verifyPayment } from "@/app/actions/payment";
+import { verifyPayment, getPaymentProofSignedUrl } from "@/app/actions/payment";
 import {
     ClipboardList,
     Users,
@@ -79,6 +80,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
     const [isPending, startTransition] = useTransition();
     const [actionResult, setActionResult] = useState<{ id: string; msg: string; ok: boolean } | null>(null);
     const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
+    const [loadingProofId, setLoadingProofId] = useState<string | null>(null);
 
     const todayStr = getTodayStr();
 
@@ -207,7 +209,21 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
         });
     };
 
-    // ─── handleStartDive: Only when confirmed + today ──────────
+    // ─── Open Payment Proof (via Signed URL jika bucket privat) ──
+    const handleViewProof = async (bookingId: string, fallbackUrl: string) => {
+        setLoadingProofId(bookingId);
+        try {
+            const result = await getPaymentProofSignedUrl(bookingId);
+            setSelectedProofUrl(result.url || fallbackUrl);
+        } catch {
+            // Fallback ke URL asli jika Server Action gagal
+            setSelectedProofUrl(fallbackUrl);
+        } finally {
+            setLoadingProofId(null);
+        }
+    };
+
+    // ─── handleStartDive: Only when confirmed + today ───────────
     const handleStartDive = (order: Order) => {
         if (order.status !== "confirmed") return;
         if (order.booking_date !== todayStr) {
@@ -307,9 +323,14 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                 <XCircle className="w-6 h-6" />
                             </button>
                         </div>
-                        <div className="p-1 max-h-[70vh] overflow-auto bg-gray-50 flex items-center justify-center">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={selectedProofUrl} alt="Bukti Pembayaran" className="w-full h-auto object-contain rounded-xl" />
+                        <div className="p-1 max-h-[70vh] overflow-hidden bg-gray-50 flex items-center justify-center relative w-full h-[60vh]">
+                            <Image 
+                                src={selectedProofUrl} 
+                                alt="Bukti Pembayaran" 
+                                fill 
+                                className="object-contain rounded-xl" 
+                                unoptimized={true}
+                            />
                         </div>
                     </div>
                 </div>
@@ -392,95 +413,125 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                         </span>
                                     </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="flex flex-wrap items-center gap-2 mt-4 ml-[56px]">
-                                        {/* Payment Verification Buttons */}
-                                        {order.payment_status === "pending_verification" && (
-                                            <div className="flex items-center gap-2 mr-2 border-r border-gray-200 pr-4">
-                                                <button
-                                                    onClick={() => setSelectedProofUrl(order.payment_proof_url || "")}
-                                                    disabled={isPending || !order.payment_proof_url}
-                                                    className="px-3 py-2 text-xs font-bold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-1.5"
-                                                >
-                                                    <Eye className="w-3.5 h-3.5" /> Lihat Bukti
-                                                </button>
-                                                <button
-                                                    onClick={() => handleVerifyPayment(order.id, "approve")}
-                                                    disabled={isPending}
-                                                    className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
-                                                >
-                                                    Terima Bayar
-                                                </button>
-                                                <button
-                                                    onClick={() => handleVerifyPayment(order.id, "reject")}
-                                                    disabled={isPending}
-                                                    className="px-3 py-2 text-xs font-bold rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
-                                                >
-                                                    Tolak
-                                                </button>
-                                            </div>
-                                        )}
-
-                                        {/* Normal Flow Buttons (Only if not pending verification) */}
-                                        {order.payment_status !== "pending_verification" && (order.status === "pending" || order.status === "confirmed" || order.status === "in_progress") && (
-                                            <>
-                                                {order.status === "pending" && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleStatusUpdate(order.id, "confirmed")}
-                                                            disabled={isPending}
-                                                            className="px-4 py-2 text-xs font-bold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-sm"
-                                                        >
-                                                            Konfirmasi Manual
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleStatusUpdate(order.id, "cancelled")}
-                                                            disabled={isPending}
-                                                            className="px-4 py-2 text-xs font-bold rounded-lg bg-gray-100 text-slate-700 hover:bg-red-50 hover:text-red-700 transition-colors disabled:opacity-50"
-                                                        >
-                                                            Batalkan
-                                                        </button>
-                                                    </>
-                                                )}
-                                            {order.status === "confirmed" && (
-                                                <>
-                                                    <button
-                                                        onClick={() => handleStartDive(order)}
-                                                        disabled={isPending || !canStartDive}
-                                                        title={!isToday ? `Dive dimulai pada ${order.booking_date}` : ""}
-                                                        className={`px-4 py-2 text-xs font-bold rounded-lg transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5 ${
-                                                            canStartDive
-                                                                ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                                                                : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                    {/* Payment Proof & Actions */}
+                                    <div className="flex flex-col md:flex-row md:items-center gap-4 mt-4 ml-[56px] border-t border-gray-100 pt-4">
+                                        
+                                        {/* Thumbnail Bukti Pembayaran */}
+                                        <div className="flex items-center gap-3">
+                                            <div 
+                                                className={`w-16 h-16 rounded-lg border overflow-hidden relative shrink-0 flex items-center justify-center ${
+                                                    order.payment_proof_url ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"
+                                                }`}
+                                            >
+                                                {order.payment_proof_url ? (
+                                                    <Image 
+                                                        src={order.payment_proof_url} 
+                                                        alt="Bukti Bayar" 
+                                                        fill 
+                                                        sizes="64px"
+                                                        className={`object-cover transition-transform ${
+                                                            loadingProofId === order.id 
+                                                                ? "opacity-50" 
+                                                                : "cursor-pointer hover:scale-110"
                                                         }`}
+                                                        onClick={() => !loadingProofId && handleViewProof(order.id, order.payment_proof_url!)}
+                                                        unoptimized={true}
+                                                    />
+                                                ) : (
+                                                    <Receipt className="w-6 h-6 text-slate-300" />
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-slate-700">Bukti Pembayaran</span>
+                                                {order.payment_proof_url ? (
+                                                    <span className="text-[11px] text-emerald-600 font-bold bg-emerald-100 px-2 py-0.5 rounded-full mt-1 w-fit">
+                                                        Sudah Diunggah
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[11px] text-amber-600 font-bold bg-amber-100 px-2 py-0.5 rounded-full mt-1 w-fit italic">
+                                                        Menunggu Pembayaran
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+                                            {/* Payment Verification Buttons */}
+                                            {order.payment_status === "pending_verification" && (
+                                                <div className="flex items-center gap-2 border-gray-200 pr-2">
+                                                    <button
+                                                        onClick={() => handleVerifyPayment(order.id, "approve")}
+                                                        disabled={isPending}
+                                                        className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm"
                                                     >
-                                                        <Waves className="w-3.5 h-3.5" />
-                                                        Mulai Selam
+                                                        Terima Bayar
                                                     </button>
                                                     <button
-                                                        onClick={() => handleStatusUpdate(order.id, "cancelled")}
+                                                        onClick={() => handleVerifyPayment(order.id, "reject")}
                                                         disabled={isPending}
-                                                        className="px-4 py-2 text-xs font-bold rounded-lg bg-gray-100 text-slate-700 hover:bg-red-50 hover:text-red-700 transition-colors disabled:opacity-50"
+                                                        className="px-3 py-2 text-xs font-bold rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
                                                     >
-                                                    Batalkan
-                                                </button>
-                                            </>
-                                        )}
-                                        {order.status === "in_progress" && (
-                                            <button
-                                                onClick={() => handleStatusUpdate(order.id, "completed")}
-                                                disabled={isPending}
-                                                className="px-4 py-2 text-xs font-bold rounded-lg bg-slate-800 text-white hover:bg-slate-900 transition-colors disabled:opacity-50 shadow-sm"
-                                            >
-                                                Tandai Selesai
-                                            </button>
-                                        )}
-                                    </>
-                                )}
-                                {isPending && (
-                                    <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
-                                )}
-                            </div>
+                                                        Tolak
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Normal Flow Buttons */}
+                                            {order.payment_status !== "pending_verification" && (order.status === "pending" || order.status === "confirmed" || order.status === "in_progress") && (
+                                                <>
+                                                    {order.status === "pending" && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleStatusUpdate(order.id, "confirmed")}
+                                                                disabled={isPending || order.payment_status !== "paid"}
+                                                                title={order.payment_status !== "paid" ? "Tunggu pembayaran lunas" : "Konfirmasi pesanan"}
+                                                                className="px-4 py-2 text-xs font-bold rounded-lg bg-[#023E8A] text-white hover:bg-[#03045E] transition-colors disabled:opacity-50 shadow-sm"
+                                                            >
+                                                                Konfirmasi Order
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleStatusUpdate(order.id, "cancelled")}
+                                                                disabled={isPending}
+                                                                className="px-3 py-2 text-xs font-bold rounded-lg bg-gray-100 text-slate-700 hover:bg-red-50 hover:text-red-700 transition-colors disabled:opacity-50"
+                                                            >
+                                                                Batal
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {order.status === "confirmed" && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleStartDive(order)}
+                                                                disabled={isPending || !canStartDive}
+                                                                title={!isToday ? `Dive dimulai pada ${order.booking_date}` : ""}
+                                                                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5 ${
+                                                                    canStartDive
+                                                                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                                                        : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                                                }`}
+                                                            >
+                                                                <Waves className="w-3.5 h-3.5" />
+                                                                Mulai Selam
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {order.status === "in_progress" && (
+                                                        <button
+                                                            onClick={() => handleStatusUpdate(order.id, "completed")}
+                                                            disabled={isPending}
+                                                            className="px-4 py-2 text-xs font-bold rounded-lg bg-slate-800 text-white hover:bg-slate-900 transition-colors disabled:opacity-50 shadow-sm"
+                                                        >
+                                                            Tandai Selesai
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
+                                            {isPending && (
+                                                <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                                            )}
+                                        </div>
+                                    </div>
                         </div>
                             </div>
                         );

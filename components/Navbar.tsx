@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Menu, X, Anchor, User, LogOut, ChevronDown, Calendar, ShoppingBag, Ship, ClipboardList, UserCog } from "lucide-react";
-import { useCartStore } from "@/lib/cart-store";
 import { createClient } from "@/lib/supabase/client";
 import { signOut as serverSignOut } from "@/app/auth/actions";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -63,8 +62,18 @@ export default function Navbar() {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
+            setIsLoading(false);
             if (session?.user) {
                 setUserRole(session.user.user_metadata?.role || "customer");
+                // Pastikan untuk menarik role dari tabel users demi konsistensi data terbaru
+                supabase
+                    .from("users")
+                    .select("role")
+                    .eq("id", session.user.id)
+                    .single()
+                    .then(({ data }) => {
+                        if (data?.role) setUserRole(data.role);
+                    });
             } else {
                 setUserRole("customer");
             }
@@ -109,14 +118,24 @@ export default function Navbar() {
     ];
 
     const providerNavLinks = [
-        { name: "Home", href: "/" },
+        { name: "Dashboard", href: "/dashboard" },
         { name: "Manajemen Kapal", href: "/dashboard/provider/services" },
         { name: "Daftar Pesanan", href: "/dashboard/provider/orders" },
         { name: "Profil Bisnis", href: "/dashboard/provider/setup" },
     ];
 
+    const adminNavLinks = [
+        { name: "Kelola Layanan", href: "/dashboard/provider/services" },
+        { name: "Panel Admin", href: "/admin/verifikasi", isButton: true },
+    ];
+
+
     const isProvider = userRole === "provider";
-    const navLinks = user && isProvider ? providerNavLinks : customerNavLinks;
+    const isAdmin = userRole === "admin";
+    
+    let navLinks = customerNavLinks;
+    if (isAdmin) navLinks = adminNavLinks;
+    else if (user && isProvider) navLinks = providerNavLinks;
 
     const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
 
@@ -129,7 +148,7 @@ export default function Navbar() {
         >
             <div className="container mx-auto px-4 flex items-center justify-between">
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-2 group">
+                <Link href={isProvider ? "/dashboard/provider/orders" : "/"} className="flex items-center gap-2 group">
                     <div className="bg-gradient-to-br from-primary to-secondary p-2 rounded-lg text-white group-hover:scale-110 transition-transform">
                         <Anchor className="w-6 h-6" />
                     </div>
@@ -145,15 +164,18 @@ export default function Navbar() {
                         <Link
                             key={link.name}
                             href={link.href}
-                            className={`text-sm font-medium hover:text-secondary transition-colors ${isDark ? "text-gray-600" : "text-gray-200"
-                                }`}
+                            className={
+                                link.isButton 
+                                ? `px-4 py-2 rounded-lg text-sm font-bold transition-colors ${isDark ? "bg-[#023E8A] text-white hover:bg-blue-800" : "bg-white text-[#023E8A] hover:bg-gray-100"}` 
+                                : `text-sm font-semibold hover:text-[#0077B6] transition-colors ${isDark ? "text-slate-800" : "text-white"}`
+                            }
                         >
                             {link.name}
                         </Link>
                     ))}
 
-                    {/* Cart Button — hanya untuk customer */}
-                    {!isProvider && <CartIconButton isDark={isDark} />}
+                    {/* History Button — hanya untuk customer */}
+                    {!isProvider && !isAdmin && <BookingHistoryButton isDark={isDark} />}
 
                     {/* Auth Button */}
                     {isLoading ? (
@@ -409,37 +431,31 @@ export default function Navbar() {
                     )}
                 </div>
             )}
+
+            {/* Tambahkan komponen kecil ini di pojok layar untuk sementara */}
+            {process.env.NODE_ENV === 'development' && (
+                <div className="fixed bottom-20 right-4 z-[9999] bg-black text-white p-2 text-xs rounded opacity-50">
+                    Role: {userRole || 'Guest'} | Auth: {user ? 'Logged In' : 'Logged Out'}
+                </div>
+            )}
         </nav>
     );
 }
 
-// ─── Cart Icon with Badge (avoids hydration mismatch) ────────
-function CartIconButton({ isDark }: { isDark: boolean }) {
-    const openSidebar = useCartStore((s) => s.openSidebar);
-    const items = useCartStore((s) => s.items);
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => setMounted(true), []);
-
-    const count = mounted ? items.length : 0;
-
+// ─── Booking History Icon ────────
+function BookingHistoryButton({ isDark }: { isDark: boolean }) {
     return (
-        <button
-            onClick={openSidebar}
+        <Link
+            href="/dashboard/bookings"
             className={`relative p-2.5 rounded-full transition-colors ${
                 isDark
                     ? "text-gray-600 hover:bg-gray-100"
                     : "text-gray-200 hover:bg-white/20"
             }`}
-            title="My Trip"
+            title="Riwayat Booking"
         >
-            <ShoppingBag className="w-5 h-5" />
-            {count > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-in zoom-in duration-200">
-                    {count}
-                </span>
-            )}
-        </button>
+            <ClipboardList className="w-5 h-5" />
+        </Link>
     );
 }
 

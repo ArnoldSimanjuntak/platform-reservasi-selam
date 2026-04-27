@@ -179,3 +179,95 @@ export async function verifyPayment(
             : "Pembayaran ditolak. Wisatawan diminta mengunggah ulang.",
     };
 }
+
+/**
+ * Server Action: Membuat Signed URL untuk bukti pembayaran.
+ *
+ * Digunakan saat bucket 'payment-receipts' bersifat PRIVAT.
+ * Signed URL berlaku selama 1 jam — cukup untuk sesi review provider.
+ *
+ * Alur:
+ * 1. Verifikasi auth session
+ * 2. Verifikasi bahwa caller adalah provider yang memiliki booking tersebut
+ * 3. Ekstrak file path dari URL publik / simpan langsung
+ * 4. Generate Signed URL dari Supabase Storage
+ */
+export async function getPaymentProofSignedUrl(
+    bookingId: string
+): Promise<{ url: string | null; error?: string }> {
+    const supabase = await createClient();
+
+    // ─── 1. Verifikasi Auth ─────────────────────────────────────
+    const {
+        data: { user },
+        error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+        return { url: null, error: "Silakan login terlebih dahulu." };
+    }
+
+    // ─── 2. Ambil booking & verifikasi kepemilikan provider ─────
+    const { data: booking, error: bookingError } = await supabase
+        .from("bookings")
+        .select("id, provider_id, payment_proof_url")
+        .eq("id", bookingId)
+        .single();
+
+    if (bookingError || !booking) {
+        return { url: null, error: "Booking tidak ditemukan." };
+    }
+
+    if (!booking.payment_proof_url) {
+        return { url: null, error: "Bukti pembayaran belum diunggah." };
+    }
+
+    // Verifikasi caller adalah provider yang memiliki booking ini
+    const { data: provider } = await supabase
+        .from("providers")
+        .select("id")
+        .eq("id", booking.provider_id)
+        .eq("owner_user_id", user.id)
+        .single();
+
+    if (!provider) {
+        return { url: null, error: "Anda tidak memiliki izin untuk mengakses dokumen ini." };
+    }
+
+    // ─── 3. Ekstrak file path dari URL yang tersimpan ───────────
+    // Format URL Supabase storage publik:
+    // https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
+    // Format URL Supabase storage privat:
+    // https://<project>.supabase.co/storage/v1/object/<bucket>/<path>
+    const storedUrl = booking.payment_proof_url as string;
+    const bucketName = "payment-receipts";
+    
+    // Ekstrak path relatif dari URL yang sudah tersimpan
+    const publicMarker = `/object/public/${bucketName}/`;
+    const privateMarker = `/object/${bucketName}/`;
+    
+    let filePath: string | null = null;
+    if (storedUrl.includes(publicMarker)) {
+        filePath = storedUrl.split(publicMarker)[1];
+    } else if (storedUrl.includes(privateMarker)) {
+        filePath = storedUrl.split(privateMarker)[1];
+    }
+
+    if (!filePath) {
+        // Jika URL tidak bisa di-parse, kembalikan URL asli (mungkin sudah signed atau dari bucket publik)
+        return { url: storedUrl };
+    }
+
+    // ─── 4. Generate Signed URL (berlaku 1 jam) ─────────────────
+    const { data: signedData, error: signedError } = await supabase.storage
+        .from(bucketName)
+        .createSignedUrl(filePath, 3600); // 3600 detik = 1 jam
+
+    if (signedError || !signedData?.signedUrl) {
+        // Fallback ke URL publik jika bucket ternyata publik
+        console.warn("Signed URL generation failed, falling back to stored URL:", signedError?.message);
+        return { url: storedUrl };
+    }
+
+    return { url: signedData.signedUrl };
+}

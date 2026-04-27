@@ -1,163 +1,405 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, XCircle, Loader2, FileImage, ShieldAlert, Award, FileText } from "lucide-react";
+import {
+    CheckCircle2,
+    XCircle,
+    Loader2,
+    FileImage,
+    ShieldCheck,
+    ShieldAlert,
+    Award,
+    FileText,
+    User,
+    Phone,
+    MapPin,
+    Clock,
+    Ship,
+    Glasses,
+    GraduationCap,
+} from "lucide-react";
 import { verifyProviderIdentity } from "@/app/actions/provider";
 import type { Provider } from "@/lib/supabase";
 
 interface AdminVerificationClientProps {
     initialProviders: Provider[];
+    verifiedProviders?: Provider[];
+    rejectedProviders?: Provider[];
 }
 
-export default function AdminVerificationClient({ initialProviders }: AdminVerificationClientProps) {
+// Mapping tipe provider ke ikon dan label yang sesuai
+const TYPE_CONFIG: Record<string, { icon: React.ElementType; label: string; bg: string; text: string; border: string }> = {
+    boat: {
+        icon: Ship,
+        label: "Operator Kapal",
+        bg: "bg-blue-100",
+        text: "text-blue-800",
+        border: "border-blue-200",
+    },
+    gear: {
+        icon: Glasses,
+        label: "Rental Alat",
+        bg: "bg-amber-100",
+        text: "text-amber-800",
+        border: "border-amber-200",
+    },
+    instructor: {
+        icon: GraduationCap,
+        label: "Instruktur / Guide",
+        bg: "bg-emerald-100",
+        text: "text-emerald-800",
+        border: "border-emerald-200",
+    },
+};
+
+type TabKey = "pending" | "verified" | "rejected";
+
+export default function AdminVerificationClient({
+    initialProviders,
+    verifiedProviders = [],
+    rejectedProviders = [],
+}: AdminVerificationClientProps) {
     const [providers, setProviders] = useState<Provider[]>(initialProviders);
     const [isPending, startTransition] = useTransition();
+    const [pendingId, setPendingId] = useState<string | null>(null);
     const [selectedImage, setSelectedImage] = useState<{ url: string; title: string } | null>(null);
     const [actionResult, setActionResult] = useState<{ id: string; msg: string; isError: boolean } | null>(null);
+    const [removingId, setRemovingId] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<TabKey>("pending");
 
     const handleVerify = (providerId: string, action: "approve" | "reject") => {
         setActionResult(null);
+        setPendingId(providerId);
+
         startTransition(async () => {
             try {
                 const res = await verifyProviderIdentity(providerId, action);
                 setActionResult({ id: providerId, msg: res.message, isError: !res.success });
 
                 if (res.success) {
-                    setProviders((prev) => prev.filter((p) => p.id !== providerId));
-                    setTimeout(() => setActionResult(null), 4000);
+                    // Animasi remove sebelum hapus dari list
+                    setRemovingId(providerId);
+                    setTimeout(() => {
+                        setProviders((prev) => prev.filter((p) => p.id !== providerId));
+                        setRemovingId(null);
+                        setActionResult(null);
+                    }, 600);
                 }
-            } catch (err: any) {
+            } catch {
                 setActionResult({ id: providerId, msg: "Terjadi kesalahan jaringan.", isError: true });
+            } finally {
+                setPendingId(null);
             }
         });
     };
 
-    if (providers.length === 0) {
-        return (
-            <div className="text-center py-12 px-4 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col items-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                    <CheckCircle2 className="w-8 h-8 text-[#023E8A]" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900">Semua Bersih!</h3>
-                <p className="text-sm text-slate-500 mt-1">Tidak ada Provider yang menunggu verifikasi saat ini.</p>
-            </div>
-        );
-    }
+    // Tab data
+    const tabs: { key: TabKey; label: string; count: number; color: string }[] = [
+        { key: "pending", label: "Menunggu", count: providers.length, color: "amber" },
+        { key: "verified", label: "Terverifikasi", count: verifiedProviders.length, color: "emerald" },
+        { key: "rejected", label: "Ditolak", count: rejectedProviders.length, color: "red" },
+    ];
+
+    const getActiveList = (): Provider[] => {
+        switch (activeTab) {
+            case "pending": return providers;
+            case "verified": return verifiedProviders;
+            case "rejected": return rejectedProviders;
+            default: return providers;
+        }
+    };
+    const activeList = getActiveList();
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-5">
             {/* Image Viewer Modal */}
             {selectedImage && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/85 backdrop-blur-md animate-in fade-in">
-                    <div className="bg-white rounded-3xl overflow-hidden max-w-2xl w-full shadow-2xl border border-white/20">
-                        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-slate-50">
-                            <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                                <FileImage className="w-5 h-5 text-[#023E8A]" />
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div
+                        className="bg-white rounded-3xl overflow-hidden max-w-2xl w-full shadow-2xl border border-white/20"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div
+                            className="flex items-center justify-between p-4 border-b border-gray-100"
+                            style={{ background: "linear-gradient(135deg, #023E8A, #0077B6)" }}
+                        >
+                            <h3 className="font-bold text-white flex items-center gap-2">
+                                <FileImage className="w-5 h-5 text-cyan-300" />
                                 {selectedImage.title}
                             </h3>
-                            <button 
+                            <button
                                 onClick={() => setSelectedImage(null)}
-                                className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-200 rounded-full transition-colors"
+                                className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors"
                             >
                                 <XCircle className="w-6 h-6" />
                             </button>
                         </div>
+                        {/* Modal Body */}
                         <div className="p-4 bg-gray-100 flex items-center justify-center relative min-h-[50vh] max-h-[75vh]">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img 
-                                src={selectedImage.url} 
-                                alt={selectedImage.title} 
+                            <img
+                                src={selectedImage.url}
+                                alt={selectedImage.title}
                                 className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
                             />
+                        </div>
+                        <div className="p-3 bg-slate-50 text-center">
+                            <p className="text-xs text-slate-400">Klik di luar gambar untuk menutup</p>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Providers List */}
-            <div className="grid gap-4">
-                {providers.map((provider) => (
-                    <div key={provider.id} className="bg-white border-2 border-gray-100 rounded-2xl p-5 hover:border-blue-100 transition-colors shadow-sm">
-                        
-                        {/* Result Notification */}
-                        {actionResult?.id === provider.id && (
-                            <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm font-bold border ${
-                                actionResult.isError ? "bg-red-50 text-red-800 border-red-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            }`}>
-                                {actionResult.isError ? <XCircle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                                {actionResult.msg}
-                            </div>
+            {/* ─── Tab Switcher ────────────────────────────────── */}
+            <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                {tabs.map((tab) => (
+                    <button
+                        key={tab.key}
+                        onClick={() => setActiveTab(tab.key)}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                            activeTab === tab.key
+                                ? "bg-white shadow-sm text-slate-900"
+                                : "text-slate-500 hover:text-slate-700"
+                        }`}
+                    >
+                        {tab.label}
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                            activeTab === tab.key
+                                ? tab.color === "amber"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : tab.color === "emerald"
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : "bg-red-100 text-red-700"
+                                : "bg-slate-200 text-slate-500"
+                        }`}>
+                            {tab.count}
+                        </span>
+                    </button>
+                ))}
+            </div>
+
+            {/* Empty state */}
+            {activeList.length === 0 && (
+                <div className="text-center py-16 px-4 rounded-2xl bg-gradient-to-br from-blue-50 to-slate-50 border border-blue-100 flex flex-col items-center">
+                    <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 shadow-inner"
+                        style={{ background: "linear-gradient(135deg, #023E8A22, #0077B622)" }}
+                    >
+                        {activeTab === "pending" ? (
+                            <ShieldCheck className="w-10 h-10 text-[#023E8A]" />
+                        ) : activeTab === "verified" ? (
+                            <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                        ) : (
+                            <ShieldAlert className="w-10 h-10 text-red-500" />
                         )}
+                    </div>
+                    <h3 className="text-xl font-black text-slate-900">
+                        {activeTab === "pending"
+                            ? "Semua Bersih! ✅"
+                            : activeTab === "verified"
+                                ? "Belum Ada yang Terverifikasi"
+                                : "Belum Ada yang Ditolak"}
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-2 max-w-xs">
+                        {activeTab === "pending"
+                            ? "Tidak ada Provider yang menunggu verifikasi saat ini. Radar laut bersih, Kapten!"
+                            : activeTab === "verified"
+                                ? "Provider yang telah disetujui akan muncul di sini."
+                                : "Provider yang ditolak akan muncul di sini."}
+                    </p>
+                </div>
+            )}
 
-                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">
-                            {/* Provider Meta */}
-                            <div className="space-y-1 flex-1">
-                                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
-                                    {provider.name}
-                                </h3>
-                                <p className="text-sm font-bold text-slate-600 flex items-center gap-1.5">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-wider ${
-                                        provider.primary_type === 'boat' ? 'bg-blue-100 text-blue-800' :
-                                        provider.primary_type === 'instructor' ? 'bg-emerald-100 text-emerald-800' :
-                                        'bg-amber-100 text-amber-800'
-                                    }`}>
-                                        {provider.primary_type || 'Unknown'}
+            {/* Provider Cards */}
+            <div className="grid gap-5">
+                {activeList.map((provider) => {
+                    const typeConfig = TYPE_CONFIG[provider.primary_type || "boat"] || TYPE_CONFIG.boat;
+                    const TypeIcon = typeConfig.icon;
+                    const isThisRemoving = removingId === provider.id;
+                    const isThisPending = pendingId === provider.id && isPending;
+                    const isActionable = activeTab === "pending";
+
+                    return (
+                        <div
+                            key={provider.id}
+                            className={`rounded-2xl overflow-hidden border-2 shadow-md transition-all duration-500 ${
+                                isThisRemoving
+                                    ? "opacity-0 scale-95 translate-y-2"
+                                    : "opacity-100 scale-100 border-[#023E8A]/10 hover:border-[#0077B6]/30 hover:shadow-lg"
+                            }`}
+                        >
+                            {/* Card Header — Deep Sea Blue Gradient */}
+                            <div
+                                className="px-5 py-4 flex items-center justify-between"
+                                style={{ background: "linear-gradient(135deg, #03045E, #023E8A)" }}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                                        <TypeIcon className="w-5 h-5 text-cyan-300" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black text-white uppercase tracking-tight leading-tight">
+                                            {provider.name}
+                                        </h3>
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded mt-0.5 ${typeConfig.bg} ${typeConfig.text}`}>
+                                            <TypeIcon className="w-3 h-3" />
+                                            {typeConfig.label}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="text-right flex flex-col items-end gap-1">
+                                    {/* Verification Status Badge */}
+                                    {activeTab !== "pending" && (
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md ${
+                                            provider.verification_status === "verified"
+                                                ? "bg-emerald-500/20 text-emerald-300"
+                                                : "bg-red-500/20 text-red-300"
+                                        }`}>
+                                            {provider.verification_status === "verified" ? (
+                                                <ShieldCheck className="w-3 h-3" />
+                                            ) : (
+                                                <ShieldAlert className="w-3 h-3" />
+                                            )}
+                                            {provider.verification_status === "verified" ? "Verified" : "Rejected"}
+                                        </span>
+                                    )}
+                                    <span className="text-xs text-white/50 flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5" />
+                                        {new Date(provider.created_at || "").toLocaleDateString("id-ID", {
+                                            day: "numeric",
+                                            month: "short",
+                                            year: "numeric",
+                                        })}
                                     </span>
-                                    • {provider.location}
-                                </p>
-                                <p className="text-xs text-slate-500 font-medium">
-                                    Kontak: <span className="font-bold text-slate-800">{provider.contact}</span>
-                                </p>
-                                <p className="text-xs text-slate-400 mt-2">
-                                    Mendaftar: {new Date(provider.created_at || "").toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                </p>
+                                </div>
                             </div>
 
-                            {/* Documents Review */}
-                            <div className="flex gap-2 items-center flex-wrap shrink-0">
-                                <button
-                                    onClick={() => setSelectedImage({ url: provider.identity_card_url || "", title: `KTP: ${provider.name}` })}
-                                    disabled={!provider.identity_card_url}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-bold text-slate-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-800 transition-colors disabled:opacity-50"
-                                >
-                                    <FileText className="w-4 h-4" />
-                                    Lihat KTP
-                                </button>
-                                
-                                {provider.primary_type === 'instructor' && (
-                                    <button
-                                        onClick={() => setSelectedImage({ url: provider.certification_url || "", title: `Sertifikasi: ${provider.name}` })}
-                                        disabled={!provider.certification_url}
-                                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-800 transition-colors disabled:opacity-50"
+                            {/* Card Body */}
+                            <div className="bg-white p-5">
+                                {/* Result Notification */}
+                                {actionResult?.id === provider.id && (
+                                    <div
+                                        className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm font-bold border ${
+                                            actionResult.isError
+                                                ? "bg-red-50 text-red-800 border-red-200"
+                                                : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                        }`}
                                     >
-                                        <Award className="w-4 h-4" />
-                                        Lihat Sertifikasi
+                                        {actionResult.isError ? (
+                                            <XCircle className="w-4 h-4 shrink-0" />
+                                        ) : (
+                                            <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                        )}
+                                        {actionResult.msg}
+                                    </div>
+                                )}
+
+                                {/* Info Grid */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                                    <div className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <MapPin className="w-4 h-4 text-[#023E8A] mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Lokasi</p>
+                                            <p className="text-sm font-bold text-slate-800 mt-0.5">{provider.location || "—"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <Phone className="w-4 h-4 text-[#023E8A] mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Kontak</p>
+                                            <p className="text-sm font-bold text-slate-800 mt-0.5">{provider.contact || "—"}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Document Review Row */}
+                                <div className="flex flex-wrap gap-2 mb-5">
+                                    <p className="w-full text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                                        Dokumen Identitas
+                                    </p>
+                                    {/* KTP Button */}
+                                    <button
+                                        onClick={() =>
+                                            setSelectedImage({
+                                                url: provider.identity_card_url || "",
+                                                title: `KTP: ${provider.name}`,
+                                            })
+                                        }
+                                        disabled={!provider.identity_card_url}
+                                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                                            provider.identity_card_url
+                                                ? "bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
+                                                : "bg-gray-50 border-gray-200 text-gray-400"
+                                        }`}
+                                    >
+                                        <FileText className="w-4 h-4" />
+                                        {provider.identity_card_url ? "✅ Lihat KTP" : "❌ KTP Belum Upload"}
                                     </button>
+
+                                    {/* Sertifikasi (hanya untuk instruktur) */}
+                                    {provider.primary_type === "instructor" && (
+                                        <button
+                                            onClick={() =>
+                                                setSelectedImage({
+                                                    url: provider.certification_url || "",
+                                                    title: `Sertifikasi: ${provider.name}`,
+                                                })
+                                            }
+                                            disabled={!provider.certification_url}
+                                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                                                provider.certification_url
+                                                    ? "bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100"
+                                                    : "bg-gray-50 border-gray-200 text-gray-400"
+                                            }`}
+                                        >
+                                            <Award className="w-4 h-4" />
+                                            {provider.certification_url
+                                                ? "✅ Lihat Sertifikasi"
+                                                : "❌ Sertifikasi Belum Upload"}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Action Buttons — hanya untuk pending providers */}
+                                {isActionable && (
+                                    <div className="flex gap-3 pt-4 border-t border-slate-100">
+                                        {/* Approve */}
+                                        <button
+                                            onClick={() => handleVerify(provider.id, "approve")}
+                                            disabled={isThisPending}
+                                            className="flex-1 flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-sm font-black shadow-md hover:shadow-lg transition-all active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed"
+                                            style={{ background: "linear-gradient(135deg, #047857, #059669)" }}
+                                        >
+                                            {isThisPending ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <ShieldCheck className="w-4 h-4" />
+                                            )}
+                                            {isThisPending ? "Memproses..." : "✓ SETUJUI"}
+                                        </button>
+
+                                        {/* Reject */}
+                                        <button
+                                            onClick={() => handleVerify(provider.id, "reject")}
+                                            disabled={isThisPending}
+                                            className="flex-1 flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-red-700 bg-red-50 border-2 border-red-200 text-sm font-black hover:bg-red-100 hover:border-red-300 transition-all active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            {isThisPending ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <XCircle className="w-4 h-4" />
+                                            )}
+                                            {isThisPending ? "Memproses..." : "✕ TOLAK"}
+                                        </button>
+                                    </div>
                                 )}
                             </div>
-
-                            {/* Action Decisions */}
-                            <div className="flex gap-2 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-5 shrink-0 flex-col md:flex-row">
-                                <button
-                                    onClick={() => handleVerify(provider.id, "approve")}
-                                    disabled={isPending}
-                                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold shadow-sm hover:bg-emerald-700 hover:shadow-md transition-all active:scale-[0.98] disabled:opacity-50"
-                                >
-                                    {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4" />}
-                                    Terima
-                                </button>
-                                <button
-                                    onClick={() => handleVerify(provider.id, "reject")}
-                                    disabled={isPending}
-                                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-red-50 text-red-700 text-sm font-bold hover:bg-red-100 transition-colors disabled:opacity-50"
-                                >
-                                    <XCircle className="w-4 h-4" />
-                                    Tolak
-                                </button>
-                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

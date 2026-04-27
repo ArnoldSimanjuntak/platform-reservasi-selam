@@ -3,13 +3,38 @@ import PremiumServiceCard from "@/components/PremiumServiceCard";
 import MapWrapper from "@/components/MapWrapper";
 import Link from "next/link";
 import { getServices } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import type { Service } from "@/lib/supabase";
 
-// Revalidate data setiap 60 detik (ISR)
-export const revalidate = 60;
+// Force-dynamic: halaman ini mengecek session, jangan cache.
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
-    // Fetch services dari Supabase
+    // ─── Auth check: redirect provider & admin ──────────────────────
+    // Middleware sudah menangani ini, tapi kita tambahkan guard di level page
+    // sebagai lapisan keamanan kedua (defense in depth).
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+        const { data: userRecord } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", user.id)
+            .single();
+
+        const role = userRecord?.role || user.user_metadata?.role;
+
+        // Provider diredirect ke halaman operasional mereka.
+        // Admin DIIZINKAN melihat landing page sebagai superadmin marketplace.
+        if (role === "provider") {
+            redirect("/dashboard/provider/orders");
+        }
+    }
+
+
+    // Customer / Guest: lanjutkan render landing page
     const { data: services, error } = await getServices();
 
     return (

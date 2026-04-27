@@ -49,10 +49,22 @@ export default async function ServiceDetailPage({ params }: PageProps) {
         data: { user },
     } = await supabase.auth.getUser();
 
+    // Ambil role dari DB untuk keperluan Mode Admin
+    let initialUserRole = "customer";
+    if (user) {
+        const { data: userRecord } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", user.id)
+            .single();
+        initialUserRole = userRecord?.role || user.user_metadata?.role || "customer";
+    }
+
     return (
         <ServiceDetailClient
             service={service}
             initialIsLoggedIn={!!user}
+            initialUserRole={initialUserRole}
             userId={user?.id || null}
             diveSites={diveSites}
         />

@@ -73,13 +73,13 @@ export default function PaymentUploaderCard({ bookingId, paymentDeadline, initia
                 const filePath = `${authData.user.id}/${bookingId}_${Date.now()}.${fileExt}`;
                 
                 const { error: uploadError } = await supabase.storage
-                    .from("payment-proofs")
+                    .from("payment-receipts")
                     .upload(filePath, file);
 
                 if (uploadError) throw uploadError;
 
                 const { data: urlData } = supabase.storage
-                    .from("payment-proofs")
+                    .from("payment-receipts")
                     .getPublicUrl(filePath);
 
                 // Call Server Action

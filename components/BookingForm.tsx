@@ -14,8 +14,9 @@ import {
     AlertTriangle,
     XCircle,
     MapPin,
+    Clock,
 } from "lucide-react";
-import { createBooking, getRemainingSlots } from "@/app/actions/booking";
+import { createBooking, getRemainingSlots, getGearAvailableStock } from "@/app/actions/booking";
 import { createClient } from "@/lib/supabase/client";
 import type { BookingResult } from "@/app/actions/booking";
 import type { DiveSite } from "@/lib/supabase";
@@ -27,6 +28,7 @@ interface BookingFormProps {
     maxCapacity: number;
     initialIsLoggedIn?: boolean;
     isBoat?: boolean;
+    isGear?: boolean;
     diveSites?: DiveSite[];
 }
 
@@ -37,37 +39,42 @@ export default function BookingForm({
     maxCapacity,
     initialIsLoggedIn = false,
     isBoat = false,
+    isGear = false,
     diveSites = [],
 }: BookingFormProps) {
     const router = useRouter();
     const [guests, setGuests] = useState(1);
     const [date, setDate] = useState("");
+    const [rentalDays, setRentalDays] = useState(1);
     const [selectedDiveSiteId, setSelectedDiveSiteId] = useState<string>("");
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<BookingResult | null>(null);
     const [remainingSlots, setRemainingSlots] = useState<number | null>(null);
     const [isCheckingSlots, setIsCheckingSlots] = useState(false);
-    // Use server-provided auth state as initial value (reliable, from httpOnly cookies)
+    // ── Auth state: dimulai dari nilai SSR, lalu disinkronkan via client ──
     const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(initialIsLoggedIn);
 
-    // Listen for auth state changes (login/logout in another tab, token refresh, etc.)
+    // ── Sinkronisasi Auth: selalu verifikasi via getUser() + pantau perubahan sesi ──
     useEffect(() => {
         const supabase = createClient();
 
-        // If server didn't provide auth state, do a client-side check as fallback
-        if (initialIsLoggedIn === undefined) {
-            const checkAuth = async () => {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user) {
-                    setIsLoggedIn(true);
-                    return;
+        // Selalu panggil getUser() untuk memvalidasi token secara kriptografis
+        // (lebih aman dari getSession() yang hanya baca localStorage)
+        const syncAuthState = async () => {
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                if (error) {
+                    setIsLoggedIn(false);
+                } else {
+                    setIsLoggedIn(!!user);
                 }
-                const { data: { user } } = await supabase.auth.getUser();
-                setIsLoggedIn(!!user);
-            };
-            checkAuth();
-        }
+            } catch {
+                setIsLoggedIn(false);
+            }
+        };
+        syncAuthState();
 
+        // Pantau perubahan sesi: login/logout di tab lain, token refresh, dll.
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             (event, session) => {
                 setIsLoggedIn(!!session?.user);
@@ -81,7 +88,7 @@ export default function BookingForm({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Fetch remaining slots when date changes
+    // Fetch remaining slots / gear stock when date or rental days changes
     useEffect(() => {
         if (!date) {
             setRemainingSlots(null);
@@ -91,16 +98,27 @@ export default function BookingForm({
         setIsCheckingSlots(true);
         setResult(null);
 
-        getRemainingSlots(serviceId, date).then((res) => {
-            setRemainingSlots(res.remaining);
-            setIsCheckingSlots(false);
-            // Reset guests if exceeds remaining
-            if (res.remaining > 0 && guests > res.remaining) {
-                setGuests(Math.min(guests, res.remaining));
-            }
-        });
+        if (isGear) {
+            // Gear: cek stok dengan mempertimbangkan overlap tanggal sewa
+            getGearAvailableStock(serviceId, date, rentalDays).then((res) => {
+                setRemainingSlots(res.available);
+                setIsCheckingSlots(false);
+                if (res.available > 0 && guests > res.available) {
+                    setGuests(Math.min(guests, res.available));
+                }
+            });
+        } else {
+            // Boat / Instructor: cek kapasitas per hari
+            getRemainingSlots(serviceId, date).then((res) => {
+                setRemainingSlots(res.remaining);
+                setIsCheckingSlots(false);
+                if (res.remaining > 0 && guests > res.remaining) {
+                    setGuests(Math.min(guests, res.remaining));
+                }
+            });
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [date, serviceId]);
+    }, [date, serviceId, rentalDays, isGear]);
 
     const formatPrice = (amount: number) => {
         return new Intl.NumberFormat("id-ID", {
@@ -113,7 +131,10 @@ export default function BookingForm({
 
     const selectedSite = isBoat ? diveSites.find(s => s.id === selectedDiveSiteId) : null;
     const surcharge = selectedSite ? selectedSite.surcharge_fee : 0;
-    const totalPrice = (price * guests) + surcharge;
+    // Untuk gear: totalPrice = harga × durasi (hari); untuk boat/instructor: harga × peserta + surcharge
+    const totalPrice = isGear
+        ? price * rentalDays * guests
+        : (price * guests) + surcharge;
 
     // Minimum date = today (in local timezone, safe for WITA UTC+8)
     // Using manual local date construction to avoid UTC conversion issues
@@ -127,7 +148,10 @@ export default function BookingForm({
     const minDate = todayStr;
 
     const handleBooking = () => {
-        // If not logged in, redirect to login
+        // Jika status login belum diketahui (null = sedang load), tunggu sebentar
+        if (isLoggedIn === null) return;
+
+        // Jika tidak login, redirect ke halaman login
         if (!isLoggedIn) {
             router.push(`/auth/login?redirectTo=/services/${serviceId}`);
             return;
@@ -136,7 +160,7 @@ export default function BookingForm({
         if (!date) {
             setResult({
                 success: false,
-                message: "Pilih tanggal dive terlebih dahulu.",
+                message: "Pilih tanggal terlebih dahulu.",
             });
             return;
         }
@@ -149,27 +173,49 @@ export default function BookingForm({
             return;
         }
 
+        if (isGear && rentalDays < 1) {
+            setResult({
+                success: false,
+                message: "Durasi sewa minimal 1 hari.",
+            });
+            return;
+        }
+
         startTransition(async () => {
-            const bookingResult = await createBooking(serviceId, date, guests, isBoat ? selectedDiveSiteId : undefined);
-            
-            // If server says user is not logged in but client thinks they are,
-            // the cookie is stale — force a full page reload to resync middleware
-            if (!bookingResult.success && bookingResult.message.includes("log in") && isLoggedIn) {
-                window.location.reload();
-                return;
-            }
-            
-            setResult(bookingResult);
+            try {
+                const bookingResult = await createBooking(
+                    serviceId,
+                    date,
+                    guests,
+                    isBoat ? selectedDiveSiteId : undefined, // server coalesces to null
+                    isGear ? rentalDays : undefined
+                );
+                
+                // Jika server bilang user tidak login padahal client pikir sudah login
+                // (cookie stale) → paksa reload untuk sinkron dengan middleware
+                if (!bookingResult.success && bookingResult.message.includes("log in") && isLoggedIn) {
+                    window.location.reload();
+                    return;
+                }
+                
+                setResult(bookingResult);
 
-            if (bookingResult.success) {
-                // Update remaining slots after successful booking
-                setRemainingSlots(bookingResult.remainingSlots ?? null);
+                if (bookingResult.success) {
+                    // Perbarui sisa slot setelah booking berhasil
+                    setRemainingSlots(bookingResult.remainingSlots ?? null);
 
-                // Redirect to bookings page after a short delay
-                setTimeout(() => {
-                    router.push("/dashboard/bookings");
-                    router.refresh();
-                }, 2000);
+                    // Redirect ke halaman bookings setelah delay singkat
+                    setTimeout(() => {
+                        router.push("/dashboard/bookings");
+                        router.refresh();
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error("Network Error:", error);
+                setResult({
+                    success: false,
+                    message: "Terjadi kesalahan jaringan. Silakan periksa koneksi Anda dan coba lagi.",
+                });
             }
         });
     };
@@ -234,23 +280,23 @@ export default function BookingForm({
                 </div>
             )}
 
-            {/* ─── Destination Picker (Only for Boats) ────────── */}
+            {/* ─── Destination Picker (Khusus Boat) ───────────── */}
             {isBoat && (
                 <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-900 block">
-                        Pilih Destinasi
+                    <label className="text-sm font-bold text-[#111827] block">
+                        📍 Pilih Destinasi
                     </label>
                     <div className="relative">
                         <MapPin className="absolute left-3.5 top-3 w-5 h-5 text-gray-400" />
                         <select
-                            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-slate-900 font-bold bg-white appearance-none cursor-pointer"
+                            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-[#111827] font-bold bg-white appearance-none cursor-pointer"
                             value={selectedDiveSiteId}
                             onChange={(e) => setSelectedDiveSiteId(e.target.value)}
                             disabled={isPending}
                         >
                             <option value="" disabled>-- Pilih Spot Selam --</option>
                             {diveSites.map(site => (
-                                <option key={site.id} value={site.id} className="text-slate-900 font-medium">
+                                <option key={site.id} value={site.id} className="text-[#111827] font-medium">
                                     {site.name} {site.surcharge_fee > 0 ? `(+ ${formatPrice(site.surcharge_fee)})` : '(Gratis Zona Dekat)'}
                                 </option>
                             ))}
@@ -259,16 +305,52 @@ export default function BookingForm({
                 </div>
             )}
 
+            {/* ─── Durasi Sewa (Khusus Gear/Alat) ─────────────── */}
+            {isGear && (
+                <div className="space-y-2">
+                    <label className="text-sm font-bold text-[#111827] block">
+                        ⏱️ Durasi Sewa (Hari)
+                    </label>
+                    <div className="flex items-center justify-between p-1 rounded-lg border border-gray-200">
+                        <button
+                            type="button"
+                            onClick={() => setRentalDays(d => Math.max(1, d - 1))}
+                            disabled={rentalDays <= 1 || isPending}
+                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            <Minus className="w-4 h-4" />
+                        </button>
+                        <div className="text-center">
+                            <span className="text-lg font-bold text-deepSea">{rentalDays}</span>
+                            <span className="text-xs text-gray-400 block">hari</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setRentalDays(d => Math.min(30, d + 1))}
+                            disabled={rentalDays >= 30 || isPending}
+                            className="w-10 h-10 flex items-center justify-center text-primary hover:bg-blue-50 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            <Plus className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Harga per hari: {formatPrice(price)} × {rentalDays} hari × {guests} unit
+                    </p>
+                </div>
+            )}
+
             {/* ─── Date Picker ───────────────────────────────── */}
             <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 block">
-                    Select Dive Date
+                <label className="text-sm font-bold text-[#111827] block">
+                    {isGear ? "📅 Tanggal Mulai Sewa" : "📅 Pilih Tanggal Selam"}
                 </label>
                 <div className="relative">
                     <Calendar className="absolute left-3.5 top-3 w-5 h-5 text-gray-400" />
                     <input
                         type="date"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-gray-600 font-medium"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-[#111827] font-extrabold bg-white"
+                        style={{ colorScheme: "light" }}
                         value={date}
                         min={minDate}
                         onChange={(e) => setDate(e.target.value)}
@@ -299,11 +381,15 @@ export default function BookingForm({
                             <div>
                                 <span className={`text-sm font-semibold ${getCapacityColor()}`}>
                                     {remainingSlots === 0
-                                        ? "Fully booked — no slots left"
-                                        : `${remainingSlots} slots available`}
+                                        ? isGear ? "Stok habis" : "Kapasitas penuh"
+                                        : isGear
+                                            ? `${remainingSlots} unit tersedia`
+                                            : `${remainingSlots} slot tersedia`}
                                 </span>
                                 <span className="text-xs text-gray-400 block">
-                                    out of max {maxCapacity} divers/day
+                                    {isGear
+                                        ? `dari stok maks ${maxCapacity} unit`
+                                        : `dari maks ${maxCapacity} penyelam/hari`}
                                 </span>
                             </div>
                         </>
@@ -313,8 +399,8 @@ export default function BookingForm({
 
             {/* ─── Guest Counter ─────────────────────────────── */}
             <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 block">
-                    Number of Divers
+                <label className="text-sm font-bold text-[#111827] block">
+                    {isGear ? "📦 Jumlah Unit" : "🤿 Jumlah Penyelam"}
                 </label>
                 <div className="flex items-center justify-between p-1 rounded-lg border border-gray-200">
                     <button
@@ -324,7 +410,7 @@ export default function BookingForm({
                     >
                         <Minus className="w-4 h-4" />
                     </button>
-                    <span className="text-lg font-bold text-deepSea w-12 text-center">
+                    <span className="text-xl font-extrabold text-[#111827] w-12 text-center">
                         {guests}
                     </span>
                     <button
@@ -343,18 +429,29 @@ export default function BookingForm({
 
             {/* ─── Total Summary ─────────────────────────────── */}
             <div className="pt-4 border-t border-gray-100 flex flex-col gap-2">
-                <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600 font-medium">Subtotal ({guests} pax)</span>
-                    <span className="text-slate-900 font-bold">{formatPrice(price * guests)}</span>
-                </div>
-                {selectedSite && (
-                    <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-600 font-medium">Surcharge Jarak</span>
-                        <span className="text-slate-900 font-bold">{surcharge === 0 ? "Gratis" : formatPrice(surcharge)}</span>
-                    </div>
+                {isGear ? (
+                    <>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-600 font-medium">Harga/hari × {rentalDays} hari × {guests} unit</span>
+                            <span className="text-[#111827] font-bold">{formatPrice(price * rentalDays * guests)}</span>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-600 font-medium">Subtotal ({guests} pax)</span>
+                            <span className="text-[#111827] font-bold">{formatPrice(price * guests)}</span>
+                        </div>
+                        {selectedSite && (
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-slate-600 font-medium">Surcharge Jarak</span>
+                                <span className="text-[#111827] font-bold">{surcharge === 0 ? "Gratis" : formatPrice(surcharge)}</span>
+                            </div>
+                        )}
+                    </>
                 )}
                 <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-50">
-                    <span className="text-slate-900 font-bold">Estimated Total</span>
+                    <span className="text-[#111827] font-bold">Estimasi Total</span>
                     <span className="text-xl font-extrabold text-primary">
                         {formatPrice(totalPrice)}
                     </span>
@@ -366,6 +463,7 @@ export default function BookingForm({
                 onClick={handleBooking}
                 disabled={
                     isPending ||
+                    isLoggedIn === null ||
                     (remainingSlots !== null && remainingSlots === 0) ||
                     result?.success === true ||
                     (isBoat && !selectedDiveSiteId)
@@ -375,21 +473,26 @@ export default function BookingForm({
                 {isPending ? (
                     <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        Processing Booking...
+                        Memproses Pesanan...
+                    </>
+                ) : isLoggedIn === null ? (
+                    <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Memverifikasi...
                     </>
                 ) : result?.success ? (
                     <>
                         <CheckCircle2 className="w-5 h-5" />
-                        Booking Successful
+                        Pesanan Berhasil!
                     </>
-                ) : !isLoggedIn && isLoggedIn !== null ? (
+                ) : !isLoggedIn ? (
                     <>
-                        Login to Book
+                        Silakan Login untuk Memesan
                         <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </>
                 ) : (
                     <>
-                        Book Now
+                        Pesan Sekarang
                         <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </>
                 )}

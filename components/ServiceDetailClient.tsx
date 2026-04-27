@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useState, useEffect } from "react";
 import {
     MapPin,
     Star,
@@ -13,19 +14,60 @@ import {
     Ship,
     Clock,
     Info,
+    ShieldAlert,
 } from "lucide-react";
 import type { Service, DiveSite } from "@/lib/supabase";
 import BookingForm from "@/components/BookingForm";
 import AddToTripButton from "@/components/AddToTripButton";
+import { createClient } from "@/lib/supabase/client";
 
 interface ServiceDetailClientProps {
     service: Service;
     initialIsLoggedIn: boolean;
+    initialUserRole?: string;
     userId: string | null;
     diveSites?: DiveSite[];
 }
 
-export default function ServiceDetailClient({ service, initialIsLoggedIn, userId, diveSites = [] }: ServiceDetailClientProps) {
+export default function ServiceDetailClient({ service, initialIsLoggedIn, initialUserRole = "customer", userId, diveSites = [] }: ServiceDetailClientProps) {
+    // ── Auth state: null = memuat, true = login, false = belum login ──
+    // Mulai dari nilai SSR agar tidak ada flash pop-up login yang salah
+    const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(initialIsLoggedIn);
+    const [userRole, setUserRole] = useState<string>(initialUserRole);
+
+    useEffect(() => {
+        const supabase = createClient();
+
+        // Verifikasi token secara kriptografis — lebih andal dari SSR cookie race condition
+        supabase.auth.getUser().then(({ data: { user }, error }) => {
+            setIsLoggedIn(!error && !!user);
+            if (user) {
+                // Sinkronisasi role dari DB
+                supabase
+                    .from("users")
+                    .select("role")
+                    .eq("id", user.id)
+                    .single()
+                    .then(({ data }) => {
+                        if (data?.role) setUserRole(data.role);
+                    });
+            } else {
+                setUserRole("customer");
+            }
+        });
+
+        // Pantau perubahan sesi secara real-time (login di tab lain, logout, refresh token)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setIsLoggedIn(!!session?.user);
+            if (!session?.user) setUserRole("customer");
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const isGear = service.type === "gear";
+    const isBoat = service.type === "boat";
+
     // Dummy features data based on service type
     const features = [
         { icon: Camera, label: "Camera Room", description: "Dedicated room for rinsing & camera setup" },
@@ -181,29 +223,56 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, userId
                         <div className="sticky top-24 space-y-6">
                             <div className="bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-blue-100 overflow-hidden">
                                 <div className="bg-gradient-to-r from-primary to-deepSea p-6 text-white text-center">
-                                    <p className="text-sm font-medium opacity-90 mb-1">Starting From</p>
+                                    <p className="text-sm font-medium opacity-90 mb-1">
+                                        {isGear ? "Harga Sewa" : "Mulai Dari"}
+                                    </p>
                                     <h3 className="text-3xl font-bold">{formatPrice(service.price)}</h3>
-                                    <p className="text-xs opacity-75">per pax / day</p>
+                                    <p className="text-xs opacity-75">
+                                        {isGear ? "per unit / hari" : "per pax / hari"}
+                                    </p>
                                 </div>
 
                                 <div className="p-6">
-                                    <BookingForm
-                                        serviceId={service.id}
-                                        serviceName={service.name}
-                                        price={service.price}
-                                        maxCapacity={service.max_capacity}
-                                        initialIsLoggedIn={initialIsLoggedIn}
-                                        isBoat={service.type === "boat"}
-                                        diveSites={diveSites}
-                                    />
+                                    {userRole === "admin" || userRole === "provider" ? (
+                                        /* ─── Mode Admin/Provider: Tidak bisa memesan ─── */
+                                        <div className="flex flex-col items-center justify-center gap-4 py-6 text-center">
+                                            <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center">
+                                                <ShieldAlert className="w-7 h-7 text-amber-500" />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-800 text-sm">Akses Dibatasi</p>
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    Anda tidak dapat memesan layanan dengan akun {userRole === "admin" ? "Admin" : "Provider"}.
+                                                </p>
+                                            </div>
+                                            <div className="w-full py-3.5 rounded-xl text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 flex items-center justify-center gap-2">
+                                                <ShieldAlert className="w-4 h-4" />
+                                                Hanya wisatawan yang dapat memesan
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        /* ─── Booking Form Normal ─── */
+                                        <>
+                                            <BookingForm
+                                                serviceId={service.id}
+                                                serviceName={service.name}
+                                                price={service.price}
+                                                maxCapacity={service.max_capacity}
+                                                initialIsLoggedIn={initialIsLoggedIn}
+                                                isBoat={isBoat}
+                                                isGear={isGear}
+                                                diveSites={diveSites}
+                                            />
 
-                                    <AddToTripButton
-                                        serviceId={service.id}
-                                        serviceName={service.name}
-                                        price={service.price}
-                                        imageUrl={service.image_url || ""}
-                                        diveSiteCategory={service.dive_site_category}
-                                    />
+                                            <AddToTripButton
+                                                serviceId={service.id}
+                                                serviceName={service.name}
+                                                price={service.price}
+                                                imageUrl={service.image_url || ""}
+                                                diveSiteCategory={service.dive_site_category}
+                                            />
+                                        </>
+                                    )}
                                 </div>
                             </div>
 

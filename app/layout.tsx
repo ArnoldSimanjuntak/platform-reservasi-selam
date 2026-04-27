@@ -4,9 +4,10 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import InstallPrompt from "@/components/InstallPrompt";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
-import CartSidebar from "@/components/CartSidebar";
 import BottomNav from "@/components/BottomNav";
 import "./globals.css";
+
+export const dynamic = 'force-dynamic';
 
 const inter = Inter({
   variable: "--font-inter",
@@ -57,12 +58,25 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        {/* Script kritis: Tangkap beforeinstallprompt SEBELUM React hydration.
+            Browser memicu event ini sangat awal — jika React belum mount,
+            event akan hilang selamanya. Script ini menyimpannya ke global. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__deferredInstallPrompt = null;
+              window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                window.__deferredInstallPrompt = e;
+              }, { once: true });
+            `,
+          }}
+        />
       </head>
       <body
         className={`${inter.variable} font-sans antialiased bg-neutral text-deepSea max-md:pb-16`}
       >
         <Navbar />
-        <CartSidebar />
         {children}
         <Footer />
         <BottomNav />

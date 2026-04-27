@@ -5,6 +5,8 @@ import Link from "next/link";
 import { signOut } from "@/app/auth/actions";
 import ProviderOrderFeed from "@/components/ProviderOrderFeed";
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
     const supabase = await createClient();
     const {
@@ -39,6 +41,9 @@ export default async function DashboardPage() {
         .single();
 
     // ─── 3. Logika routing berdasarkan role + profil ──────────
+    // Admin: middleware sudah handle redirect ke /admin/verifikasi.
+    // Tidak perlu redirect lagi di sini untuk menghindari loop.
+
     if (userRole === "provider") {
         if (!providerProfile || !providerProfile.is_active) {
             redirect("/dashboard/provider/setup");
@@ -397,7 +402,7 @@ function CustomerDashboardView({
 
                     {/* Main Content */}
                     <div className="md:col-span-2 space-y-6">
-                        {/* ─── My Trip Stats ────────────────────────── */}
+                        {/* ─── Booking History Stats ────────────────────────── */}
                         <div className="grid grid-cols-3 gap-4">
                             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 text-center">
                                 <div className="w-10 h-10 mx-auto rounded-xl bg-amber-50 flex items-center justify-center mb-2">

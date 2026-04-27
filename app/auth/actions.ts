@@ -98,11 +98,13 @@ export async function signUp(formData: FormData) {
             }
 
             // Redirect provider ke halaman setup profil bisnis
+            revalidatePath("/", "layout");
             redirect("/dashboard/provider/setup");
         }
     }
 
     // Registrasi berhasil & auto-confirmed (Customer) → redirect ke halaman utama
+    revalidatePath("/", "layout");
     redirect("/");
 }
 
@@ -132,6 +134,24 @@ export async function signIn(formData: FormData) {
             errorMessage = "Email atau password salah.";
         }
         redirect(`/auth/login?error=${encodeURIComponent(errorMessage)}`);
+    }
+
+    // ─── Cek role user → redirect ke panel yang sesuai ──────────
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        const { data: userRecord } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", user.id)
+            .single();
+
+        const role = userRecord?.role || user.user_metadata?.role;
+
+        revalidatePath("/", "layout");
+
+        if (role === "admin") {
+            redirect("/admin/verifikasi");
+        }
     }
 
     revalidatePath("/", "layout");

@@ -10,6 +10,31 @@ export interface BookingResult {
 }
 
 /**
+ * Server Action: Cek stok gear yang tersedia untuk rentang tanggal tertentu.
+ * Menggunakan RPC get_gear_available_stock yang memperhitungkan overlap sewa.
+ */
+export async function getGearAvailableStock(
+    serviceId: string,
+    startDate: string,
+    rentalDays: number = 1
+): Promise<{ available: number; error?: string }> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase.rpc("get_gear_available_stock", {
+        p_service_id: serviceId,
+        p_start_date: startDate,
+        p_rental_days: rentalDays,
+    });
+
+    if (error) {
+        console.error("Gear stock check error:", error);
+        return { available: 0, error: error.message };
+    }
+
+    return { available: data as number };
+}
+
+/**
  * Server Action: Membuat booking baru dengan validasi marketplace.
  *
  * Alur:
@@ -19,16 +44,17 @@ export interface BookingResult {
  *    3a. Validasi layanan masih tersedia (is_available)
  *    3b. Validasi layanan memiliki provider (provider_id)
  * 4. Jika ada diveSiteId, ambil surcharge_fee dari dive_sites
- * 5. Hitung sisa kapasitas via get_remaining_capacity RPC
- * 6. Jika slot tidak cukup → return error + sisa slot
- * 7. Hitung total_price (price × participants + surcharge)
- * 8. INSERT booking dengan provider_id → return success
+ * 5. Hitung stok/kapasitas berdasarkan tipe (gear vs boat/instructor)
+ * 6. Jika stok/slot tidak cukup → return error + sisa slot
+ * 7. Hitung total_price berdasarkan tipe layanan
+ * 8. INSERT booking → return success
  */
 export async function createBooking(
     serviceId: string,
     bookingDate: string,
     totalParticipants: number,
-    diveSiteId?: string
+    diveSiteId?: string,
+    rentalDays?: number
 ): Promise<BookingResult> {
     const supabase = await createClient();
 
@@ -42,6 +68,36 @@ export async function createBooking(
         return {
             success: false,
             message: "Please log in first to make a booking.",
+        };
+    }
+
+    // ─── 1b. Role Constraint: Hanya 'customer' yang boleh booking ────
+    // Query dari tabel users (ground truth) — jangan andalkan user_metadata saja.
+    const { data: userRecord } = await supabase
+        .from("users")
+        .select("role, name")
+        .eq("id", user.id)
+        .single();
+    
+    // Tolak jika user tidak terdaftar di tabel users (ghost auth user)
+    if (!userRecord) {
+        return {
+            success: false,
+            message: "Akun Anda belum terdaftar lengkap. Silakan hubungi admin.",
+        };
+    }
+
+    // Fallback: jika kolom role kosong di DB, cek user_metadata
+    const role = userRecord.role || user?.user_metadata?.role;
+
+    if (role !== "customer") {
+        const roleLabel: Record<string, string> = {
+            admin: "Admin",
+            provider: "Provider",
+        };
+        return {
+            success: false,
+            message: `Pemesanan hanya diperbolehkan untuk wisatawan. Akun ${roleLabel[role] || role} tidak dapat melakukan booking.`,
         };
     }
 
@@ -122,49 +178,107 @@ export async function createBooking(
         surcharge = diveSite.surcharge_fee;
     }
 
-    // ─── 5. Cek Sisa Kapasitas (Carrying Capacity) ─────────────
-    const { data: remainingCapacity, error: capacityError } = await supabase.rpc(
-        "get_remaining_capacity",
-        {
-            p_service_id: serviceId,
-            p_booking_date: bookingDate,
+    // ─── 5. Validasi Stok / Kapasitas berdasarkan tipe layanan ────
+    let remaining = 0;
+
+    if (service.type === "gear") {
+        // Gear: validasi berdasarkan stok unit dengan overlap tanggal sewa.
+        // Gunakan RPC get_gear_available_stock untuk akurasi.
+        const { data: gearStock, error: gearError } = await supabase.rpc(
+            "get_gear_available_stock",
+            {
+                p_service_id: serviceId,
+                p_start_date: bookingDate,
+                p_rental_days: rentalDays && rentalDays > 0 ? rentalDays : 1,
+            }
+        );
+
+        if (gearError) {
+            console.error("Gear stock check error:", gearError);
+            return {
+                success: false,
+                message: "Gagal memeriksa ketersediaan stok. Silakan coba lagi.",
+            };
         }
-    );
 
-    if (capacityError) {
-        console.error("Capacity check error:", capacityError);
-        return {
-            success: false,
-            message: "Failed to check availability. Please try again later.",
-        };
-    }
+        remaining = gearStock as number;
 
-    const remaining = remainingCapacity as number;
+        // ─── 6a. Validasi stok gear ───────────────────────────────
+        if (remaining <= 0) {
+            return {
+                success: false,
+                message: "Stok alat habis untuk periode sewa yang Anda pilih. Coba tanggal lain.",
+                remainingSlots: 0,
+            };
+        }
 
-    // ─── 6. Validasi Carrying Capacity ─────────────────────────
-    if (remaining <= 0) {
-        return {
-            success: false,
-            message: `Sorry, capacity for ${bookingDate} is fully booked.`,
-            remainingSlots: 0,
-        };
-    }
+        if (totalParticipants > remaining) {
+            return {
+                success: false,
+                message: `Stok tidak cukup. Tersedia: ${remaining} unit untuk periode ini.`,
+                remainingSlots: remaining,
+            };
+        }
+    } else {
+        // Boat / Instructor: validasi berdasarkan carrying capacity per hari.
+        const { data: remainingCapacity, error: capacityError } = await supabase.rpc(
+            "get_remaining_capacity",
+            {
+                p_service_id: serviceId,
+                p_booking_date: bookingDate,
+            }
+        );
 
-    if (totalParticipants > remaining) {
-        return {
-            success: false,
-            message: `Insufficient capacity. Remaining slots available: ${remaining} divers.`,
-            remainingSlots: remaining,
-        };
+        if (capacityError) {
+            console.error("Capacity check error:", capacityError);
+            return {
+                success: false,
+                message: "Gagal memeriksa ketersediaan. Silakan coba lagi.",
+            };
+        }
+
+        remaining = remainingCapacity as number;
+
+        // ─── 6b. Validasi carrying capacity ──────────────────────
+        if (remaining <= 0) {
+            return {
+                success: false,
+                message: `Maaf, kapasitas tanggal ${bookingDate} sudah penuh.`,
+                remainingSlots: 0,
+            };
+        }
+
+        if (totalParticipants > remaining) {
+            return {
+                success: false,
+                message: `Kapasitas tidak cukup. Sisa slot tersedia: ${remaining} penyelam.`,
+                remainingSlots: remaining,
+            };
+        }
     }
 
     // ─── 7. Hitung Total Harga ───────────────────────────────────
-    const totalPrice = service.price * totalParticipants + surcharge;
+    // Gear: harga × jumlah unit × durasi sewa (hari)
+    // Boat: harga × jumlah penyelam + surcharge jarak ke lokasi
+    // Instructor: harga × jumlah penyelam (per hari, tanpa surcharge)
+    const effectiveDays = rentalDays && rentalDays > 0 ? rentalDays : 1;
+    let totalPrice: number;
+
+    if (service.type === "gear") {
+        // Gear: price per unit per day × quantity × days
+        totalPrice = service.price * totalParticipants * effectiveDays;
+    } else if (diveSiteId && surcharge > 0) {
+        // Boat dengan surcharge jarak ke dive site
+        totalPrice = service.price * totalParticipants + surcharge;
+    } else {
+        // Instructor atau boat tanpa surcharge
+        totalPrice = service.price * totalParticipants;
+    }
 
     // ─── 8. Hitung Payment Deadline (24 jam dari sekarang) ────────
     const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-    // ─── 9. INSERT Booking dengan provider_id + payment info ─────
+    // ─── 9. INSERT Booking dengan semua field yang benar ─────────
     const { data: booking, error: bookingError } = await supabase
         .from("bookings")
         .insert({
@@ -173,7 +287,8 @@ export async function createBooking(
             provider_id: service.provider_id || null,
             dive_site_id: diveSiteId || null,
             booking_date: bookingDate,
-            total_participants: totalParticipants,
+            total_participants: totalParticipants,   // jumlah penyelam ATAU jumlah unit gear
+            rental_days: service.type === "gear" ? effectiveDays : null,  // hanya untuk gear
             total_price: totalPrice,
             status: "pending",
             payment_status: "unpaid",
@@ -186,13 +301,17 @@ export async function createBooking(
         console.error("Booking insert error:", bookingError);
         return {
             success: false,
-            message: `Failed to create booking: ${bookingError.message}`,
+            message: `Gagal membuat booking: ${bookingError.message}`,
         };
     }
 
+    const successLabel = service.type === "gear"
+        ? `${totalParticipants} unit alat selama ${effectiveDays} hari`
+        : `${totalParticipants} penyelam`;
+
     return {
         success: true,
-        message: `Booking confirmed successfully! ${totalParticipants} diver(s) for ${service.name} on ${bookingDate}.`,
+        message: `Booking berhasil! ${successLabel} untuk ${service.name} mulai ${bookingDate}.`,
         bookingId: booking.id,
         remainingSlots: remaining - totalParticipants,
     };

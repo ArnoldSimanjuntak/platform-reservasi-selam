@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Ship, MapPin, Phone, FileText, Anchor, ArrowRight, Loader2, XCircle, Users as UsersIcon, Wrench, IdCard, GraduationCap } from "lucide-react";
+import { useState, useTransition, useEffect, Suspense } from "react";
+import { Ship, MapPin, Phone, FileText, Anchor, ArrowRight, Loader2, XCircle, Users as UsersIcon, Wrench, IdCard, GraduationCap, Clock, CheckCircle2 } from "lucide-react";
 import { setupProviderProfile } from "@/app/actions/provider";
 import type { ProviderSetupResult } from "@/app/actions/provider";
+import { createClient } from "@/lib/supabase/client";
+import { useSearchParams } from "next/navigation";
 
 const providerTypes = [
     {
@@ -38,22 +40,79 @@ const providerTypes = [
     },
 ];
 
-export default function ProviderSetupPage() {
+function ProviderSetupContent() {
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<ProviderSetupResult | null>(null);
     const [selectedType, setSelectedType] = useState("boat");
+    const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+    const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+    const searchParams = useSearchParams();
+    const notice = searchParams.get("notice");
+
+    useEffect(() => {
+        const fetchStatus = async () => {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase
+                    .from("providers")
+                    .select("verification_status")
+                    .eq("owner_user_id", user.id)
+                    .single();
+                
+                if (data) {
+                    setVerificationStatus(data.verification_status);
+                }
+            }
+            setIsLoadingStatus(false);
+        };
+        fetchStatus();
+    }, []);
 
     function handleSubmit(formData: FormData) {
         setResult(null);
         startTransition(async () => {
             const res = await setupProviderProfile(formData);
             setResult(res);
+            if (res.success) {
+                // Optimistic UI update
+                setVerificationStatus("pending");
+            }
         });
     }
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-xl w-full mx-auto">
+                {/* Notice Banner dari Middleware */}
+                {notice && (
+                    <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+                        <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <p className="text-sm text-amber-800 font-bold">{notice}</p>
+                    </div>
+                )}
+
+                {/* Verification Status Banner */}
+                {!isLoadingStatus && verificationStatus === "pending" && (
+                    <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 shadow-sm animate-in fade-in">
+                        <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-sm text-amber-800 font-bold">Status: Menunggu Verifikasi Admin</p>
+                            <p className="text-xs text-amber-700 mt-1">Data Anda sedang ditinjau. Anda belum dapat menerima pesanan. Proses ini memakan waktu 1x24 jam.</p>
+                        </div>
+                    </div>
+                )}
+
+                {!isLoadingStatus && verificationStatus === "verified" && (
+                    <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-3 shadow-sm animate-in fade-in">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-sm text-emerald-800 font-bold">Status: Terverifikasi</p>
+                            <p className="text-xs text-emerald-700 mt-1">Profil bisnis Anda aktif dan Anda dapat menerima pesanan dari wisatawan.</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header Section */}
                 <div className="text-center mb-8">
                     <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-200 shadow-sm">
@@ -264,5 +323,13 @@ export default function ProviderSetupPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ProviderSetupPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" /></div>}>
+            <ProviderSetupContent />
+        </Suspense>
     );
 }
