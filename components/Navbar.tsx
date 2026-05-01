@@ -13,7 +13,8 @@ export default function Navbar() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [user, setUser] = useState<SupabaseUser | null>(null);
-    const [userRole, setUserRole] = useState<string>("customer");
+    const [userRole, setUserRole] = useState<string | null>(null);
+    const [userName, setUserName] = useState<string>("");
     const [isLoading, setIsLoading] = useState(true);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const pathname = usePathname();
@@ -34,15 +35,7 @@ export default function Navbar() {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    // ── fetchAndSetRole: ambil role dari DB, lebih akurat dari user_metadata ──
-    const fetchAndSetRole = useCallback(async (userId: string, supabase: ReturnType<typeof createClient>) => {
-        const { data } = await supabase
-            .from("users")
-            .select("role")
-            .eq("id", userId)
-            .single();
-        if (data?.role) setUserRole(data.role);
-    }, []);
+
 
     // ── Listen to auth state changes + re-sync role saat navigasi ──
     useEffect(() => {
@@ -50,28 +43,51 @@ export default function Navbar() {
         const supabase = createClient();
 
         const checkUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!mounted) return;
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!mounted) return;
 
-            if (user) {
-                // Render UI secepatnya
-                setUser(user);
-                setIsLoading(false);
-                
-                // Ambil status role dari DB untuk provider/customer
-                const { data } = await supabase.from("users").select("role").eq("id", user.id).single();
-                
-                if (mounted) {
-                    if (!data?.role) {
-                        setUserRole("customer");
-                    } else {
-                        setUserRole(data.role);
+                if (user) {
+                    // Render UI secepatnya
+                    setUser(user);
+
+                    // Ambil status role dan name dari DB, dengan fallback ke metadata
+                    const { data, error: dbError } = await supabase
+                        .from("users")
+                        .select("role, name")
+                        .eq("id", user.id)
+                        .maybeSingle();
+
+                    if (dbError) {
+                        console.warn("[Navbar] DB role fetch failed, falling back to metadata:", dbError.message);
+                    }
+
+                    if (mounted) {
+                        // Fallback chain: DB → user_metadata → email prefix → defaults
+                        setUserName(
+                            data?.name ||
+                            user.user_metadata?.name ||
+                            user.email?.split("@")[0] ||
+                            "User"
+                        );
+                        setUserRole(
+                            data?.role ||
+                            user.user_metadata?.role ||
+                            "customer"
+                        );
+                    }
+                } else {
+                    if (mounted) {
+                        setUserRole(null);
+                        setUserName("");
+                        setUser(null);
                     }
                 }
-            } else {
+            } catch (error) {
+                console.error("[Navbar] checkUser unexpected error:", error);
+            } finally {
+                // ALWAYS unblock the UI, no matter what happened above
                 if (mounted) {
-                    setUserRole("customer");
-                    setUser(null);
                     setIsLoading(false);
                 }
             }
@@ -83,31 +99,58 @@ export default function Navbar() {
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange(async (event, session) => {
-            const currentUser = session?.user ?? null;
+            try {
+                const currentUser = session?.user ?? null;
 
-            if (currentUser) {
-                setUser(currentUser);
-                setIsLoading(false);
+                if (currentUser) {
+                    setUser(currentUser);
 
-                const { data } = await supabase.from("users").select("role").eq("id", currentUser.id).single();
-                
-                if (data?.role) {
-                    setUserRole(data.role);
+                    // Ambil role dari DB, dengan fallback ke metadata jika gagal
+                    const { data, error: dbError } = await supabase
+                        .from("users")
+                        .select("role, name")
+                        .eq("id", currentUser.id)
+                        .maybeSingle();
+
+                    if (dbError) {
+                        console.warn("[Navbar] onAuthStateChange DB fetch failed, using metadata fallback:", dbError.message);
+                    }
+
+                    if (mounted) {
+                        setUserName(
+                            data?.name ||
+                            currentUser.user_metadata?.name ||
+                            currentUser.email?.split("@")[0] ||
+                            "User"
+                        );
+                        setUserRole(
+                            data?.role ||
+                            currentUser.user_metadata?.role ||
+                            "customer"
+                        );
+                    }
+
+                    if (event === "SIGNED_IN") {
+                        router.refresh();
+                    } else if (event === "TOKEN_REFRESHED") {
+                        router.refresh();
+                    }
                 } else {
-                    setUserRole("customer");
+                    if (mounted) {
+                        setUserRole(null);
+                        setUserName("");
+                        setUser(null);
+                    }
+                    if (event === "SIGNED_OUT") {
+                        router.refresh();
+                    }
                 }
-
-                if (event === "SIGNED_IN") {
-                    router.refresh();
-                } else if (event === "TOKEN_REFRESHED") {
-                    router.refresh();
-                }
-            } else {
-                setUserRole("customer");
-                setUser(null);
-                setIsLoading(false);
-                if (event === "SIGNED_OUT") {
-                    router.refresh();
+            } catch (error) {
+                console.error("[Navbar] onAuthStateChange unexpected error:", error);
+            } finally {
+                // ALWAYS unblock the UI, no matter what happened above
+                if (mounted) {
+                    setIsLoading(false);
                 }
             }
         });
@@ -131,13 +174,21 @@ export default function Navbar() {
 
     async function handleSignOut() {
         setIsLoggingOut(true);
-        // Hapus auth local storage secara eksplisit
-        const supabase = createClient();
-        await supabase.auth.signOut();
-        
-        // Panggil server action yang akan menghapus cookie dan melakukan redirect.
-        // JANGAN dibungkus try/catch agar error NEXT_REDIRECT tidak tertelan.
-        await serverSignOut();
+        try {
+            // 1. Hapus sesi di browser (localStorage/cookies client-side)
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            // 2. Panggil Server Action untuk hapus cookie server-side & revalidasi cache
+            await serverSignOut();
+        } catch {
+            // serverSignOut() memanggil redirect() yang throw NEXT_REDIRECT — ini normal.
+            // Atau error lain (ghost session, network) — semua ditangani di finally.
+        } finally {
+            // 3. SELALU paksa hard redirect untuk membersihkan seluruh memori React.
+            // Ini menghancurkan semua state client (userRole, userName, dll)
+            // dan mencegah ghost session di mana UI masih menampilkan role lama.
+            window.location.href = "/auth/login?message=Berhasil+keluar";
+        }
     }
 
     if (isAuthPage) return null;
@@ -162,7 +213,8 @@ export default function Navbar() {
 
     const adminNavLinks: NavLink[] = [
         { name: "Dashboard", href: "/dashboard" },
-        { name: "Kelola Layanan", href: "/admin/services" },
+        { name: "Semua Layanan", href: "/admin/services" },
+        { name: "Semua Pesanan", href: "/admin/orders" },
         { name: "Panel Admin", href: "/admin", isButton: true },
     ];
 
@@ -174,7 +226,7 @@ export default function Navbar() {
     if (isAdmin) navLinks = adminNavLinks;
     else if (user && isProvider) navLinks = providerNavLinks;
 
-    const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
+    const displayUserName = userName.toUpperCase();
 
     return (
         <nav
@@ -231,9 +283,9 @@ export default function Navbar() {
                                     }`}
                             >
                                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-xs font-bold">
-                                    {userName.charAt(0).toUpperCase()}
+                                    {displayUserName.charAt(0).toUpperCase()}
                                 </div>
-                                <span className="max-w-[100px] truncate">{userName}</span>
+                                <span className="max-w-[100px] truncate">{displayUserName}</span>
                                 <ChevronDown className={`w-4 h-4 transition-transform ${isProfileMenuOpen ? "rotate-180" : ""}`} />
                             </button>
 
@@ -246,7 +298,7 @@ export default function Navbar() {
                                     {/* User info */}
                                     <div className="px-4 py-3 border-b border-gray-100">
                                         <p className="text-sm font-semibold text-gray-900 truncate">
-                                            {userName}
+                                            {displayUserName}
                                         </p>
                                         <p className="text-xs text-gray-500 truncate">
                                             {user.email}
@@ -279,12 +331,20 @@ export default function Navbar() {
                                                     Panel Verifikasi
                                                 </Link>
                                                 <Link
-                                                    href="/dashboard/provider/services"
+                                                    href="/admin/services"
                                                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                     onClick={() => setIsProfileMenuOpen(false)}
                                                 >
                                                     <Ship className="w-4 h-4 text-gray-400" />
-                                                    Master Layanan
+                                                    Semua Layanan
+                                                </Link>
+                                                <Link
+                                                    href="/admin/orders"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <ClipboardList className="w-4 h-4 text-gray-400" />
+                                                    Semua Pesanan
                                                 </Link>
                                             </>
                                         ) : isProvider ? (
@@ -411,10 +471,10 @@ export default function Navbar() {
                         <div className="border-t border-gray-100 pt-4 space-y-2">
                             <div className="flex items-center gap-3 px-2 py-2">
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold">
-                                    {userName.charAt(0).toUpperCase()}
+                                    {displayUserName.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-gray-900">{userName}</p>
+                                    <p className="text-sm font-semibold text-gray-900">{displayUserName}</p>
                                     <p className="text-xs text-gray-500">{user.email}</p>
                                 </div>
                                 {isProvider && (
@@ -442,6 +502,22 @@ export default function Navbar() {
                                     >
                                         <UserCog className="w-4 h-4 text-gray-400" />
                                         Panel Verifikasi
+                                    </Link>
+                                    <Link
+                                        href="/admin/services"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <Ship className="w-4 h-4 text-gray-400" />
+                                        Semua Layanan
+                                    </Link>
+                                    <Link
+                                        href="/admin/orders"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <ClipboardList className="w-4 h-4 text-gray-400" />
+                                        Semua Pesanan
                                     </Link>
                                 </>
                             ) : isProvider ? (

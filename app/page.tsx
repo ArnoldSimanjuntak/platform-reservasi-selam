@@ -24,10 +24,14 @@ export default async function Home() {
             .eq("id", user.id)
             .single();
 
-        const role = userRecord?.role || user.user_metadata?.role;
+        // STRICT: Ambil role dari DB saja. Jangan fallback ke user_metadata
+        // karena bisa stale. Middleware sudah menjadi garis pertahanan pertama;
+        // ini hanya lapisan kedua (defense in depth).
+        const role = userRecord?.role ?? null;
 
         // Provider diredirect ke halaman operasional mereka.
         // Admin DIIZINKAN melihat landing page sebagai superadmin marketplace.
+        // Jika role null (DB error), middleware sudah menangani \u2014 biarkan render.
         if (role === "provider") {
             redirect("/dashboard/provider/orders");
         }

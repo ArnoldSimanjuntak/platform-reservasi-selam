@@ -6,8 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { Navigation, Waves, Clock, Anchor, Ship, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { getMapProviders } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type { DiveSite, ProviderMapPin } from "@/lib/supabase";
 
 // ─── Fix Leaflet default icon in Next.js / Webpack ────────────────────────
@@ -113,16 +112,27 @@ export default function MapLeaflet() {
         // berpindah halaman sebelum data selesai dimuat — menghilangkan AbortError
         const controller = new AbortController();
         const signal = controller.signal;
+        const supabase = createClient();
 
         async function fetchMapData() {
             try {
                 // Query paralel — lebih cepat dari sequential
+                // Menggunakan supabase browser client (authenticated)
                 const [sitesResult, providersResult] = await Promise.all([
                     supabase
                         .from("dive_sites")
                         .select("*")
-                        .order("zone_level", { ascending: true }),
-                    getMapProviders(),
+                        .order("zone_level", { ascending: true })
+                        .abortSignal(signal),
+                    supabase
+                        .from("providers")
+                        .select("id, name, location, contact, latitude, longitude, primary_type")
+                        .eq("is_active", true)
+                        .eq("verification_status", "verified")
+                        .not("latitude", "is", null)
+                        .not("longitude", "is", null)
+                        .order("name", { ascending: true })
+                        .abortSignal(signal),
                 ]);
 
                 // Jika komponen sudah unmount, jangan update state
@@ -143,14 +153,12 @@ export default function MapLeaflet() {
                 if (providersResult.data) {
                     setProviders(providersResult.data as ProviderMapPin[]);
                 }
-            } catch (err: unknown) {
-                // Abaikan AbortError dari fetch internal (sering terjadi saat user pindah halaman cepat)
-                const msg = err instanceof Error ? err.message : String(err);
-                if (msg.includes("aborted") || msg.includes("AbortError")) return;
-                if (signal.aborted) return;
+            } catch (err: any) {
+                if (signal.aborted || err?.name === "AbortError" || String(err).includes("aborted")) return;
 
-                console.error("Map data fetch failed:", msg);
-                setError(msg);
+                const errorMsg = err?.message || JSON.stringify(err);
+                console.error("Map Data Error:", errorMsg);
+                setError("Gagal memuat data peta. Silakan muat ulang.");
             } finally {
                 if (!signal.aborted) {
                     setLoading(false);

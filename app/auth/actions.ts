@@ -153,24 +153,44 @@ export async function signIn(formData: FormData) {
 }
 
 /**
- * signOut: Logout yang eksplisit.
- * Memanggil supabase.auth.signOut() + revalidasi layout sehingga semua
- * Server Components di-render ulang dan tidak ada sisa state login.
- * Cookie sesi akan dihapus otomatis oleh Supabase SSR client.
+ * signOut: Logout yang eksplisit dan tahan terhadap Ghost Session.
+ * 
+ * Ghost Session terjadi ketika cookie auth masih ada di browser tapi
+ * sesi sudah tidak valid di Supabase DB. Fungsi ini menangani kasus itu
+ * dengan: (1) mencoba signOut normal, (2) jika gagal, tetap lanjut
+ * membersihkan cookie secara manual, (3) revalidasi seluruh cache.
  */
 export async function signOut() {
     const supabase = await createClient();
 
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-        console.error("[signOut] Error saat logout:", error.message);
-        // Tetap lanjutkan redirect meski ada error — jangan terjebak
+    // 1. Coba hapus sesi — bungkus try-catch untuk ghost session
+    try {
+        await supabase.auth.signOut();
+    } catch (error) {
+        // Ghost session: sesi di DB sudah tidak ada tapi cookie masih ada.
+        // Tidak perlu throw — kita tetap lanjut membersihkan cookie di bawah.
+        console.warn("[signOut] Session mungkin sudah expired:", error);
     }
 
-    // Revalidasi seluruh layout agar cache dibersihkan
-    revalidatePath("/", "layout");
-    revalidatePath("/dashboard");
-    revalidatePath("/admin");
+    // 2. Hapus cookie auth secara eksplisit sebagai safety net
+    const cookieStore = await cookies();
+    cookieStore.getAll().forEach((cookie) => {
+        if (
+            cookie.name.includes("auth-token") ||
+            cookie.name.includes("supabase") ||
+            cookie.name.includes("sb-")
+        ) {
+            cookieStore.delete(cookie.name);
+        }
+    });
 
-    redirect("/auth/login");
+    // 3. Revalidasi semua rute untuk membuang data 'stale' (basi)
+    revalidatePath("/", "layout");
+    revalidatePath("/dashboard", "layout");
+    revalidatePath("/admin", "layout");
+
+    // 4. Redirect — ini akan throw NEXT_REDIRECT yang ditangkap oleh
+    // handleSignOut di Navbar.tsx, lalu finally block melakukan hard redirect.
+    redirect("/auth/login?message=Berhasil+keluar");
 }
+
