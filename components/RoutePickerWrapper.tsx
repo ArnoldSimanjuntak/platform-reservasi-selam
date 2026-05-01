@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Suspense } from "react";
 
 // Dynamic import — Leaflet requires `window`, so SSR must be disabled
 const RouteDistancePicker = dynamic(
@@ -19,5 +20,13 @@ const RouteDistancePicker = dynamic(
 );
 
 export default function RoutePickerWrapper() {
-    return <RouteDistancePicker />;
+    return (
+        <Suspense fallback={
+            <div className="w-full h-[500px] bg-blue-50 rounded-2xl flex items-center justify-center">
+                <div className="w-10 h-10 border-4 border-[#023E8A] border-t-transparent rounded-full animate-spin" />
+            </div>
+        }>
+            <RouteDistancePicker />
+        </Suspense>
+    );
 }

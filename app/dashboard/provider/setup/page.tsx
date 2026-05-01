@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition, useEffect, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { Ship, MapPin, Phone, FileText, Anchor, ArrowRight, Loader2, XCircle, Users as UsersIcon, Wrench, IdCard, GraduationCap, Clock, CheckCircle2 } from "lucide-react";
 import { setupProviderProfile } from "@/app/actions/provider";
 import type { ProviderSetupResult } from "@/app/actions/provider";
 import { createClient } from "@/lib/supabase/client";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 const providerTypes = [
     {
@@ -40,13 +41,33 @@ const providerTypes = [
     },
 ];
 
+// Dynamic import for Leaflet Map Picker
+const ProviderMapPicker = dynamic(
+    () => import("@/components/ProviderMapPicker"),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="w-full h-[300px] bg-blue-50 rounded-xl flex items-center justify-center border-2 border-gray-200">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            </div>
+        ),
+    }
+);
+
 function ProviderSetupContent() {
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<ProviderSetupResult | null>(null);
     const [selectedType, setSelectedType] = useState("boat");
     const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+    
+    // Map State
+    const [locationText, setLocationText] = useState("");
+    const [lat, setLat] = useState<number | null>(null);
+    const [lng, setLng] = useState<number | null>(null);
+
     const searchParams = useSearchParams();
+    const router = useRouter();
     const notice = searchParams.get("notice");
 
     useEffect(() => {
@@ -62,12 +83,18 @@ function ProviderSetupContent() {
                 
                 if (data) {
                     setVerificationStatus(data.verification_status);
+                    
+                    // Setup Page Guard: jika sudah terverifikasi, cegah user masuk form setup
+                    if (data.verification_status === "verified") {
+                        router.push("/dashboard/provider/orders");
+                        return;
+                    }
                 }
             }
             setIsLoadingStatus(false);
         };
         fetchStatus();
-    }, []);
+    }, [router]);
 
     function handleSubmit(formData: FormData) {
         setResult(null);
@@ -138,6 +165,10 @@ function ProviderSetupContent() {
 
                     <form action={handleSubmit} className="space-y-6">
                         
+                        {/* Hidden Map Inputs */}
+                        {lat && <input type="hidden" name="latitude" value={lat} />}
+                        {lng && <input type="hidden" name="longitude" value={lng} />}
+                        
                         {/* ── Tipe Layanan Utama ── */}
                         <div>
                             <label className="block text-sm font-bold text-slate-900 mb-3">
@@ -203,6 +234,17 @@ function ProviderSetupContent() {
                             <label htmlFor="location" className="block text-sm font-bold text-slate-900 mb-2">
                                 Lokasi Pangkalan / Dermaga <span className="text-red-500">*</span>
                             </label>
+                            <div className="mb-3">
+                                <ProviderMapPicker 
+                                    onLocationSelect={(l, lg) => {
+                                        setLat(l);
+                                        setLng(lg);
+                                    }}
+                                    onAddressFound={(address) => {
+                                        setLocationText(address);
+                                    }}
+                                />
+                            </div>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                                     <MapPin className="h-5 w-5 text-slate-500" />
@@ -212,10 +254,16 @@ function ProviderSetupContent() {
                                     name="location"
                                     type="text"
                                     required
-                                    placeholder="Contoh: Pelabuhan Ruko Pateten"
+                                    value={locationText}
+                                    onChange={(e) => setLocationText(e.target.value)}
+                                    placeholder="Alamat akan terisi otomatis atau ketik manual..."
                                     className="appearance-none block w-full pl-11 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-slate-900 font-bold placeholder-slate-400 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm transition-all"
                                 />
                             </div>
+                            <p className="text-xs text-gray-500 mt-2 flex items-start gap-1">
+                                <span className="font-bold text-[#023E8A]">Info:</span> 
+                                Titik lokasi ini akan ditampilkan pada Peta Interaktif agar wisatawan mudah menemukan pangkalan Anda.
+                            </p>
                         </div>
 
                         {/* Kontak / WhatsApp */}

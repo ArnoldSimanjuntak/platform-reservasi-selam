@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Calendar, CreditCard, ChevronLeft, Anchor, Users } from "lucide-react";
+import { Calendar, CreditCard, ChevronLeft, Anchor, Users, Package, Clock } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import type { BookingStatus } from "@/lib/supabase";
@@ -37,9 +37,18 @@ export default async function BookingsHistoryPage() {
     const { data: bookings, error } = await supabase
         .from("bookings")
         .select(`
-            *,
+            id,
+            status,
+            booking_date,
+            total_participants,
+            rental_days,
+            total_price,
+            payment_status,
+            payment_deadline,
+            created_at,
             service:services (
                 name,
+                type,
                 image_url
             )
         `)
@@ -129,36 +138,81 @@ export default async function BookingsHistoryPage() {
                                         </div>
                                     </div>
 
-                                    {/* Meta Row */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-auto pt-3 border-t border-gray-100">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                                                <Calendar className="w-4 h-4 text-primary" />
+                                    {/* Meta Row — kontekstual berdasarkan tipe layanan */}
+                                    {(() => {
+                                        const isGearBooking = booking.service?.type === "gear";
+                                        return (
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-auto pt-3 border-t border-gray-100">
+                                                {/* Kolom 1: Tanggal */}
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                                                        <Calendar className="w-4 h-4 text-primary" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-slate-400 uppercase font-semibold">
+                                                            {isGearBooking ? "Mulai Sewa" : "Tanggal Selam"}
+                                                        </p>
+                                                        <p className="text-sm font-semibold text-slate-800">{formatDate(booking.booking_date)}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Kolom 2: Unit × Hari (gear) atau Penyelam (boat) */}
+                                                {isGearBooking ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
+                                                            <Package className="w-4 h-4 text-teal-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] text-slate-400 uppercase font-semibold">Unit × Durasi</p>
+                                                            <p className="text-sm font-semibold text-slate-800">
+                                                                {booking.total_participants} unit × {booking.rental_days ?? 1} hari
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
+                                                            <Users className="w-4 h-4 text-green-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] text-slate-400 uppercase font-semibold">Penyelam</p>
+                                                            <p className="text-sm font-semibold text-slate-800">{booking.total_participants} orang</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Kolom 3: Tanggal selesai sewa (gear) atau Tanggal pesan (boat) */}
+                                                {isGearBooking && booking.rental_days ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                                                            <Clock className="w-4 h-4 text-blue-500" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] text-slate-400 uppercase font-semibold">Selesai Sewa</p>
+                                                            <p className="text-sm font-semibold text-slate-800">
+                                                                {formatDate(
+                                                                    new Date(
+                                                                        new Date(booking.booking_date).getTime() +
+                                                                        (booking.rental_days - 1) * 86400000
+                                                                    ).toISOString().split("T")[0]
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                                                            <CreditCard className="w-4 h-4 text-amber-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] text-slate-400 uppercase font-semibold">Dipesan</p>
+                                                            <p className="text-sm font-semibold text-slate-800">{formatDate(booking.created_at)}</p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div>
-                                                <p className="text-[10px] text-slate-400 uppercase font-semibold">Tanggal Selam</p>
-                                                <p className="text-sm font-semibold text-slate-800">{formatDate(booking.booking_date)}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
-                                                <Users className="w-4 h-4 text-green-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] text-slate-400 uppercase font-semibold">Peserta</p>
-                                                <p className="text-sm font-semibold text-slate-800">{booking.total_participants} orang</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                                                <CreditCard className="w-4 h-4 text-amber-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] text-slate-400 uppercase font-semibold">Dipesan</p>
-                                                <p className="text-sm font-semibold text-slate-800">{formatDate(booking.created_at)}</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        );
+                                    })()}
                                     
                                     {/* Payment Upload Component (Conditionally Injected) */}
                                     {(booking.payment_status === "unpaid" || booking.payment_status === "pending_verification") && booking.status === "pending" && (

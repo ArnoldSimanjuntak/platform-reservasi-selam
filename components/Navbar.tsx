@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Menu, X, Anchor, User, LogOut, ChevronDown, Calendar, ShoppingBag, Ship, ClipboardList, UserCog } from "lucide-react";
+import { Menu, X, Anchor, User, LogOut, ChevronDown, Calendar, Ship, ClipboardList, UserCog } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { signOut as serverSignOut } from "@/app/auth/actions";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -15,9 +15,9 @@ export default function Navbar() {
     const [user, setUser] = useState<SupabaseUser | null>(null);
     const [userRole, setUserRole] = useState<string>("customer");
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
-    const supabase = createClient();
 
     // Pada halaman selain homepage, navbar langsung tampil dengan warna gelap
     const isHomePage = pathname === "/";
@@ -34,54 +34,91 @@ export default function Navbar() {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    // Listen to auth state changes + fetch role
+    // ── fetchAndSetRole: ambil role dari DB, lebih akurat dari user_metadata ──
+    const fetchAndSetRole = useCallback(async (userId: string, supabase: ReturnType<typeof createClient>) => {
+        const { data } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", userId)
+            .single();
+        if (data?.role) setUserRole(data.role);
+    }, []);
+
+    // ── Listen to auth state changes + re-sync role saat navigasi ──
     useEffect(() => {
-        // Get initial session
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            setUser(user);
+        let mounted = true;
+        const supabase = createClient();
+
+        const checkUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!mounted) return;
+
             if (user) {
-                // Ambil role dari user_metadata (tersedia langsung)
-                const metaRole = user.user_metadata?.role || "customer";
-                setUserRole(metaRole);
-
-                // Juga cek dari tabel users untuk data freshness
-                supabase
-                    .from("users")
-                    .select("role")
-                    .eq("id", user.id)
-                    .single()
-                    .then(({ data }) => {
-                        if (data?.role) setUserRole(data.role);
-                    });
+                // Render UI secepatnya
+                setUser(user);
+                setIsLoading(false);
+                
+                // Ambil status role dari DB untuk provider/customer
+                const { data } = await supabase.from("users").select("role").eq("id", user.id).single();
+                
+                if (mounted) {
+                    if (!data?.role) {
+                        setUserRole("customer");
+                    } else {
+                        setUserRole(data.role);
+                    }
+                }
+            } else {
+                if (mounted) {
+                    setUserRole("customer");
+                    setUser(null);
+                    setIsLoading(false);
+                }
             }
-            setIsLoading(false);
-        });
+        };
 
-        // Subscribe to auth changes
+        checkUser();
+
+        // Subscribe to auth changes (login/logout di tab lain, token refresh)
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-            setIsLoading(false);
-            if (session?.user) {
-                setUserRole(session.user.user_metadata?.role || "customer");
-                // Pastikan untuk menarik role dari tabel users demi konsistensi data terbaru
-                supabase
-                    .from("users")
-                    .select("role")
-                    .eq("id", session.user.id)
-                    .single()
-                    .then(({ data }) => {
-                        if (data?.role) setUserRole(data.role);
-                    });
+        } = supabase.auth.onAuthStateChange(async (event, session) => {
+            const currentUser = session?.user ?? null;
+
+            if (currentUser) {
+                setUser(currentUser);
+                setIsLoading(false);
+
+                const { data } = await supabase.from("users").select("role").eq("id", currentUser.id).single();
+                
+                if (data?.role) {
+                    setUserRole(data.role);
+                } else {
+                    setUserRole("customer");
+                }
+
+                if (event === "SIGNED_IN") {
+                    router.refresh();
+                } else if (event === "TOKEN_REFRESHED") {
+                    router.refresh();
+                }
             } else {
                 setUserRole("customer");
+                setUser(null);
+                setIsLoading(false);
+                if (event === "SIGNED_OUT") {
+                    router.refresh();
+                }
             }
         });
 
-        return () => subscription.unsubscribe();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
+    // Re-sync role setiap kali user navigasi ke halaman baru
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pathname]);
 
     // Close profile menu when clicking outside
     useEffect(() => {
@@ -93,23 +130,22 @@ export default function Navbar() {
     }, [isProfileMenuOpen]);
 
     async function handleSignOut() {
+        setIsLoggingOut(true);
+        // Hapus auth local storage secara eksplisit
+        const supabase = createClient();
         await supabase.auth.signOut();
-        setUser(null);
-        setUserRole("customer");
-        setIsProfileMenuOpen(false);
-        try {
-            await serverSignOut();
-        } catch (e) {
-            // Ignore redirect error boundary
-        }
-        router.push("/");
-        router.refresh();
+        
+        // Panggil server action yang akan menghapus cookie dan melakukan redirect.
+        // JANGAN dibungkus try/catch agar error NEXT_REDIRECT tidak tertelan.
+        await serverSignOut();
     }
 
     if (isAuthPage) return null;
 
     // ─── Role-Based Navigation Links ─────────────────────────
-    const customerNavLinks = [
+    type NavLink = { name: string; href: string; isButton?: boolean };
+
+    const customerNavLinks: NavLink[] = [
         { name: "Home", href: "/" },
         { name: "Dive Packages", href: "/services" },
         { name: "Dive Map", href: "/lokasi" },
@@ -117,23 +153,24 @@ export default function Navbar() {
         { name: "About", href: "/about" },
     ];
 
-    const providerNavLinks = [
+    const providerNavLinks: NavLink[] = [
         { name: "Dashboard", href: "/dashboard" },
         { name: "Manajemen Kapal", href: "/dashboard/provider/services" },
-        { name: "Daftar Pesanan", href: "/dashboard/provider/orders" },
+        { name: "Dashboard Pesanan", href: "/dashboard/provider/orders" },
         { name: "Profil Bisnis", href: "/dashboard/provider/setup" },
     ];
 
-    const adminNavLinks = [
-        { name: "Kelola Layanan", href: "/dashboard/provider/services" },
-        { name: "Panel Admin", href: "/admin/verifikasi", isButton: true },
+    const adminNavLinks: NavLink[] = [
+        { name: "Dashboard", href: "/dashboard" },
+        { name: "Kelola Layanan", href: "/admin/services" },
+        { name: "Panel Admin", href: "/admin", isButton: true },
     ];
 
 
     const isProvider = userRole === "provider";
     const isAdmin = userRole === "admin";
     
-    let navLinks = customerNavLinks;
+    let navLinks: NavLink[] = customerNavLinks;
     if (isAdmin) navLinks = adminNavLinks;
     else if (user && isProvider) navLinks = providerNavLinks;
 
@@ -148,7 +185,7 @@ export default function Navbar() {
         >
             <div className="container mx-auto px-4 flex items-center justify-between">
                 {/* Logo */}
-                <Link href={isProvider ? "/dashboard/provider/orders" : "/"} className="flex items-center gap-2 group">
+                <Link href={isAdmin || isProvider ? "/dashboard" : "/"} className="flex items-center gap-2 group">
                     <div className="bg-gradient-to-br from-primary to-secondary p-2 rounded-lg text-white group-hover:scale-110 transition-transform">
                         <Anchor className="w-6 h-6" />
                     </div>
@@ -222,7 +259,35 @@ export default function Navbar() {
                                     </div>
 
                                     <div className="py-1">
-                                        {isProvider ? (
+                                        {isAdmin ? (
+                                            /* Admin dropdown items */
+                                            <>
+                                                <Link
+                                                    href="/dashboard"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <User className="w-4 h-4 text-gray-400" />
+                                                    Dashboard Admin
+                                                </Link>
+                                                <Link
+                                                    href="/admin/verifikasi"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <UserCog className="w-4 h-4 text-gray-400" />
+                                                    Panel Verifikasi
+                                                </Link>
+                                                <Link
+                                                    href="/dashboard/provider/services"
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                    onClick={() => setIsProfileMenuOpen(false)}
+                                                >
+                                                    <Ship className="w-4 h-4 text-gray-400" />
+                                                    Master Layanan
+                                                </Link>
+                                            </>
+                                        ) : isProvider ? (
                                             /* Provider dropdown items */
                                             <>
                                                 <Link
@@ -280,11 +345,19 @@ export default function Navbar() {
                                             </>
                                         )}
                                         <button
-                                            onClick={handleSignOut}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                            onClick={() => {
+                                                setIsProfileMenuOpen(false);
+                                                handleSignOut();
+                                            }}
+                                            disabled={isLoggingOut}
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100 disabled:opacity-50"
                                         >
-                                            <LogOut className="w-4 h-4" />
-                                            Keluar
+                                            {isLoggingOut ? (
+                                                <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                                            ) : (
+                                                <LogOut className="w-4 h-4" />
+                                            )}
+                                            {isLoggingOut ? "Keluar..." : "Keluar"}
                                         </button>
                                     </div>
                                 </div>
@@ -351,7 +424,27 @@ export default function Navbar() {
                                 )}
                             </div>
 
-                            {isProvider ? (
+                            {isAdmin ? (
+                                /* Admin mobile items */
+                                <>
+                                    <Link
+                                        href="/dashboard"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <User className="w-4 h-4 text-gray-400" />
+                                        Dashboard Admin
+                                    </Link>
+                                    <Link
+                                        href="/admin/verifikasi"
+                                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                    >
+                                        <UserCog className="w-4 h-4 text-gray-400" />
+                                        Panel Verifikasi
+                                    </Link>
+                                </>
+                            ) : isProvider ? (
                                 /* Provider mobile items */
                                 <>
                                     <Link
@@ -411,13 +504,19 @@ export default function Navbar() {
 
                             <button
                                 onClick={() => {
-                                    setIsMobileMenuOpen(false);
-                                    handleSignOut();
+                                    if (!isLoggingOut) {
+                                        handleSignOut();
+                                    }
                                 }}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                                disabled={isLoggingOut}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
                             >
-                                <LogOut className="w-4 h-4" />
-                                Keluar
+                                {isLoggingOut ? (
+                                    <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <LogOut className="w-4 h-4" />
+                                )}
+                                {isLoggingOut ? "Keluar..." : "Keluar"}
                             </button>
                         </div>
                     ) : (

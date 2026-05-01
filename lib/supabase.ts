@@ -107,7 +107,20 @@ export interface DiveSite {
     updated_at?: string;
 }
 
-// ─── Data Fetching Helpers (for Server Components) ───────────────
+/**
+ * Provider yang memiliki koordinat pangkalan keberangkatan.
+ * Digunakan untuk marker "Pangkalan" di peta dan Route Planner.
+ */
+export interface ProviderMapPin {
+    id: string;
+    name: string;
+    location?: string;
+    contact?: string;
+    latitude: number;
+    longitude: number;
+    primary_type?: string;
+}
+
 
 /**
  * Fetch all available services with provider info, ordered by newest first.
@@ -279,3 +292,18 @@ export async function getRemainingCapacity(
     });
 }
 
+/**
+ * Fetch verified providers yang memiliki koordinat pangkalan (latitude & longitude).
+ * Digunakan untuk marker "Pangkalan Keberangkatan" di Dive Map dan Route Planner.
+ * Filter: is_active=true, verification_status='verified', lat/lng tidak null.
+ */
+export async function getMapProviders() {
+    return supabase
+        .from("providers")
+        .select("id, name, location, contact, latitude, longitude, primary_type")
+        .eq("is_active", true)
+        .eq("verification_status", "verified")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null)
+        .order("name", { ascending: true });
+}

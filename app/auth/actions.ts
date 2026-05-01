@@ -2,7 +2,30 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+
+/**
+ * Helper: Ambil role user langsung dari tabel public.users (STRICT).
+ * Tidak mengandalkan user_metadata karena bisa stale setelah perubahan manual.
+ */
+async function getStrictRole(
+    supabase: Awaited<ReturnType<typeof createClient>>,
+    userId: string,
+    fallback?: string
+): Promise<string> {
+    try {
+        const { data, error } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", userId)
+            .single();
+        if (error) throw error;
+        return data?.role ?? fallback ?? "customer";
+    } catch {
+        return fallback ?? "customer";
+    }
+}
 
 export async function signUp(formData: FormData) {
     const supabase = await createClient();
@@ -16,7 +39,7 @@ export async function signUp(formData: FormData) {
         redirect("/auth/register?error=Semua+field+harus+diisi");
     }
 
-    // Validasi role — harus customer atau provider
+    // Validasi role — hanya customer atau provider yang diizinkan mendaftar
     if (!role || !["customer", "provider"].includes(role)) {
         redirect(
             "/auth/register?error=" +
@@ -24,32 +47,24 @@ export async function signUp(formData: FormData) {
         );
     }
 
-    // ─── 1. Buat akun di Supabase Auth ────────────────────────
+    // ─── 1. Buat akun di Supabase Auth ────────────────────────────────────
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-            data: {
-                name,
-                role,
-            },
-        },
+        options: { data: { name, role } },
     });
 
     if (error) {
         redirect(`/auth/register?error=${encodeURIComponent(error.message)}`);
     }
 
-    // Cek apakah email confirmation diaktifkan di Supabase
-    // Jika identities kosong, artinya user sudah ada tapi belum dikonfirmasi
-    if (data.user && data.user.identities && data.user.identities.length === 0) {
+    if (data.user?.identities?.length === 0) {
         redirect(
             "/auth/login?error=" +
             encodeURIComponent("Email sudah terdaftar. Silakan login atau cek email Anda.")
         );
     }
 
-    // Jika session null, artinya perlu konfirmasi email dulu
     if (data.user && !data.session) {
         redirect(
             "/auth/login?message=" +
@@ -57,18 +72,12 @@ export async function signUp(formData: FormData) {
         );
     }
 
-    // ─── 2. Simpan role ke tabel users (custom) ───────────────
-    // Gunakan upsert agar aman jika trigger database sudah insert terlebih dulu
+    // ─── 2. Simpan role ke tabel public.users ─────────────────────────────
     if (data.user) {
         const { error: usersError } = await supabase
             .from("users")
             .upsert(
-                {
-                    id: data.user.id,
-                    name,
-                    email,
-                    role,
-                },
+                { id: data.user.id, name, email, role },
                 { onConflict: "id" }
             );
 
@@ -76,34 +85,26 @@ export async function signUp(formData: FormData) {
             console.error("Gagal menyimpan data ke tabel users:", usersError.message);
             redirect(
                 "/auth/register?error=" +
-                encodeURIComponent(
-                    "Akun berhasil dibuat, namun gagal menyimpan profil. Silakan hubungi admin."
-                )
+                encodeURIComponent("Akun berhasil dibuat, namun gagal menyimpan profil. Silakan hubungi admin.")
             );
         }
 
-        // ─── 3. Jika Provider, buat skeleton di tabel providers ───
+        // ─── 3. Jika Provider, buat skeleton row di tabel providers ───────
         if (role === "provider") {
             const { error: providerError } = await supabase
                 .from("providers")
-                .insert({
-                    owner_user_id: data.user.id,
-                    name,
-                    is_active: false, // Belum aktif sampai profil lengkap
-                });
+                .insert({ owner_user_id: data.user.id, name, is_active: false });
 
             if (providerError) {
                 console.error("Gagal membuat profil provider:", providerError.message);
-                // Tidak blocking — provider bisa melengkapi nanti
+                // Non-blocking — provider bisa melengkapi dari halaman setup
             }
 
-            // Redirect provider ke halaman setup profil bisnis
             revalidatePath("/", "layout");
             redirect("/dashboard/provider/setup");
         }
     }
 
-    // Registrasi berhasil & auto-confirmed (Customer) → redirect ke halaman utama
     revalidatePath("/", "layout");
     redirect("/");
 }
@@ -119,38 +120,30 @@ export async function signIn(formData: FormData) {
         redirect("/auth/login?error=Email+dan+password+harus+diisi");
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-        // Pesan yang lebih jelas untuk error umum
         let errorMessage = error.message;
         if (error.message === "Email not confirmed") {
-            errorMessage =
-                "Email belum dikonfirmasi. Silakan cek inbox email Anda atau minta kirim ulang.";
+            errorMessage = "Email belum dikonfirmasi. Silakan cek inbox email Anda.";
         } else if (error.message === "Invalid login credentials") {
             errorMessage = "Email atau password salah.";
         }
         redirect(`/auth/login?error=${encodeURIComponent(errorMessage)}`);
     }
 
-    // ─── Cek role user → redirect ke panel yang sesuai ──────────
+    // ─── Ambil role dari DB (STRICT) untuk redirect yang akurat ───────────
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-        const { data: userRecord } = await supabase
-            .from("users")
-            .select("role")
-            .eq("id", user.id)
-            .single();
-
-        const role = userRecord?.role || user.user_metadata?.role;
+        const role = await getStrictRole(supabase, user.id, user.user_metadata?.role);
 
         revalidatePath("/", "layout");
 
         if (role === "admin") {
-            redirect("/admin/verifikasi");
+            redirect("/admin");
+        }
+        if (role === "provider") {
+            redirect("/dashboard/provider/orders");
         }
     }
 
@@ -159,9 +152,25 @@ export async function signIn(formData: FormData) {
     redirect(redirectTo);
 }
 
+/**
+ * signOut: Logout yang eksplisit.
+ * Memanggil supabase.auth.signOut() + revalidasi layout sehingga semua
+ * Server Components di-render ulang dan tidak ada sisa state login.
+ * Cookie sesi akan dihapus otomatis oleh Supabase SSR client.
+ */
 export async function signOut() {
     const supabase = await createClient();
-    await supabase.auth.signOut();
+
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        console.error("[signOut] Error saat logout:", error.message);
+        // Tetap lanjutkan redirect meski ada error — jangan terjebak
+    }
+
+    // Revalidasi seluruh layout agar cache dibersihkan
     revalidatePath("/", "layout");
-    redirect("/");
+    revalidatePath("/dashboard");
+    revalidatePath("/admin");
+
+    redirect("/auth/login");
 }

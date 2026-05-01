@@ -71,24 +71,32 @@ export async function setupProviderProfile(
     let certificationUrl = null;
 
     try {
-        // Upload KTP
+        // Upload KTP — path deterministik agar upsert storage bisa menimpa file lama
+        // Menggunakan user.id sebagai folder dan nama file tetap (tanpa timestamp)
+        // sehingga update profil tidak membuat dokumen baru yang membingungkan Admin.
         const idExt = idCardFile.name.split(".").pop();
-        const idPath = `${user.id}/ktp_${Date.now()}.${idExt}`;
+        const idPath = `${user.id}/ktp.${idExt}`;
         const { error: idUploadError } = await supabase.storage
             .from("provider-documents")
-            .upload(idPath, idCardFile);
+            .upload(idPath, idCardFile, {
+                upsert: true,  // Timpa file lama jika sudah ada — hindari duplikat
+                cacheControl: "no-cache",
+            });
 
         if (idUploadError) throw idUploadError;
         const { data: idUrlData } = supabase.storage.from("provider-documents").getPublicUrl(idPath);
         identityCardUrl = idUrlData.publicUrl;
 
-        // Upload Certification (if instructor)
+        // Upload Certification (if instructor) — sama, path deterministik
         if (primaryType === "instructor" && certFile) {
             const certExt = certFile.name.split(".").pop();
-            const certPath = `${user.id}/cert_${Date.now()}.${certExt}`;
+            const certPath = `${user.id}/cert.${certExt}`;
             const { error: certUploadError } = await supabase.storage
                 .from("provider-documents")
-                .upload(certPath, certFile);
+                .upload(certPath, certFile, {
+                    upsert: true,  // Timpa file lama
+                    cacheControl: "no-cache",
+                });
             
             if (certUploadError) throw certUploadError;
             const { data: certUrlData } = supabase.storage.from("provider-documents").getPublicUrl(certPath);
@@ -103,6 +111,12 @@ export async function setupProviderProfile(
     }
 
     // ─── 4. Upsert ke tabel providers ─────────────────────────
+    const latStr = formData.get("latitude") as string | null;
+    const lngStr = formData.get("longitude") as string | null;
+    
+    const latitude = latStr ? parseFloat(latStr) : null;
+    const longitude = lngStr ? parseFloat(lngStr) : null;
+
     const { error: upsertError } = await supabase
         .from("providers")
         .upsert(
@@ -110,6 +124,8 @@ export async function setupProviderProfile(
                 owner_user_id: user.id,
                 name,
                 location,
+                latitude,
+                longitude,
                 contact,
                 description: description || null,
                 primary_type: primaryType,
@@ -147,22 +163,63 @@ export async function verifyProviderIdentity(
     const supabase = await createClient();
 
     // 1. Verify caller is Admin
-    const { data: { user } } = await supabase.auth.getUser();
+    let user;
+    try {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        user = authUser;
+    } catch {
+        return { success: false, message: "Koneksi ke server autentikasi gagal. Coba lagi." };
+    }
+
     if (!user) return { success: false, message: "Unauthorized." };
 
-    const { data: userRecord } = await supabase.from("users").select("role").eq("id", user.id).single();
+    let userRecord;
+    try {
+        const { data, error } = await supabase.from("users").select("role").eq("id", user.id).single();
+        if (error) throw error;
+        userRecord = data;
+    } catch {
+        // Fallback ke metadata jika DB tidak bisa diakses
+        if (user.user_metadata?.role !== "admin") {
+            return { success: false, message: "Koneksi ke database gagal. Coba lagi." };
+        }
+    }
+
     if (userRecord?.role !== "admin" && user.user_metadata?.role !== "admin") {
         return { success: false, message: "Hanya Admin yang dapat memverifikasi provider." };
     }
 
-    const { error } = await supabase
-        .from("providers")
-        .update({ verification_status: action === "approve" ? "verified" : "rejected" })
-        .eq("id", providerId);
+    // 2. Update status verifikasi + is_active (approve juga mengaktifkan provider)
+    const updatePayload =
+        action === "approve"
+            ? { verification_status: "verified", is_active: true }
+            : { verification_status: "rejected", is_active: false };
 
-    if (error) {
-        return { success: false, message: error.message };
+    try {
+        const { error } = await supabase
+            .from("providers")
+            .update(updatePayload)
+            .eq("id", providerId);
+
+        if (error) throw error;
+    } catch (err: any) {
+        console.error("[verifyProviderIdentity] DB update error:", err);
+        return {
+            success: false,
+            message: `Gagal menyimpan ke database: ${err.message || "Periksa koneksi internet Anda."}`,
+        };
     }
 
-    return { success: true, message: `Provider berhasil di-${action === "approve" ? "verifikasi" : "tolak"}.` };
+    // 3. Revalidasi semua rute Admin yang terkait agar Next.js hapus cache lama
+    revalidatePath("/admin/verifikasi");
+    revalidatePath("/admin");
+    revalidatePath("/admin/services");
+    revalidatePath("/admin/orders");
+    revalidatePath("/dashboard");
+
+    return {
+        success: true,
+        message: `Provider berhasil di-${action === "approve" ? "verifikasi" : "tolak"}.`,
+    };
 }

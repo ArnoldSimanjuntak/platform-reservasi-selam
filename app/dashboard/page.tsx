@@ -88,6 +88,41 @@ export default async function DashboardPage() {
         );
     }
 
+    if (userRole === "admin") {
+        // ─── Admin: Ambil global stats dari DB ──────────────────────
+        const { count: pendingOrderCount } = await supabase
+            .from("bookings")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "pending");
+
+        const { count: totalOrderCount } = await supabase
+            .from("bookings")
+            .select("id", { count: "exact", head: true });
+
+        const { count: activeServiceCount } = await supabase
+            .from("services")
+            .select("id", { count: "exact", head: true })
+            .eq("is_available", true);
+
+        const { count: totalServiceCount } = await supabase
+            .from("services")
+            .select("id", { count: "exact", head: true });
+
+        return (
+            <AdminDashboardView
+                userName={userName}
+                userEmail={userEmail}
+                joinDate={joinDate}
+                stats={{
+                    pendingOrders: pendingOrderCount || 0,
+                    totalOrders: totalOrderCount || 0,
+                    activeServices: activeServiceCount || 0,
+                    totalServices: totalServiceCount || 0,
+                }}
+            />
+        );
+    }
+
     // ─── Auto-Complete Logic ───────────────────────────────────
     const todayStr = new Date().toISOString().split("T")[0];
     await supabase
@@ -134,6 +169,189 @@ export default async function DashboardPage() {
                 inProgress: inProgressBookings || 0,
             }}
         />
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN DASHBOARD VIEW
+// ═══════════════════════════════════════════════════════════════
+function AdminDashboardView({
+    userName,
+    userEmail,
+    joinDate,
+    stats,
+}: {
+    userName: string;
+    userEmail: string;
+    joinDate: string;
+    stats: ProviderStats;
+}) {
+    return (
+        <div className="min-h-screen pt-24 pb-12 px-4" style={{ background: "linear-gradient(180deg, #f0f7ff 0%, #f9fafb 40%)" }}>
+            <div className="container mx-auto max-w-4xl">
+                {/* Header */}
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-2">
+                        <h1 className="text-3xl font-bold text-slate-900">Dashboard Admin</h1>
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#023E8A] text-white tracking-wide">ADMIN</span>
+                    </div>
+                    <p className="text-slate-500 mt-1">
+                        Akses penuh kontrol platform SulutDive, <span className="font-semibold text-slate-700">{userName}</span>!
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* ─── Profile Card ─── */}
+                    <div className="md:col-span-1">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div
+                                className="h-28 relative"
+                                style={{ background: "linear-gradient(135deg, #03045E 0%, #023E8A 50%, #0077B6 100%)" }}
+                            >
+                                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
+                                    <div className="w-20 h-20 rounded-full bg-white shadow-lg flex items-center justify-center ring-4 ring-white">
+                                        <div className="w-[72px] h-[72px] rounded-full bg-gradient-to-br from-deepSea to-primary flex items-center justify-center text-white text-2xl font-bold">
+                                            {userName.charAt(0).toUpperCase()}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-14 pb-6 px-6 text-center">
+                                <h2 className="text-lg font-bold text-slate-900">{userName}</h2>
+                                <p className="text-sm text-slate-500 mt-1">{userEmail}</p>
+
+                                <div className="flex items-center justify-center gap-2 mt-3 text-xs text-slate-400">
+                                    <Calendar className="w-3.5 h-3.5" />
+                                    Bergabung {joinDate}
+                                </div>
+
+                                {/* Quick Nav */}
+                                <div className="mt-5 space-y-2">
+                                    <Link
+                                        href="/admin"
+                                        className="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#023E8A] to-[#0077B6] hover:shadow-lg hover:from-[#03045E] hover:to-[#023E8A] transition-all"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            Panel Admin
+                                        </div>
+                                        <span className="bg-white/20 px-2 py-0.5 rounded text-xs">Hub</span>
+                                    </Link>
+                                    <Link
+                                        href="/admin/services"
+                                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-800 bg-blue-50 hover:bg-blue-100 hover:text-[#023E8A] transition-colors"
+                                    >
+                                        <Ship className="w-4 h-4 text-[#023E8A]" />
+                                        Master Layanan
+                                    </Link>
+                                    <Link
+                                        href="/admin/orders"
+                                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-800 bg-blue-50 hover:bg-blue-100 hover:text-[#023E8A] transition-colors"
+                                    >
+                                        <ClipboardList className="w-4 h-4 text-[#023E8A]" />
+                                        Semua Pesanan
+                                    </Link>
+                                </div>
+
+                                <form action={signOut} className="mt-4">
+                                    <button
+                                        type="submit"
+                                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        Keluar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ─── Main Content ─── */}
+                    <div className="md:col-span-2 space-y-6">
+                        {/* Stats Cards — global data from DB */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
+                                    <Bell className="w-6 h-6 text-amber-600" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-slate-900">{stats.pendingOrders}</p>
+                                    <p className="text-xs text-slate-500 font-medium">Pesanan Global Menunggu</p>
+                                </div>
+                            </div>
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+                                    <ClipboardList className="w-6 h-6 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-slate-900">{stats.totalOrders}</p>
+                                    <p className="text-xs text-slate-500 font-medium">Total Pesanan Global</p>
+                                </div>
+                            </div>
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
+                                    <Package className="w-6 h-6 text-green-600" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-slate-900">{stats.activeServices}</p>
+                                    <p className="text-xs text-slate-500 font-medium">Layanan Aktif</p>
+                                </div>
+                            </div>
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+                                    <TrendingUp className="w-6 h-6 text-[#023E8A]" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-slate-900">{stats.totalServices}</p>
+                                    <p className="text-xs text-slate-500 font-medium">Total Layanan Platform</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Info Card for Admin */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                                <Anchor className="w-5 h-5 text-[#023E8A]" />
+                                Pusat Kontrol Platform
+                            </h3>
+                            <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                                Sebagai Administrator, Anda memiliki akses penuh ke seluruh transaksi dan layanan yang berjalan di ekosistem SulutDive. 
+                                Gunakan menu di bawah atau di samping untuk mengelola operasional.
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <Link
+                                    href="/admin/verifikasi"
+                                    className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-primary hover:shadow-md transition-all group bg-gray-50 hover:bg-white"
+                                >
+                                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:scale-110 transition-transform text-emerald-600">
+                                        <UserCog className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900">Verifikasi Mitra</p>
+                                        <p className="text-xs text-slate-500">Tinjau & Validasi KTP</p>
+                                    </div>
+                                </Link>
+
+                                <Link
+                                    href="/admin/services"
+                                    className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-[#023E8A] hover:shadow-md transition-all group bg-gray-50 hover:bg-white cursor-pointer"
+                                >
+                                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center group-hover:scale-110 group-hover:bg-[#023E8A] group-hover:text-white transition-all text-[#023E8A]">
+                                        <Ship className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900 group-hover:text-[#023E8A] transition-colors">Master Layanan</p>
+                                        <p className="text-xs text-slate-500">Lihat seluruh paket</p>
+                                    </div>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 

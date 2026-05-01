@@ -34,18 +34,52 @@ export async function createService(
         redirect("/auth/login");
     }
 
-    // ─── 2. Ambil provider_id otomatis ────────────────────────
-    const { data: provider } = await supabase
-        .from("providers")
-        .select("id")
-        .eq("owner_user_id", user.id)
+    // ─── 2. Ambil role user untuk menentukan alur ─────────────
+    const { data: userRecord } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
         .single();
 
-    if (!provider) {
-        return {
-            success: false,
-            message: "Profil bisnis Anda belum lengkap. Silakan lengkapi terlebih dahulu.",
-        };
+    const role = userRecord?.role ?? user.user_metadata?.role;
+
+    // ─── 3. Resolve provider_id berdasarkan role ──────────────
+    // Admin Bypass: Admin tidak wajib punya baris di tabel providers.
+    // Mereka bisa membuat layanan demo/contoh langsung.
+    // Provider biasa harus punya profil verified di tabel providers.
+    let resolvedProviderId: string | null = null;
+
+    if (role === "admin") {
+        // Admin: baca override jika ada (dikirim dari Server Component)
+        const override = (formData.get("_provider_id_override") as string) || null;
+        resolvedProviderId = override || null;
+        // Admin tetap bisa insert meski resolvedProviderId null —
+        // layanan akan muncul tanpa provider owner (katalog global)
+    } else {
+        // Provider biasa: wajib punya baris di tabel providers
+        const { data: provider } = await supabase
+            .from("providers")
+            .select("id, verification_status, is_active")
+            .eq("owner_user_id", user.id)
+            .single();
+
+        if (!provider) {
+            return {
+                success: false,
+                message: "Profil bisnis Anda belum lengkap. Silakan lengkapi terlebih dahulu.",
+            };
+        }
+
+        // Double-check verifikasi di sisi Server Action (defense in depth)
+        // Halaman sudah memblokir akses, tapi ini failsafe jika bypass URL langsung
+        if (provider.verification_status !== "verified" || !provider.is_active) {
+            return {
+                success: false,
+                message: "Akun Anda belum diverifikasi oleh Admin. Silakan tunggu persetujuan.",
+            };
+        }
+
+        resolvedProviderId = provider.id;
     }
 
     // ─── 3. Ekstrak & validasi input ──────────────────────────
@@ -110,9 +144,10 @@ export async function createService(
             };
         }
 
-        // Buat nama file unik: providerId/timestamp-originalname
+        // Buat nama file unik: (providerId atau userId)/timestamp-randomhex.ext
         const ext = imageFile.name.split(".").pop() || "jpg";
-        const fileName = `${provider.id}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+        const folderName = resolvedProviderId ?? user.id;
+        const fileName = `${folderName}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
         const { error: uploadError } = await supabase.storage
             .from("service-images")
@@ -137,7 +172,7 @@ export async function createService(
 
     // ─── 5. INSERT ke tabel services ──────────────────────────
     const { error: insertError } = await supabase.from("services").insert({
-        provider_id: provider.id,
+        provider_id: resolvedProviderId,   // null untuk admin tanpa provider row
         name,
         type,
         price,

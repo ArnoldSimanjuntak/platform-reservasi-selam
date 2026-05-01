@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export interface BookingResult {
@@ -132,7 +133,7 @@ export async function createBooking(
     // ─── 3. Ambil Data Service (max_capacity, price, provider_id, is_available)
     const { data: service, error: serviceError } = await supabase
         .from("services")
-        .select("id, name, max_capacity, price, provider_id, is_available")
+        .select("id, name, type, max_capacity, price, provider_id, is_available")
         .eq("id", serviceId)
         .single();
 
@@ -308,6 +309,10 @@ export async function createBooking(
     const successLabel = service.type === "gear"
         ? `${totalParticipants} unit alat selama ${effectiveDays} hari`
         : `${totalParticipants} penyelam`;
+
+    // ─── 10. Invalidate cache agar halaman bookings langsung up-to-date ───
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard");
 
     return {
         success: true,
