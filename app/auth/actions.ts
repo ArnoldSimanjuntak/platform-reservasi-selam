@@ -70,11 +70,13 @@ export async function signUp(formData: FormData) {
     }
 
     if (data.user) {
+        const createdUser = data.user;
+
         const userUpsertPromise = (async () => {
             const firstTry = await supabase
                 .from("users")
                 .upsert(
-                    { id: data.user.id, name, email, role, wants_provider: role === "provider" },
+                    { id: createdUser.id, name, email, role, wants_provider: role === "provider" },
                     { onConflict: "id" }
                 );
 
@@ -85,7 +87,7 @@ export async function signUp(formData: FormData) {
                 return supabase
                     .from("users")
                     .upsert(
-                        { id: data.user.id, name, email, role },
+                        { id: createdUser.id, name, email, role },
                         { onConflict: "id" }
                     );
             }
@@ -96,7 +98,7 @@ export async function signUp(formData: FormData) {
         const providerInsertPromise = role === "provider"
             ? supabase
                 .from("providers")
-                .insert({ owner_user_id: data.user.id, name, is_active: false })
+                .insert({ owner_user_id: createdUser.id, name, is_active: false })
             : Promise.resolve({ error: null });
 
         const [usersResult, providerResult] = await Promise.all([
