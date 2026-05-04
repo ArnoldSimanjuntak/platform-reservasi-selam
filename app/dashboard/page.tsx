@@ -22,7 +22,7 @@ export default async function DashboardPage() {
         .from("users")
         .select("name, role")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
     const userName = userRecord?.name || user.user_metadata?.name || user.email?.split("@")[0] || "User";
     const userRole = userRecord?.role || user.user_metadata?.role || "customer";
@@ -36,9 +36,18 @@ export default async function DashboardPage() {
     // ─── 2. Cek profil provider di tabel providers ────────────
     const { data: providerProfile } = await supabase
         .from("providers")
-        .select("id, name, is_active")
+        .select("id, name, is_active, verification_status")
         .eq("owner_user_id", user.id)
-        .single();
+        .maybeSingle();
+
+    // Jika akun sudah punya provider profile tapi belum verified,
+    // paksa selalu ke halaman setup/verifikasi (meskipun role users belum sinkron).
+    if (
+        providerProfile &&
+        (providerProfile.verification_status !== "verified" || !providerProfile.is_active)
+    ) {
+        redirect("/dashboard/provider/setup");
+    }
 
     // ─── 3. Logika routing berdasarkan role + profil ──────────
     // Admin: middleware sudah handle redirect ke /admin/verifikasi.
@@ -75,7 +84,6 @@ export default async function DashboardPage() {
         return (
             <ProviderDashboardView
                 provider={providerProfile}
-                userName={userName}
                 userEmail={userEmail}
                 joinDate={joinDate}
                 stats={{
@@ -367,13 +375,11 @@ interface ProviderStats {
 
 function ProviderDashboardView({
     provider,
-    userName,
     userEmail,
     joinDate,
     stats,
 }: {
-    provider: any;
-    userName: string;
+    provider: { id: string; name: string };
     userEmail: string;
     joinDate: string;
     stats: ProviderStats;
@@ -733,4 +739,3 @@ function CustomerDashboardView({
         </div>
     );
 }
-

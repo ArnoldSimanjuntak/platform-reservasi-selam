@@ -25,22 +25,17 @@ interface ServiceDetailClientProps {
     service: Service;
     initialIsLoggedIn: boolean;
     initialUserRole?: string;
-    userId: string | null;
     diveSites?: DiveSite[];
 }
 
-export default function ServiceDetailClient({ service, initialIsLoggedIn, initialUserRole = "customer", userId, diveSites = [] }: ServiceDetailClientProps) {
-    // ── Auth state: null = memuat, true = login, false = belum login ──
-    // Mulai dari nilai SSR agar tidak ada flash pop-up login yang salah
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(initialIsLoggedIn);
+export default function ServiceDetailClient({ service, initialIsLoggedIn, initialUserRole = "customer", diveSites = [] }: ServiceDetailClientProps) {
     const [userRole, setUserRole] = useState<string>(initialUserRole);
 
     useEffect(() => {
         const supabase = createClient();
 
         // Verifikasi token secara kriptografis — lebih andal dari SSR cookie race condition
-        supabase.auth.getUser().then(({ data: { user }, error }) => {
-            setIsLoggedIn(!error && !!user);
+        supabase.auth.getUser().then(({ data: { user } }) => {
             if (user) {
                 // Sinkronisasi role dari DB
                 supabase
@@ -58,7 +53,6 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
 
         // Pantau perubahan sesi secara real-time (login di tab lain, logout, refresh token)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setIsLoggedIn(!!session?.user);
             if (!session?.user) setUserRole("customer");
         });
 
@@ -67,6 +61,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
 
     const isGear = service.type === "gear";
     const isBoat = service.type === "boat";
+    const heroImage = service.image_url || "/images/lembeh-map.png";
 
     // Dummy features data based on service type
     const features = [
@@ -107,7 +102,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
             {/* 1. Hero Header */}
             <div className="relative h-[60vh] min-h-[500px] w-full overflow-hidden">
                 <Image
-                    src={service.image_url || "https://picsum.photos/seed/lembeh/1920/1080"}
+                    src={heroImage}
                     alt={service.name}
                     fill
                     className="object-cover"
@@ -159,7 +154,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                                 {service.description || "Enjoy the best diving experience in Lembeh Strait with us. This service is specially designed for macro photographers and muck diving enthusiasts looking for comfort and personalized service."}
                             </p>
                             <p className="text-gray-600 leading-relaxed text-lg mt-4">
-                                Guided by certified dive masters who know every inch of Lembeh's black sand, you will easily find rare &quot;Critters&quot; like the Blue Ring Octopus, Flamboyant Cuttlefish, and Hairy Frogfish.
+                                Guided by certified dive masters who know every inch of Lembeh&apos;s black sand, you will easily find rare &quot;Critters&quot; like the Blue Ring Octopus, Flamboyant Cuttlefish, and Hairy Frogfish.
                             </p>
                         </div>
 
@@ -188,7 +183,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                                 <div>
                                     <h3 className="font-semibold text-green-700 mb-4 flex items-center gap-2">
                                         <CheckCircle2 className="w-5 h-5" />
-                                        What's Included
+                                        What&apos;s Included
                                     </h3>
                                     <ul className="space-y-3">
                                         {includes.map((item, idx) => (
@@ -202,7 +197,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                                 <div>
                                     <h3 className="font-semibold text-red-700 mb-4 flex items-center gap-2">
                                         <XCircle className="w-5 h-5" />
-                                        What's Excluded
+                                        What&apos;s Excluded
                                     </h3>
                                     <ul className="space-y-3">
                                         {excludes.map((item, idx) => (
@@ -270,6 +265,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                                                 price={service.price}
                                                 imageUrl={service.image_url || ""}
                                                 diveSiteCategory={service.dive_site_category}
+                                                initialIsLoggedIn={initialIsLoggedIn}
                                             />
                                         </>
                                     )}
@@ -279,7 +275,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                             <div className="bg-blue-50 rounded-xl p-4 flex items-start gap-3 border border-blue-100">
                                 <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                                 <p className="text-xs text-blue-800 leading-relaxed">
-                                    <strong>Best Price Guarantee:</strong> If you find a lower price for the same package, we will match it.
+                                    <strong>Best Price Guarantee:</strong> If you find a lower price for the same package, we&apos;ll match it.
                                 </p>
                             </div>
                         </div>

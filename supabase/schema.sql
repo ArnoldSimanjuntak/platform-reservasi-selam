@@ -14,12 +14,14 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   role VARCHAR(20) NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'provider')),
+  wants_provider BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_wants_provider ON users(wants_provider);
 
 -- =============================================
 -- 2. SERVICES TABLE (REVISED)

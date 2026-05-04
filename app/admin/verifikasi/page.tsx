@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ShieldCheck, Ship, UserCog, CheckCircle, LogOut, Clock, ShieldAlert, Users } from "lucide-react";
+import { ShieldCheck, Ship, UserCog, CheckCircle, LogOut, Clock, ShieldAlert } from "lucide-react";
 import AdminVerificationClient from "./AdminVerificationClient";
 import { signOut } from "@/app/auth/actions";
 import type { Provider } from "@/lib/supabase";
+import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
 
@@ -131,6 +132,15 @@ export default async function AdminVerificationPage() {
                                 {pendingProviders.length} Menunggu
                             </div>
                         )}
+                    </div>
+                    <div className="mb-5">
+                        <Link
+                            href="/dashboard/provider/services/new"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white bg-[#023E8A] hover:bg-[#032b63] transition-colors"
+                        >
+                            <Ship className="w-4 h-4" />
+                            Buat Layanan Platform
+                        </Link>
                     </div>
 
                     {/* Client Component for Interactive Cards & Modals */}

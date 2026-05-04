@@ -5,25 +5,24 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
-/**
- * Helper: Ambil role user langsung dari tabel public.users (STRICT).
- * Tidak mengandalkan user_metadata karena bisa stale setelah perubahan manual.
- */
-async function getStrictRole(
+async function getUserProfile(
     supabase: Awaited<ReturnType<typeof createClient>>,
     userId: string,
-    fallback?: string
-): Promise<string> {
+    fallbackRole?: string
+): Promise<{ role: string; wantsProvider: boolean }> {
     try {
         const { data, error } = await supabase
             .from("users")
-            .select("role")
+            .select("role, wants_provider")
             .eq("id", userId)
-            .single();
+            .maybeSingle();
         if (error) throw error;
-        return data?.role ?? fallback ?? "customer";
+        return {
+            role: data?.role ?? fallbackRole ?? "customer",
+            wantsProvider: !!data?.wants_provider,
+        };
     } catch {
-        return fallback ?? "customer";
+        return { role: fallbackRole ?? "customer", wantsProvider: false };
     }
 }
 
@@ -39,7 +38,6 @@ export async function signUp(formData: FormData) {
         redirect("/auth/register?error=Semua+field+harus+diisi");
     }
 
-    // Validasi role — hanya customer atau provider yang diizinkan mendaftar
     if (!role || !["customer", "provider"].includes(role)) {
         redirect(
             "/auth/register?error=" +
@@ -47,7 +45,6 @@ export async function signUp(formData: FormData) {
         );
     }
 
-    // ─── 1. Buat akun di Supabase Auth ────────────────────────────────────
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -72,34 +69,54 @@ export async function signUp(formData: FormData) {
         );
     }
 
-    // ─── 2. Simpan role ke tabel public.users ─────────────────────────────
     if (data.user) {
-        const { error: usersError } = await supabase
-            .from("users")
-            .upsert(
-                { id: data.user.id, name, email, role },
-                { onConflict: "id" }
-            );
+        const userUpsertPromise = (async () => {
+            const firstTry = await supabase
+                .from("users")
+                .upsert(
+                    { id: data.user.id, name, email, role, wants_provider: role === "provider" },
+                    { onConflict: "id" }
+                );
 
-        if (usersError) {
-            console.error("Gagal menyimpan data ke tabel users:", usersError.message);
+            if (!firstTry.error) return firstTry;
+
+            // Backward compatibility: jika kolom wants_provider belum dimigrasi.
+            if (firstTry.error.message.toLowerCase().includes("wants_provider")) {
+                return supabase
+                    .from("users")
+                    .upsert(
+                        { id: data.user.id, name, email, role },
+                        { onConflict: "id" }
+                    );
+            }
+
+            return firstTry;
+        })();
+
+        const providerInsertPromise = role === "provider"
+            ? supabase
+                .from("providers")
+                .insert({ owner_user_id: data.user.id, name, is_active: false })
+            : Promise.resolve({ error: null });
+
+        const [usersResult, providerResult] = await Promise.all([
+            userUpsertPromise,
+            providerInsertPromise,
+        ]);
+
+        if (usersResult.error) {
+            console.error("Gagal menyimpan data ke tabel users:", usersResult.error.message);
             redirect(
                 "/auth/register?error=" +
                 encodeURIComponent("Akun berhasil dibuat, namun gagal menyimpan profil. Silakan hubungi admin.")
             );
         }
 
-        // ─── 3. Jika Provider, buat skeleton row di tabel providers ───────
+        if (role === "provider" && providerResult.error) {
+            console.error("Gagal membuat profil provider:", providerResult.error.message);
+        }
+
         if (role === "provider") {
-            const { error: providerError } = await supabase
-                .from("providers")
-                .insert({ owner_user_id: data.user.id, name, is_active: false });
-
-            if (providerError) {
-                console.error("Gagal membuat profil provider:", providerError.message);
-                // Non-blocking — provider bisa melengkapi dari halaman setup
-            }
-
             revalidatePath("/", "layout");
             redirect("/dashboard/provider/setup");
         }
@@ -132,18 +149,25 @@ export async function signIn(formData: FormData) {
         redirect(`/auth/login?error=${encodeURIComponent(errorMessage)}`);
     }
 
-    // ─── Ambil role dari DB (STRICT) untuk redirect yang akurat ───────────
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-        const role = await getStrictRole(supabase, user.id, user.user_metadata?.role);
-
+        const { role, wantsProvider } = await getUserProfile(supabase, user.id, user.user_metadata?.role);
         revalidatePath("/", "layout");
 
-        if (role === "admin") {
-            redirect("/admin");
-        }
+        if (role === "admin") redirect("/admin");
         if (role === "provider") {
-            redirect("/dashboard/provider/orders");
+            const { data: providerRecord } = await supabase
+                .from("providers")
+                .select("verification_status, is_active")
+                .eq("owner_user_id", user.id)
+                .maybeSingle();
+
+            const isVerified = providerRecord?.verification_status === "verified" && !!providerRecord?.is_active;
+            redirect(isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup");
+        }
+
+        if (role === "customer" && wantsProvider) {
+            redirect("/dashboard/provider/setup");
         }
     }
 
@@ -152,27 +176,15 @@ export async function signIn(formData: FormData) {
     redirect(redirectTo);
 }
 
-/**
- * signOut: Logout yang eksplisit dan tahan terhadap Ghost Session.
- * 
- * Ghost Session terjadi ketika cookie auth masih ada di browser tapi
- * sesi sudah tidak valid di Supabase DB. Fungsi ini menangani kasus itu
- * dengan: (1) mencoba signOut normal, (2) jika gagal, tetap lanjut
- * membersihkan cookie secara manual, (3) revalidasi seluruh cache.
- */
 export async function signOut() {
     const supabase = await createClient();
 
-    // 1. Coba hapus sesi — bungkus try-catch untuk ghost session
     try {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "global" });
     } catch (error) {
-        // Ghost session: sesi di DB sudah tidak ada tapi cookie masih ada.
-        // Tidak perlu throw — kita tetap lanjut membersihkan cookie di bawah.
         console.warn("[signOut] Session mungkin sudah expired:", error);
     }
 
-    // 2. Hapus cookie auth secara eksplisit sebagai safety net
     const cookieStore = await cookies();
     cookieStore.getAll().forEach((cookie) => {
         if (
@@ -181,16 +193,14 @@ export async function signOut() {
             cookie.name.includes("sb-")
         ) {
             cookieStore.delete(cookie.name);
+            cookieStore.set(cookie.name, "", {
+                path: "/",
+                maxAge: 0,
+                expires: new Date(0),
+            });
         }
     });
 
-    // 3. Revalidasi semua rute untuk membuang data 'stale' (basi)
     revalidatePath("/", "layout");
-    revalidatePath("/dashboard", "layout");
-    revalidatePath("/admin", "layout");
-
-    // 4. Redirect — ini akan throw NEXT_REDIRECT yang ditangkap oleh
-    // handleSignOut di Navbar.tsx, lalu finally block melakukan hard redirect.
     redirect("/auth/login?message=Berhasil+keluar");
 }
-

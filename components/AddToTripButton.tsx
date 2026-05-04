@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { Calendar, Users, Minus, Plus, ShoppingBag, Check, AlertCircle } from "lucide-react";
 import { useCartStore } from "@/lib/cart-store";
+import { createClient } from "@/lib/supabase/client";
 
 interface AddToTripButtonProps {
     serviceId: string;
@@ -10,6 +12,7 @@ interface AddToTripButtonProps {
     price: number;
     imageUrl: string;
     diveSiteCategory?: string;
+    initialIsLoggedIn: boolean;
 }
 
 export default function AddToTripButton({
@@ -18,6 +21,7 @@ export default function AddToTripButton({
     price,
     imageUrl,
     diveSiteCategory,
+    initialIsLoggedIn,
 }: AddToTripButtonProps) {
     const [date, setDate] = useState("");
     const [participants, setParticipants] = useState(1);
@@ -26,6 +30,9 @@ export default function AddToTripButton({
 
     const addItem = useCartStore((s) => s.addItem);
     const openSidebar = useCartStore((s) => s.openSidebar);
+    const router = useRouter();
+    const pathname = usePathname();
+    const [isCheckingAuth, setIsCheckingAuth] = useState(false);
 
     // Minimum date = tomorrow
     const tomorrow = new Date();
@@ -64,6 +71,26 @@ export default function AddToTripButton({
         }
     };
 
+    const ensureLoggedIn = async () => {
+        if (initialIsLoggedIn) return true;
+        setIsCheckingAuth(true);
+        try {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) return true;
+            router.push(`/auth/login?redirectTo=${encodeURIComponent(pathname)}`);
+            return false;
+        } finally {
+            setIsCheckingAuth(false);
+        }
+    };
+
+    const handleExpand = async () => {
+        const ok = await ensureLoggedIn();
+        if (!ok) return;
+        setIsExpanded(true);
+    };
+
     return (
         <div className="space-y-3">
             {/* Divider */}
@@ -76,11 +103,12 @@ export default function AddToTripButton({
             {/* Collapsed state */}
             {!isExpanded ? (
                 <button
-                    onClick={() => setIsExpanded(true)}
+                    onClick={handleExpand}
+                    disabled={isCheckingAuth}
                     className="w-full py-3 rounded-lg border-2 border-dashed border-primary/30 text-primary hover:border-primary hover:bg-primary/5 font-semibold transition-all text-sm flex items-center justify-center gap-2 group"
                 >
                     <ShoppingBag className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                    Add to Trip
+                    {isCheckingAuth ? "Checking..." : "Add to Trip"}
                 </button>
             ) : (
                 /* Expanded: date + participants + confirm */

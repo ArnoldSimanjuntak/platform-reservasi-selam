@@ -12,6 +12,7 @@ interface ServiceCardProps {
 
 export default function ServiceCard({ service }: ServiceCardProps) {
     const [isBooking, setIsBooking] = useState(false);
+    const previewImage = service.image_url || "/images/lembeh-map.png";
 
     const getIcon = (type: string) => {
         switch (type) {
@@ -58,9 +59,10 @@ export default function ServiceCard({ service }: ServiceCardProps) {
             if (error) throw error;
             alert(`Berhasil memesan: ${service.name}!`);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Booking error:", error);
-            alert(`Gagal memproses pesanan: ${error.message}`);
+            const message = error instanceof Error ? error.message : "Unknown error";
+            alert(`Gagal memproses pesanan: ${message}`);
         } finally {
             setIsBooking(false);
         }
@@ -71,7 +73,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
             {/* Image Container with Tall Aspect Ratio */}
             <div className="relative w-full aspect-[4/5] overflow-hidden bg-neutral-900">
                 <Image
-                    src={service.image_url || `https://picsum.photos/seed/${service.id}/800/1000`}
+                    src={previewImage}
                     alt={service.name}
                     fill
                     className="object-cover transition-transform duration-700 ease-out group-hover:scale-110 opacity-90 group-hover:opacity-100"

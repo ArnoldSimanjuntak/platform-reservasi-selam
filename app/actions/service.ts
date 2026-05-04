@@ -158,16 +158,17 @@ export async function createService(
 
         if (uploadError) {
             console.error("Upload gagal:", uploadError.message);
-            // Lanjutkan tanpa gambar jika bucket belum ada
-            // (jangan blokir pembuatan layanan)
-            console.warn("Melanjutkan tanpa gambar...");
-        } else {
-            // Dapatkan public URL
-            const { data: publicUrlData } = supabase.storage
-                .from("service-images")
-                .getPublicUrl(fileName);
-            imageUrl = publicUrlData.publicUrl;
+            return {
+                success: false,
+                message: `Upload gambar layanan gagal. ${uploadError.message}`,
+            };
         }
+
+        // Dapatkan public URL
+        const { data: publicUrlData } = supabase.storage
+            .from("service-images")
+            .getPublicUrl(fileName);
+        imageUrl = publicUrlData.publicUrl;
     }
 
     // ─── 5. INSERT ke tabel services ──────────────────────────

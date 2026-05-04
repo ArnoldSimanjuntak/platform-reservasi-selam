@@ -65,7 +65,6 @@ export default async function ServiceDetailPage({ params }: PageProps) {
             service={service}
             initialIsLoggedIn={!!user}
             initialUserRole={initialUserRole}
-            userId={user?.id || null}
             diveSites={diveSites}
         />
     );

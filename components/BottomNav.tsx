@@ -1,68 +1,88 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Home, Map, ClipboardList, User, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+function isAbortError(error: unknown): boolean {
+    if (error instanceof DOMException && error.name === "AbortError") return true;
+    if (error instanceof Error && error.name === "AbortError") return true;
+    return String(error).toLowerCase().includes("aborted");
+}
+
 export default function BottomNav() {
-    const [userRole, setUserRole] = useState<string>("customer");
+    const [userRole, setUserRole] = useState<string | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const pathname = usePathname();
-    const supabase = createClient();
+    const authRequestIdRef = useRef(0);
 
     // Sembunyikan navigasi bawah pada halaman auth
     const isAuthPage = pathname.startsWith("/auth");
 
     useEffect(() => {
-        const checkUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setIsAuthenticated(true);
-                const metaRole = user.user_metadata?.role || "customer";
-                setUserRole(metaRole);
-                
-                // Fetch dari tabel users untuk data terbaru (khususnya untuk ngecek role admin yg diubah manual)
-                supabase
+        const supabase = createClient();
+
+        const fetchFreshRole = async (userId: string) => {
+            try {
+                const { data, error } = await supabase
                     .from("users")
                     .select("role")
-                    .eq("id", user.id)
-                    .single()
-                    .then(({ data }) => {
-                        if (data?.role) setUserRole(data.role);
-                    });
+                    .eq("id", userId)
+                    .maybeSingle();
+                if (error) return "customer";
+                return data?.role ?? "customer";
+            } catch (error) {
+                if (!isAbortError(error)) {
+                    console.warn("[BottomNav] role fetch error:", error);
+                }
+                return "customer";
+            }
+        };
+
+        const checkUser = async () => {
+            const requestId = ++authRequestIdRef.current;
+            setIsAuthenticated(false);
+            setUserRole(null);
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (requestId !== authRequestIdRef.current) return;
+
+            if (user) {
+                setIsAuthenticated(true);
+                const role = await fetchFreshRole(user.id);
+                if (requestId === authRequestIdRef.current) setUserRole(role);
             } else {
                 setIsAuthenticated(false);
+                setUserRole(null);
             }
         };
 
         checkUser();
 
-        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+            const requestId = ++authRequestIdRef.current;
+            setIsAuthenticated(false);
+            setUserRole(null);
+
             if (session?.user) {
                 setIsAuthenticated(true);
-                const metaRole = session.user.user_metadata?.role || "customer";
-                setUserRole(metaRole);
-                
-                supabase
-                    .from("users")
-                    .select("role")
-                    .eq("id", session.user.id)
-                    .single()
-                    .then(({ data }) => {
-                        if (data?.role) setUserRole(data.role);
+                setTimeout(() => {
+                    void fetchFreshRole(session.user.id).then((role) => {
+                        if (requestId === authRequestIdRef.current) setUserRole(role);
                     });
+                }, 0);
             } else {
                 setIsAuthenticated(false);
-                setUserRole("customer");
+                setUserRole(null);
             }
         });
 
         return () => {
             authListener.subscription.unsubscribe();
         };
-    }, [supabase]);
+    }, []);
 
     if (isAuthPage) return null;
 

@@ -23,6 +23,7 @@ interface CartStore {
     removeItem: (id: string) => void;
     updateItem: (id: string, updates: Partial<Pick<CartItem, "date" | "participants">>) => { success: boolean; message: string };
     clearCart: () => void;
+    resetCart: () => void;
     toggleSidebar: () => void;
     openSidebar: () => void;
     closeSidebar: () => void;
@@ -56,12 +57,16 @@ function hasDateConflict(
     );
 }
 
+const initialCartState: Pick<CartStore, "items" | "isOpen"> = {
+    items: [],
+    isOpen: false,
+};
+
 // ─── Store ───────────────────────────────────────────────────
 export const useCartStore = create<CartStore>()(
     persist(
         (set, get) => ({
-            items: [],
-            isOpen: false,
+            ...initialCartState,
 
             addItem: (newItem) => {
                 const { items } = get();
@@ -124,6 +129,8 @@ export const useCartStore = create<CartStore>()(
             },
 
             clearCart: () => set({ items: [] }),
+
+            resetCart: () => set(initialCartState),
 
             toggleSidebar: () => set({ isOpen: !get().isOpen }),
             openSidebar: () => set({ isOpen: true }),

@@ -3,65 +3,48 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * Helper: Ambil role dari tabel public.users.
- * Jika DB tidak bisa diakses atau data tidak ada, fallback ke user.user_metadata?.role
- * agar middleware tetap bisa membuat keputusan redirect yang benar.
+ * Jangan fallback ke user_metadata karena metadata tersimpan di session cookie
+ * dan bisa stale setelah admin mengubah role di DB.
  */
 async function getRoleFromDB(
     supabase: ReturnType<typeof createServerClient>,
-    userId: string,
-    metadataRole?: string
+    userId: string
 ): Promise<string> {
     try {
         const { data, error } = await supabase
             .from("users")
             .select("role")
             .eq("id", userId)
-            .single();
+            .maybeSingle();
 
         if (error) {
-            console.warn("[middleware] DB role fetch error, using metadata fallback:", error.message);
-            return metadataRole || "customer";
+            console.warn("[middleware] DB role fetch error, using least-privilege role:", error.message);
+            return "customer";
         }
-        // Kembalikan role dari DB, atau fallback ke metadata/customer
-        return data?.role || metadataRole || "customer";
+        return data?.role || "customer";
     } catch (e) {
         // DB tidak bisa diakses sama sekali (network error)
-        console.warn("[middleware] DB role fetch exception, using metadata fallback:", e);
-        return metadataRole || "customer";
+        console.warn("[middleware] DB role fetch exception, using least-privilege role:", e);
+        return "customer";
     }
 }
 
-/** Helper: Buat response redirect dengan cookie sesi yang sudah diset. */
-function makeRedirect(request: NextRequest, pathname: string, params?: Record<string, string>) {
-    const url = request.nextUrl.clone();
-    url.pathname = pathname;
-    url.search = "";
-    if (params) {
-        Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+async function getOnboardingFlagFromDB(
+    supabase: ReturnType<typeof createServerClient>,
+    userId: string
+): Promise<boolean> {
+    try {
+        const { data, error } = await supabase
+            .from("users")
+            .select("wants_provider")
+            .eq("id", userId)
+            .maybeSingle();
+
+        if (error) return false;
+        return !!data?.wants_provider;
+    } catch {
+        return false;
     }
-    return NextResponse.redirect(url);
-}
-
-/** Helper: Buat response force-logout — hapus semua auth cookies dan redirect login. */
-function makeForceLogout(request: NextRequest, reason: string) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
-    url.search = "";
-    url.searchParams.set("error", reason);
-    const response = NextResponse.redirect(url);
-
-    // Hapus SEMUA cookie yang terkait sesi Supabase
-    request.cookies.getAll().forEach((cookie) => {
-        if (
-            cookie.name.includes("auth-token") ||
-            cookie.name.includes("supabase") ||
-            cookie.name.includes("sb-")
-        ) {
-            response.cookies.delete(cookie.name);
-        }
-    });
-
-    return response;
 }
 
 export async function updateSession(request: NextRequest) {
@@ -92,22 +75,9 @@ export async function updateSession(request: NextRequest) {
     const protectedPaths = ["/checkout", "/dashboard", "/booking", "/admin"];
     const isProtectedRoute = protectedPaths.some((path) => pathname.startsWith(path));
 
-    // ─── 1. PENGECEKAN AWAL (Mencegah log "Auth session missing") ───
-    const hasSessionCookie = request.cookies.getAll().some(c => 
-        c.name.includes('auth-token') || c.name.includes('sb-')
-    );
-
-    if (!hasSessionCookie) {
-        if (isProtectedRoute) {
-            const url = request.nextUrl.clone();
-            url.pathname = "/auth/login";
-            url.searchParams.set("redirectTo", pathname);
-            return NextResponse.redirect(url);
-        }
-        return supabaseResponse;
-    }
-
-    // ─── 2. AMBIL USER ───
+    // ─── 1. AMBIL USER ───
+    // Ikuti pattern Supabase SSR: panggil getUser() langsung setelah createServerClient
+    // agar refresh sesi/cookie sinkron antara browser dan server.
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
@@ -119,10 +89,13 @@ export async function updateSession(request: NextRequest) {
         return supabaseResponse;
     }
 
-    // ─── 3. DATABASE-FIRST ROLE (dengan fallback ke metadata) ───
-    const role = await getRoleFromDB(supabase, user.id, user.user_metadata?.role);
+    // ─── 2. DATABASE-FIRST ROLE (tanpa fallback ke metadata/cookie) ───
+    const role = await getRoleFromDB(supabase, user.id);
+    const wantsProvider = role === "customer"
+        ? await getOnboardingFlagFromDB(supabase, user.id)
+        : false;
 
-    // ─── 4. LOGIKA ROUTING & PROTEKSI ROLE ───
+    // ─── 3. LOGIKA ROUTING & PROTEKSI ROLE ───
     if (pathname.startsWith("/admin") && role !== "admin") {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
@@ -130,21 +103,21 @@ export async function updateSession(request: NextRequest) {
     }
 
     if (role === "provider") {
+        const { data: providerRecord } = await supabase
+            .from("providers")
+            .select("verification_status, is_active")
+            .eq("owner_user_id", user.id)
+            .maybeSingle();
+
+        const isVerified = providerRecord?.verification_status === "verified" && providerRecord?.is_active;
+
         if (pathname === "/" || pathname === "/services") {
             const url = request.nextUrl.clone();
-            url.pathname = "/dashboard/provider/orders";
+            url.pathname = isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup";
             return NextResponse.redirect(url);
         }
 
         if (pathname.startsWith("/dashboard/provider") && !pathname.startsWith("/dashboard/provider/setup")) {
-            const { data: providerRecord } = await supabase
-                .from("providers")
-                .select("verification_status, is_active")
-                .eq("owner_user_id", user.id)
-                .single();
-
-            const isVerified = providerRecord?.verification_status === "verified" && providerRecord?.is_active;
-            
             if (!isVerified) {
                 const url = request.nextUrl.clone();
                 url.pathname = "/dashboard/provider/setup";
@@ -153,7 +126,13 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
-    if (role === "customer" && pathname.startsWith("/dashboard/provider")) {
+    // Customer boleh mengakses setup provider untuk proses pengajuan/verifikasi identitas.
+    // Selain route setup, customer tetap dilarang masuk area operasional provider.
+    if (
+        role === "customer" &&
+        pathname.startsWith("/dashboard/provider") &&
+        (!pathname.startsWith("/dashboard/provider/setup") || !wantsProvider)
+    ) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
         return NextResponse.redirect(url);
@@ -162,8 +141,17 @@ export async function updateSession(request: NextRequest) {
     if (pathname.startsWith("/auth")) {
         const url = request.nextUrl.clone();
         if (role === "admin") url.pathname = "/admin";
-        else if (role === "provider") url.pathname = "/dashboard/provider/orders";
-        else url.pathname = "/dashboard";
+        else if (role === "provider") {
+            const { data: providerRecord } = await supabase
+                .from("providers")
+                .select("verification_status, is_active")
+                .eq("owner_user_id", user.id)
+                .maybeSingle();
+
+            const isVerified = providerRecord?.verification_status === "verified" && providerRecord?.is_active;
+            url.pathname = isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup";
+        }
+        else url.pathname = wantsProvider ? "/dashboard/provider/setup" : "/dashboard";
         return NextResponse.redirect(url);
     }
 

@@ -128,8 +128,9 @@ export interface ProviderMapPin {
 export async function getServices() {
     return supabase
         .from("services")
-        .select("*, provider:providers!inner(id, name, location)")
-        .eq("provider.verification_status", "verified")
+        .select("*, provider:providers(id, name, location, verification_status)")
+        .or("provider_id.is.null,provider.verification_status.eq.verified")
+        .eq("is_available", true)
         .order("created_at", { ascending: false });
 }
 
@@ -171,10 +172,10 @@ export async function getDiveSiteById(id: string) {
 export async function getBoatServices() {
     return supabase
         .from("services")
-        .select("*, provider:providers!inner(id, name, location)")
+        .select("*, provider:providers(id, name, location, verification_status)")
         .eq("type", "boat")
         .eq("is_available", true)
-        .eq("provider.verification_status", "verified")
+        .or("provider_id.is.null,provider.verification_status.eq.verified")
         .order("price", { ascending: true });
 }
 
