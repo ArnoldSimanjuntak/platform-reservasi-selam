@@ -20,6 +20,7 @@ import { createBooking, getRemainingSlots, getGearAvailableStock } from "@/app/a
 import { createClient } from "@/lib/supabase/client";
 import type { BookingResult } from "@/app/actions/booking";
 import type { DiveSite } from "@/lib/supabase";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 interface BookingFormProps {
     serviceId: string;
@@ -76,7 +77,7 @@ export default function BookingForm({
 
         // Pantau perubahan sesi: login/logout di tab lain, token refresh, dll.
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event, session) => {
+            (event: AuthChangeEvent, session: Session | null) => {
                 setIsLoggedIn(!!session?.user);
                 if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
                     router.refresh();
