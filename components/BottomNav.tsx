@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Home, Map, ClipboardList, User, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 function isAbortError(error: unknown): boolean {
     if (error instanceof DOMException && error.name === "AbortError") return true;
@@ -61,7 +62,7 @@ export default function BottomNav() {
 
         checkUser();
 
-        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
             const requestId = ++authRequestIdRef.current;
             setIsAuthenticated(false);
             setUserRole(null);
