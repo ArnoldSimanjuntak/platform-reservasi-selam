@@ -24,6 +24,7 @@ import { createBooking, getRemainingSlots } from "@/app/actions/booking";
 import { createClient } from "@/lib/supabase/client";
 import type { BookingResult } from "@/app/actions/booking";
 import type { DiveSite, Service } from "@/lib/supabase";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 interface BookingPageClientProps {
     diveSite: DiveSite;
@@ -56,7 +57,7 @@ export default function BookingPageClient({
         const supabase = createClient();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event, session) => {
+            (event: AuthChangeEvent, session: Session | null) => {
                 setIsLoggedIn(!!session?.user);
                 if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
                     router.refresh();
