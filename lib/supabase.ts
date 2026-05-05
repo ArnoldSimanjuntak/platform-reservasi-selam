@@ -126,12 +126,20 @@ export interface ProviderMapPin {
  * Fetch all available services with provider info, ordered by newest first.
  */
 export async function getServices() {
-    return supabase
+    const result = await supabase
         .from("services")
         .select("*, provider:providers(id, name, location, verification_status)")
-        .or("provider_id.is.null,provider.verification_status.eq.verified")
         .eq("is_available", true)
         .order("created_at", { ascending: false });
+
+    if (result.error || !result.data) return result;
+
+    return {
+        ...result,
+        data: result.data.filter(
+            (service) => !service.provider_id || service.provider?.verification_status === "verified"
+        ),
+    };
 }
 
 /**
@@ -170,13 +178,21 @@ export async function getDiveSiteById(id: string) {
  * Fetch all available boat services (for booking page).
  */
 export async function getBoatServices() {
-    return supabase
+    const result = await supabase
         .from("services")
         .select("*, provider:providers(id, name, location, verification_status)")
         .eq("type", "boat")
         .eq("is_available", true)
-        .or("provider_id.is.null,provider.verification_status.eq.verified")
         .order("price", { ascending: true });
+
+    if (result.error || !result.data) return result;
+
+    return {
+        ...result,
+        data: result.data.filter(
+            (service) => !service.provider_id || service.provider?.verification_status === "verified"
+        ),
+    };
 }
 
 // ─── Provider Helpers ────────────────────────────────────────────

@@ -79,7 +79,7 @@ function ProviderSetupContent() {
                     .from("providers")
                     .select("verification_status")
                     .eq("owner_user_id", user.id)
-                    .single();
+                    .maybeSingle();
                 
                 if (data) {
                     setVerificationStatus(data.verification_status);

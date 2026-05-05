@@ -15,6 +15,19 @@ const withPWA = require("next-pwa")({
     //   handler     : strategi caching Workbox
     //   options     : konfigurasi cache (nama, TTL, max entries)
     runtimeCaching: [
+        // Auth/Dashboard routes should not serve stale shell from cache.
+        {
+            urlPattern: /\/(auth|dashboard)(\/.*)?$/i,
+            handler: "NetworkFirst",
+            options: {
+                cacheName: "auth-dashboard-pages",
+                networkTimeoutSeconds: 5,
+                expiration: {
+                    maxEntries: 16,
+                    maxAgeSeconds: 60 * 30,
+                },
+            },
+        },
         // ── 1. Google Fonts (CacheFirst — jarang berubah) ────
         {
             urlPattern: /^https:\/\/fonts\.(?:gstatic|googleapis)\.com\/.*/i,
@@ -171,7 +184,7 @@ const withPWA = require("next-pwa")({
         // Halaman yang sering dikunjungi di-cache agar bisa
         // diakses offline oleh penyelam di area tanpa sinyal.
         {
-            urlPattern: /\/(services|lokasi|dashboard)(\/.*)?$/i,
+            urlPattern: /\/(services|lokasi)(\/.*)?$/i,
             handler: "StaleWhileRevalidate",
             options: {
                 cacheName: "app-pages",

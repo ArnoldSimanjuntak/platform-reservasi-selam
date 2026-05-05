@@ -169,7 +169,19 @@ export async function signIn(formData: FormData) {
         }
 
         if (role === "customer" && wantsProvider) {
-            redirect("/dashboard/provider/setup");
+            const { data: providerRecord } = await supabase
+                .from("providers")
+                .select("verification_status, is_active")
+                .eq("owner_user_id", user.id)
+                .maybeSingle();
+
+            const needsSetup =
+                !!providerRecord &&
+                (providerRecord.verification_status !== "verified" || !providerRecord.is_active);
+
+            if (needsSetup) {
+                redirect("/dashboard/provider/setup");
+            }
         }
     }
 
