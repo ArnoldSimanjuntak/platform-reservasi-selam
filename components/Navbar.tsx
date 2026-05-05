@@ -7,7 +7,7 @@ import { Menu, X, Anchor, User, LogOut, ChevronDown, Calendar, Ship, ClipboardLi
 import { createClient } from "@/lib/supabase/client";
 import { signOut as serverSignOut } from "@/app/auth/actions";
 import { useCartStore } from "@/lib/cart-store";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
 
 // ─── Types ─────────────────────────────────────────────────────
 interface AuthState {
@@ -170,7 +170,7 @@ export default function Navbar() {
         };
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event, session) => {
+            (event: AuthChangeEvent, session: Session | null) => {
                 if (!mountedRef.current) return;
 
                 if (event === "SIGNED_OUT" || !session?.user) {
