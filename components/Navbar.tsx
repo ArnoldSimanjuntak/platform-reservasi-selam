@@ -67,19 +67,23 @@ async function fetchUserWithRole(supabase: ReturnType<typeof createClient>): Pro
         }
         return { user: null, role: null, providerVerified: false };
     }
+    if (!user) {
+        return { user: null, role: null, providerVerified: false };
+    }
+    const currentUser = user;
 
     // Ambil role dari DB (ground truth) agar tidak memakai metadata/cookie yang bisa stale.
     try {
         const { data, error: roleError } = await supabase
             .from("users")
             .select("role")
-            .eq("id", user.id)
+            .eq("id", currentUser.id)
             .maybeSingle();
 
         if (roleError) throw roleError;
 
         return {
-            user,
+            user: currentUser,
             role: data?.role ?? "customer",
             providerVerified: false,
         };
@@ -88,7 +92,7 @@ async function fetchUserWithRole(supabase: ReturnType<typeof createClient>): Pro
             console.warn("[Navbar] role fetch error:", error);
         }
         return {
-            user,
+            user: currentUser,
             role: "customer",
             providerVerified: false,
         };
