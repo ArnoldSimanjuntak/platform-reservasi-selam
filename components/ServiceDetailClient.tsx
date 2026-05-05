@@ -20,6 +20,7 @@ import type { Service, DiveSite } from "@/lib/supabase";
 import BookingForm from "@/components/BookingForm";
 import AddToTripButton from "@/components/AddToTripButton";
 import { createClient } from "@/lib/supabase/client";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 interface ServiceDetailClientProps {
     service: Service;
@@ -35,24 +36,26 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
         const supabase = createClient();
 
         // Verifikasi token secara kriptografis — lebih andal dari SSR cookie race condition
-        supabase.auth.getUser().then(({ data: { user } }) => {
+        const syncAuth = async () => {
+            const authRes = await supabase.auth.getUser();
+            const user = authRes.data.user;
+
             if (user) {
                 // Sinkronisasi role dari DB
-                supabase
+                const roleRes = await supabase
                     .from("users")
                     .select("role")
                     .eq("id", user.id)
-                    .single()
-                    .then(({ data }) => {
-                        if (data?.role) setUserRole(data.role);
-                    });
+                    .single();
+                if (roleRes.data?.role) setUserRole(roleRes.data.role);
             } else {
                 setUserRole("customer");
             }
-        });
+        };
+        void syncAuth();
 
         // Pantau perubahan sesi secara real-time (login di tab lain, logout, refresh token)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
             if (!session?.user) setUserRole("customer");
         });
 

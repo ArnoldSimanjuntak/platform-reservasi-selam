@@ -6,6 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import { updateBookingStatus } from "@/app/actions/booking";
 import type { BookingStatusAction } from "@/app/actions/booking";
 import { verifyPayment, getPaymentProofSignedUrl } from "@/app/actions/payment";
+import type {
+    RealtimePostgresInsertPayload,
+    RealtimePostgresUpdatePayload,
+} from "@supabase/supabase-js";
 import {
     ClipboardList,
     Users,
@@ -51,6 +55,8 @@ interface Order {
 interface ProviderOrderFeedProps {
     providerId: string;
 }
+
+type BookingRealtimeRow = Partial<Order> & { id: string };
 
 // ─── Helper: Get today's date as YYYY-MM-DD (WITA-safe) ────────
 function getTodayStr(): string {
@@ -113,11 +119,11 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                     table: "bookings",
                     filter: `provider_id=eq.${providerId}`,
                 },
-                async (payload) => {
+                async (payload: RealtimePostgresInsertPayload<BookingRealtimeRow>) => {
                     const { data: fullBooking } = await supabase
                         .from("bookings")
                         .select("*, service:services(id, name, type)")
-                        .eq("id", (payload.new as Order).id)
+                        .eq("id", payload.new.id)
                         .single();
 
                     if (fullBooking) {
@@ -135,8 +141,8 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                     table: "bookings",
                     filter: `provider_id=eq.${providerId}`,
                 },
-                (payload) => {
-                    const updated = payload.new as Order;
+                (payload: RealtimePostgresUpdatePayload<BookingRealtimeRow>) => {
+                    const updated = payload.new;
                     setOrders((prev) =>
                         prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o))
                     );
