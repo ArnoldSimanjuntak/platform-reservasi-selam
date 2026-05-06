@@ -40,7 +40,7 @@ export default async function AdminServicesPage() {
     const activeCount = allServices.filter((s) => s.is_available).length;
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
             {/* Admin Top Bar */}
             <header className="bg-[#023E8A] border-b border-[#0077B6] sticky top-0 z-40">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -112,19 +112,19 @@ export default async function AdminServicesPage() {
                 </div>
 
                 {/* Stats Row */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     {[
                         { label: "Total Layanan", value: allServices.length, icon: Package, color: "text-[#023E8A]", bg: "bg-blue-50" },
                         { label: "Layanan Aktif", value: activeCount, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
                         { label: "Layanan Nonaktif", value: allServices.length - activeCount, icon: XCircle, color: "text-red-500", bg: "bg-red-50" },
                     ].map((s) => (
-                        <div key={s.label} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
-                            <div className={`w-11 h-11 rounded-xl ${s.bg} flex items-center justify-center`}>
-                                <s.icon className={`w-5 h-5 ${s.color}`} />
+                        <div key={s.label} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-5 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left min-w-0">
+                            <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${s.bg} flex items-center justify-center shrink-0`}>
+                                <s.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${s.color}`} />
                             </div>
-                            <div>
-                                <p className="text-2xl font-black text-slate-900">{s.value}</p>
-                                <p className="text-xs font-bold text-slate-500">{s.label}</p>
+                            <div className="min-w-0 w-full">
+                                <p className="text-xl sm:text-2xl font-black text-slate-900">{s.value}</p>
+                                <p className="text-[10px] sm:text-xs font-bold text-slate-500 truncate">{s.label}</p>
                             </div>
                         </div>
                     ))}

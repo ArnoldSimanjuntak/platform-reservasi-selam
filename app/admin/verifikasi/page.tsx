@@ -53,7 +53,7 @@ export default async function AdminVerificationPage() {
     const rejectedProviders = providers.filter(p => p.verification_status === "rejected");
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
             {/* Admin Navbar */}
             <header className="bg-[#023E8A] border-b border-[#0077B6] sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -84,32 +84,32 @@ export default async function AdminVerificationPage() {
             {/* Main Content */}
             <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
                 {/* ─── Stats Overview Cards ─────────────────────────── */}
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-4 flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
-                            <Clock className="w-5 h-5 text-amber-600" />
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                    <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left min-w-0">
+                        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                         </div>
-                        <div>
-                            <p className="text-2xl font-black text-slate-900">{pendingProviders.length}</p>
-                            <p className="text-xs text-slate-500 font-bold">Menunggu</p>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
-                            <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-black text-slate-900">{verifiedProviders.length}</p>
-                            <p className="text-xs text-slate-500 font-bold">Terverifikasi</p>
+                        <div className="min-w-0 w-full">
+                            <p className="text-xl sm:text-2xl font-black text-slate-900">{pendingProviders.length}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold truncate">Menunggu</p>
                         </div>
                     </div>
-                    <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-4 flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center">
-                            <ShieldAlert className="w-5 h-5 text-red-500" />
+                    <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left min-w-0">
+                        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                            <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
                         </div>
-                        <div>
-                            <p className="text-2xl font-black text-slate-900">{rejectedProviders.length}</p>
-                            <p className="text-xs text-slate-500 font-bold">Ditolak</p>
+                        <div className="min-w-0 w-full">
+                            <p className="text-xl sm:text-2xl font-black text-slate-900">{verifiedProviders.length}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold truncate">Terverifikasi</p>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left min-w-0">
+                        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                            <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
+                        </div>
+                        <div className="min-w-0 w-full">
+                            <p className="text-xl sm:text-2xl font-black text-slate-900">{rejectedProviders.length}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold truncate">Ditolak</p>
                         </div>
                     </div>
                 </div>

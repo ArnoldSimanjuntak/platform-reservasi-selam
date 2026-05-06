@@ -93,7 +93,7 @@ export default async function AdminHubPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
             {/* Admin Top Bar */}
             <header className="bg-[#023E8A] border-b border-[#0077B6] sticky top-0 z-40">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -155,7 +155,7 @@ export default async function AdminHubPage() {
                 </div>
 
                 {/* Stats Row */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
                     {[
                         { label: "Menunggu Verifikasi", value: pendingProviders ?? 0, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
                         { label: "Provider Terverifikasi", value: verifiedProviders ?? 0, icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-50" },
@@ -164,12 +164,12 @@ export default async function AdminHubPage() {
                         { label: "Total Pesanan", value: totalOrders ?? 0, icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
                         { label: "Total Layanan", value: totalServices ?? 0, icon: Ship, color: "text-[#023E8A]", bg: "bg-blue-50" },
                     ].map((stat) => (
-                        <div key={stat.label} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-2">
-                            <div className={`w-9 h-9 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                        <div key={stat.label} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 flex flex-col gap-1.5 sm:gap-2 min-w-0">
+                            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${stat.bg} flex items-center justify-center shrink-0`}>
+                                <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.color}`} />
                             </div>
-                            <p className="text-2xl font-black text-slate-900">{stat.value}</p>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-tight">{stat.label}</p>
+                            <p className="text-xl sm:text-2xl font-black text-slate-900">{stat.value}</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-tight truncate">{stat.label}</p>
                         </div>
                     ))}
                 </div>
