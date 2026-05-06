@@ -213,9 +213,6 @@ const withPWA = require("next-pwa")({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
-    // Turbopack config: Next.js 16 memakai Turbopack secara default.
-    // Empty config agar tidak konflik dengan webpack config dari next-pwa.
-    turbopack: {},
     experimental: {
         serverActions: {
             bodySizeLimit: '5mb',

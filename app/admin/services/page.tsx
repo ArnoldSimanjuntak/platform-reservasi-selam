@@ -11,6 +11,7 @@ import {
     CheckCircle2,
     XCircle,
     ArrowLeft,
+    PlusCircle,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -101,6 +102,13 @@ export default async function AdminServicesPage() {
                             </p>
                         </div>
                     </div>
+                    <Link
+                        href="/dashboard/provider/services/new"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#023E8A] to-[#0077B6] hover:opacity-90 transition-opacity"
+                    >
+                        <PlusCircle className="w-4 h-4" />
+                        Tambah Layanan
+                    </Link>
                 </div>
 
                 {/* Stats Row */}

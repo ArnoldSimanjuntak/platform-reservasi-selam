@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Ship, Anchor, Camera, ArrowRight, Loader2, Star, BookOpen } from "lucide-react";
 import type { Service } from "@/lib/supabase";
-import { supabase } from "@/lib/supabase";
 import { useState } from "react";
 
 interface ServiceCardProps {
@@ -33,39 +33,8 @@ export default function ServiceCard({ service }: ServiceCardProps) {
         }).format(price);
     };
 
-    const handleBooking = async (e: React.MouseEvent) => {
-        e.preventDefault(); // Prevent Link navigation if wrapped in Link
-        try {
-            setIsBooking(true);
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-            if (authError || !user) {
-                alert("Silakan login terlebih dahulu untuk melakukan pemesanan.");
-                return;
-            }
-
-            const { error } = await supabase
-                .from("bookings")
-                .insert([
-                    {
-                        user_id: user.id,
-                        service_id: service.id,
-                        booking_date: new Date().toISOString(),
-                        status: "pending",
-                        total_price: service.price,
-                    },
-                ]);
-
-            if (error) throw error;
-            alert(`Berhasil memesan: ${service.name}!`);
-
-        } catch (error: unknown) {
-            console.error("Booking error:", error);
-            const message = error instanceof Error ? error.message : "Unknown error";
-            alert(`Gagal memproses pesanan: ${message}`);
-        } finally {
-            setIsBooking(false);
-        }
+    const handleNavigate = () => {
+        setIsBooking(true);
     };
 
     return (
@@ -130,17 +99,19 @@ export default function ServiceCard({ service }: ServiceCardProps) {
                     </span>
                 </div>
 
-                <button
-                    onClick={handleBooking}
-                    disabled={isBooking}
-                    className="flex items-center justify-center w-12 h-12 rounded-full bg-neutral-100 text-deepSea hover:bg-primary hover:text-white transition-all duration-300 disabled:opacity-50 shrink-0"
+                <Link
+                    href={`/services/${service.id}`}
+                    onClick={handleNavigate}
+                    className={`flex items-center justify-center w-12 h-12 rounded-full bg-neutral-100 text-deepSea hover:bg-primary hover:text-white transition-all duration-300 shrink-0 ${
+                        isBooking ? "pointer-events-none opacity-50" : ""
+                    }`}
                 >
                     {isBooking ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                         <ArrowRight className="w-5 h-5 -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
                     )}
-                </button>
+                </Link>
             </div>
         </div>
     );

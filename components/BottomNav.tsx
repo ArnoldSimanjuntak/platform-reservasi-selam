@@ -15,12 +15,13 @@ function isAbortError(error: unknown): boolean {
 
 export default function BottomNav() {
     const [userRole, setUserRole] = useState<string | null>(null);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
     const pathname = usePathname();
     const authRequestIdRef = useRef(0);
 
     // Sembunyikan navigasi bawah pada halaman auth
     const isAuthPage = pathname.startsWith("/auth");
+    const isAdminPage = pathname.startsWith("/admin");
 
     useEffect(() => {
         const supabase = createClient();
@@ -44,7 +45,7 @@ export default function BottomNav() {
 
         const checkUser = async () => {
             const requestId = ++authRequestIdRef.current;
-            setIsAuthenticated(false);
+            setIsAuthenticated(null);
             setUserRole(null);
 
             const { data: { user } } = await supabase.auth.getUser();
@@ -64,7 +65,7 @@ export default function BottomNav() {
 
         const { data: authListener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
             const requestId = ++authRequestIdRef.current;
-            setIsAuthenticated(false);
+            setIsAuthenticated(null);
             setUserRole(null);
 
             if (session?.user) {
@@ -85,7 +86,7 @@ export default function BottomNav() {
         };
     }, []);
 
-    if (isAuthPage) return null;
+    if (isAuthPage || isAdminPage || userRole === "admin") return null;
 
     return (
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-[100] pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
@@ -142,8 +143,8 @@ export default function BottomNav() {
                     </Link>
                 )}
 
-                <Link 
-                    href={isAuthenticated ? "/dashboard" : "/auth/login"} 
+                <Link
+                    href={isAuthenticated ? "/dashboard" : "/auth/login?redirectTo=/dashboard"}
                     className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
                         pathname === "/dashboard" ? "text-[#023E8A]" : "text-slate-400 hover:text-slate-600"
                     }`}
