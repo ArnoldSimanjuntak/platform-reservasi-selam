@@ -47,6 +47,38 @@ async function getOnboardingFlagFromDB(
     }
 }
 
+async function getPendingProviderProfileFromDB(
+    supabase: ReturnType<typeof createServerClient>,
+    userId: string
+): Promise<boolean> {
+    try {
+        const { data, error } = await supabase
+            .from("providers")
+            .select("verification_status, is_active")
+            .eq("owner_user_id", userId)
+            .maybeSingle();
+
+        if (error || !data) return false;
+        return data.verification_status !== "verified" || !data.is_active;
+    } catch {
+        return false;
+    }
+}
+
+function redirectWithSessionCookies(
+    request: NextRequest,
+    supabaseResponse: NextResponse,
+    pathname: string
+) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    const response = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+        response.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return response;
+}
+
 export async function updateSession(request: NextRequest) {
     let supabaseResponse = NextResponse.next({ request });
 
@@ -82,9 +114,7 @@ export async function updateSession(request: NextRequest) {
 
     if (authError || !user) {
         if (isProtectedRoute) {
-            const url = request.nextUrl.clone();
-            url.pathname = "/auth/login";
-            return NextResponse.redirect(url);
+            return redirectWithSessionCookies(request, supabaseResponse, "/auth/login");
         }
         return supabaseResponse;
     }
@@ -94,12 +124,13 @@ export async function updateSession(request: NextRequest) {
     const wantsProvider = role === "customer"
         ? await getOnboardingFlagFromDB(supabase, user.id)
         : false;
+    const hasPendingProviderProfile = role === "customer"
+        ? await getPendingProviderProfileFromDB(supabase, user.id)
+        : false;
 
     // ─── 3. LOGIKA ROUTING & PROTEKSI ROLE ───
     if (pathname.startsWith("/admin") && role !== "admin") {
-        const url = request.nextUrl.clone();
-        url.pathname = "/dashboard";
-        return NextResponse.redirect(url);
+        return redirectWithSessionCookies(request, supabaseResponse, "/dashboard");
     }
 
     if (role === "provider") {
@@ -112,16 +143,16 @@ export async function updateSession(request: NextRequest) {
         const isVerified = providerRecord?.verification_status === "verified" && providerRecord?.is_active;
 
         if (pathname === "/" || pathname === "/services") {
-            const url = request.nextUrl.clone();
-            url.pathname = isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup";
-            return NextResponse.redirect(url);
+            return redirectWithSessionCookies(
+                request,
+                supabaseResponse,
+                isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup"
+            );
         }
 
         if (pathname.startsWith("/dashboard/provider") && !pathname.startsWith("/dashboard/provider/setup")) {
             if (!isVerified) {
-                const url = request.nextUrl.clone();
-                url.pathname = "/dashboard/provider/setup";
-                return NextResponse.redirect(url);
+                return redirectWithSessionCookies(request, supabaseResponse, "/dashboard/provider/setup");
             }
         }
     }
@@ -131,16 +162,18 @@ export async function updateSession(request: NextRequest) {
     if (
         role === "customer" &&
         pathname.startsWith("/dashboard/provider") &&
-        (!pathname.startsWith("/dashboard/provider/setup") || !wantsProvider)
+        (
+            !pathname.startsWith("/dashboard/provider/setup") ||
+            (!wantsProvider && !hasPendingProviderProfile)
+        )
     ) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/dashboard";
-        return NextResponse.redirect(url);
+        return redirectWithSessionCookies(request, supabaseResponse, "/dashboard");
     }
 
     if (pathname.startsWith("/auth")) {
-        const url = request.nextUrl.clone();
-        if (role === "admin") url.pathname = "/admin";
+        if (role === "admin") {
+            return redirectWithSessionCookies(request, supabaseResponse, "/admin");
+        }
         else if (role === "provider") {
             const { data: providerRecord } = await supabase
                 .from("providers")
@@ -149,10 +182,19 @@ export async function updateSession(request: NextRequest) {
                 .maybeSingle();
 
             const isVerified = providerRecord?.verification_status === "verified" && providerRecord?.is_active;
-            url.pathname = isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup";
+            return redirectWithSessionCookies(
+                request,
+                supabaseResponse,
+                isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup"
+            );
         }
-        else url.pathname = wantsProvider ? "/dashboard/provider/setup" : "/dashboard";
-        return NextResponse.redirect(url);
+        else {
+            return redirectWithSessionCookies(
+                request,
+                supabaseResponse,
+                wantsProvider || hasPendingProviderProfile ? "/dashboard/provider/setup" : "/dashboard"
+            );
+        }
     }
 
     return supabaseResponse;

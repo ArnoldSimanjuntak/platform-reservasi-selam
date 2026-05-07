@@ -5,8 +5,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Ship, Wrench, Users, Package, Plus, ArrowLeft, CheckCircle2, XCircle, DollarSign, Pencil, ShieldCheck } from "lucide-react";
+import DeleteServiceButton from "@/components/DeleteServiceButton";
 
-export default async function ProviderServicesPage() {
+export default async function ProviderServicesPage({
+    searchParams,
+}: {
+    searchParams?: { message?: string; error?: string };
+}) {
     const supabase = await createClient();
     const {
         data: { user },
@@ -106,6 +111,20 @@ export default async function ProviderServicesPage() {
                 </div>
 
                 {/* Error State */}
+                {searchParams?.message && (
+                    <div className="bg-green-50 border border-green-200 rounded-2xl p-5 mb-6 flex items-start gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                        <p className="text-sm text-green-800 font-semibold">{searchParams.message}</p>
+                    </div>
+                )}
+
+                {searchParams?.error && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-5 mb-6 flex items-start gap-3">
+                        <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-800 font-semibold">{searchParams.error}</p>
+                    </div>
+                )}
+
                 {error && (
                     <div className="bg-red-50 border border-red-200 rounded-2xl p-5 mb-6 flex items-start gap-3">
                         <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
@@ -188,9 +207,21 @@ export default async function ProviderServicesPage() {
                                                 Maks. {service.max_capacity} orang
                                             </span>
                                         </div>
-                                        <button className="p-2 rounded-lg text-slate-400 hover:text-primary hover:bg-blue-50 transition-colors">
-                                            <Pencil className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                className="p-2 rounded-lg text-slate-400 hover:text-primary hover:bg-blue-50 transition-colors"
+                                                title="Edit layanan"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </button>
+                                            <DeleteServiceButton
+                                                serviceId={service.id}
+                                                serviceName={service.name}
+                                                redirectTo="/dashboard/provider/services"
+                                                compact
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             );

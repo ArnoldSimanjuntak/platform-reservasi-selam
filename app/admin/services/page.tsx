@@ -13,10 +13,15 @@ import {
     ArrowLeft,
     PlusCircle,
 } from "lucide-react";
+import DeleteServiceButton from "@/components/DeleteServiceButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminServicesPage() {
+export default async function AdminServicesPage({
+    searchParams,
+}: {
+    searchParams?: { message?: string; error?: string };
+}) {
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -111,6 +116,20 @@ export default async function AdminServicesPage() {
                     </Link>
                 </div>
 
+                {searchParams?.message && (
+                    <div className="bg-green-50 border border-green-200 rounded-2xl p-5 flex items-start gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                        <p className="text-sm text-green-800 font-semibold">{searchParams.message}</p>
+                    </div>
+                )}
+
+                {searchParams?.error && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex items-start gap-3">
+                        <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-800 font-semibold">{searchParams.error}</p>
+                    </div>
+                )}
+
                 {/* Stats Row */}
                 <div className="grid grid-cols-3 gap-2 sm:gap-4">
                     {[
@@ -153,6 +172,7 @@ export default async function AdminServicesPage() {
                                         <th className="text-left px-5 py-3.5 text-xs font-black text-slate-500 uppercase tracking-wider">Harga</th>
                                         <th className="text-left px-5 py-3.5 text-xs font-black text-slate-500 uppercase tracking-wider">Status</th>
                                         <th className="text-left px-5 py-3.5 text-xs font-black text-slate-500 uppercase tracking-wider">Terdaftar</th>
+                                        <th className="text-right px-5 py-3.5 text-xs font-black text-slate-500 uppercase tracking-wider">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
@@ -195,6 +215,15 @@ export default async function AdminServicesPage() {
                                                     month: "short",
                                                     year: "numeric",
                                                 })}
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <div className="flex justify-end">
+                                                    <DeleteServiceButton
+                                                        serviceId={service.id}
+                                                        serviceName={service.name}
+                                                        redirectTo="/admin/services"
+                                                    />
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Calendar, Anchor, LogOut, Package, ClipboardList, Ship, MapPin, UserCog, TrendingUp, Bell, Waves, CheckCircle2 } from "lucide-react";
+import { Calendar, Anchor, LogOut, Package, ClipboardList, Ship, MapPin, UserCog, TrendingUp, Bell, Waves, CheckCircle2, Search, ChevronRight, Clock } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/app/auth/actions";
 import ProviderOrderFeed from "@/components/ProviderOrderFeed";
@@ -18,11 +18,18 @@ export default async function DashboardPage() {
     }
 
     // ─── 1. Ambil data terbaru dari tabel users (bukan metadata) ──
-    const { data: userRecord } = await supabase
-        .from("users")
-        .select("name, role")
-        .eq("id", user.id)
-        .maybeSingle();
+    const [{ data: userRecord }, { data: providerProfile }] = await Promise.all([
+        supabase
+            .from("users")
+            .select("name, role")
+            .eq("id", user.id)
+            .maybeSingle(),
+        supabase
+            .from("providers")
+            .select("id, name, is_active, verification_status")
+            .eq("owner_user_id", user.id)
+            .maybeSingle(),
+    ]);
 
     const userName = userRecord?.name || user.user_metadata?.name || user.email?.split("@")[0] || "User";
     const userRole = userRecord?.role || user.user_metadata?.role || "customer";
@@ -34,12 +41,6 @@ export default async function DashboardPage() {
     });
 
     // ─── 2. Cek profil provider di tabel providers ────────────
-    const { data: providerProfile } = await supabase
-        .from("providers")
-        .select("id, name, is_active, verification_status")
-        .eq("owner_user_id", user.id)
-        .maybeSingle();
-
     // Jika akun sudah punya provider profile tapi belum verified,
     // paksa selalu ke halaman setup/verifikasi (meskipun role users belum sinkron).
     if (
@@ -59,27 +60,31 @@ export default async function DashboardPage() {
         }
 
         // ─── 4. Ambil stats real dari DB ──────────────────────
-        const { count: pendingOrderCount } = await supabase
-            .from("bookings")
-            .select("id", { count: "exact", head: true })
-            .eq("provider_id", providerProfile.id)
-            .eq("status", "pending");
-
-        const { count: totalOrderCount } = await supabase
-            .from("bookings")
-            .select("id", { count: "exact", head: true })
-            .eq("provider_id", providerProfile.id);
-
-        const { count: activeServiceCount } = await supabase
-            .from("services")
-            .select("id", { count: "exact", head: true })
-            .eq("provider_id", providerProfile.id)
-            .eq("is_available", true);
-
-        const { count: totalServiceCount } = await supabase
-            .from("services")
-            .select("id", { count: "exact", head: true })
-            .eq("provider_id", providerProfile.id);
+        const [
+            { count: pendingOrderCount },
+            { count: totalOrderCount },
+            { count: activeServiceCount },
+            { count: totalServiceCount },
+        ] = await Promise.all([
+            supabase
+                .from("bookings")
+                .select("id", { count: "exact", head: true })
+                .eq("provider_id", providerProfile.id)
+                .eq("status", "pending"),
+            supabase
+                .from("bookings")
+                .select("id", { count: "exact", head: true })
+                .eq("provider_id", providerProfile.id),
+            supabase
+                .from("services")
+                .select("id", { count: "exact", head: true })
+                .eq("provider_id", providerProfile.id)
+                .eq("is_available", true),
+            supabase
+                .from("services")
+                .select("id", { count: "exact", head: true })
+                .eq("provider_id", providerProfile.id),
+        ]);
 
         return (
             <ProviderDashboardView
@@ -98,23 +103,27 @@ export default async function DashboardPage() {
 
     if (userRole === "admin") {
         // ─── Admin: Ambil global stats dari DB ──────────────────────
-        const { count: pendingOrderCount } = await supabase
-            .from("bookings")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "pending");
-
-        const { count: totalOrderCount } = await supabase
-            .from("bookings")
-            .select("id", { count: "exact", head: true });
-
-        const { count: activeServiceCount } = await supabase
-            .from("services")
-            .select("id", { count: "exact", head: true })
-            .eq("is_available", true);
-
-        const { count: totalServiceCount } = await supabase
-            .from("services")
-            .select("id", { count: "exact", head: true });
+        const [
+            { count: pendingOrderCount },
+            { count: totalOrderCount },
+            { count: activeServiceCount },
+            { count: totalServiceCount },
+        ] = await Promise.all([
+            supabase
+                .from("bookings")
+                .select("id", { count: "exact", head: true })
+                .eq("status", "pending"),
+            supabase
+                .from("bookings")
+                .select("id", { count: "exact", head: true }),
+            supabase
+                .from("services")
+                .select("id", { count: "exact", head: true })
+                .eq("is_available", true),
+            supabase
+                .from("services")
+                .select("id", { count: "exact", head: true }),
+        ]);
 
         return (
             <AdminDashboardView
@@ -574,168 +583,219 @@ function CustomerDashboardView({
     joinDate: string;
     stats: CustomerStats;
 }) {
+    const statCards = [
+        {
+            label: "Akan Datang",
+            value: stats.upcoming,
+            icon: Clock,
+            iconColor: "text-amber-600",
+            bg: "bg-amber-50",
+            border: "border-amber-100",
+        },
+        {
+            label: "Berlangsung",
+            value: stats.inProgress,
+            icon: Waves,
+            iconColor: "text-emerald-600",
+            bg: "bg-emerald-50",
+            border: "border-emerald-100",
+        },
+        {
+            label: "Selesai",
+            value: stats.completed,
+            icon: CheckCircle2,
+            iconColor: "text-sky-600",
+            bg: "bg-sky-50",
+            border: "border-sky-100",
+        },
+        {
+            label: "Total Booking",
+            value: stats.total,
+            icon: ClipboardList,
+            iconColor: "text-slate-500",
+            bg: "bg-slate-50",
+            border: "border-slate-100",
+        },
+    ];
+
+    const quickActions = [
+        {
+            href: "/services",
+            label: "Cari Paket Selam",
+            desc: "Jelajahi layanan diving, sewa alat & kapal",
+            icon: Search,
+            iconColor: "text-[#023E8A]",
+            iconBg: "bg-blue-50",
+        },
+        {
+            href: "/lokasi",
+            label: "Peta Dive Sites",
+            desc: "Lihat titik penyelaman di Selat Lembeh",
+            icon: MapPin,
+            iconColor: "text-emerald-600",
+            iconBg: "bg-emerald-50",
+        },
+        {
+            href: "/dashboard/bookings",
+            label: "Riwayat Booking",
+            desc: `${stats.total} perjalanan tercatat`,
+            icon: ClipboardList,
+            iconColor: "text-amber-600",
+            iconBg: "bg-amber-50",
+        },
+    ];
+
     return (
-        <div className="min-h-screen pt-24 pb-12 px-4" style={{ background: "linear-gradient(180deg, #f0f7ff 0%, #f9fafb 40%)" }}>
-            <div className="container mx-auto max-w-4xl">
-                {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-                    <p className="text-slate-500 mt-1">
-                        Selamat datang kembali, <span className="font-semibold text-slate-700">{userName}</span>!
+        <div className="min-h-screen bg-gray-50 pt-20 pb-24 sm:pb-12">
+            <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-5">
+
+                {/* ─── Profile Bar ─────────────────────────────── */}
+                <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5">
+                    <div className="flex items-center gap-4">
+                        {/* Avatar */}
+                        <div className="w-11 h-11 rounded-full bg-[#023E8A] flex items-center justify-center text-white text-lg font-semibold shrink-0">
+                            {userName.charAt(0).toUpperCase()}
+                        </div>
+
+                        {/* Info */}
+                        <div className="min-w-0 flex-1">
+                            <h1 className="text-base font-semibold text-slate-900 truncate">
+                                {userName}
+                            </h1>
+                            <p className="text-sm text-slate-500 truncate">{userEmail}</p>
+                        </div>
+
+                        {/* Join date — hidden on very small screens */}
+                        <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span>{joinDate}</span>
+                        </div>
+
+                        {/* Logout */}
+                        <form action={signOut}>
+                            <button
+                                type="submit"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                            >
+                                <LogOut className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Keluar</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Join date — visible only on mobile, below the row */}
+                    <div className="flex sm:hidden items-center gap-1.5 text-xs text-slate-400 mt-3 pl-[60px]">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>Bergabung {joinDate}</span>
+                    </div>
+                </div>
+
+                {/* ─── Greeting + summary ──────────────────────── */}
+                <div className="px-1">
+                    <h2 className="text-xl font-semibold text-slate-900">
+                        Halo, {userName.split(" ")[0]} 👋
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                        {stats.total === 0
+                            ? "Belum ada booking. Mulai jelajahi paket selam di Lembeh."
+                            : stats.upcoming > 0
+                                ? `${stats.upcoming} perjalanan akan datang · ${stats.completed} selesai`
+                                : `${stats.completed} perjalanan selesai`}
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Profile Card */}
-                    <div className="md:col-span-1">
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div
-                                className="h-24 relative"
-                                style={{ background: "linear-gradient(135deg, #023E8A 0%, #0077B6 100%)" }}
+                {/* ─── Stats Grid ─────────────────────────────── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {statCards.map((s) => (
+                        <div
+                            key={s.label}
+                            className={`bg-white rounded-xl border ${s.border} p-3.5 min-w-0`}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className={`w-7 h-7 rounded-lg ${s.bg} flex items-center justify-center shrink-0`}>
+                                    <s.icon className={`w-3.5 h-3.5 ${s.iconColor}`} />
+                                </div>
+                                <span className="text-[11px] font-medium text-slate-500 truncate">{s.label}</span>
+                            </div>
+                            <p className="text-2xl font-bold text-slate-900 tabular-nums">{s.value}</p>
+                        </div>
+                    ))}
+                </div>
+
+                {/* ─── Quick Actions ──────────────────────────── */}
+                <div>
+                    <h3 className="text-sm font-semibold text-slate-700 mb-2 px-1">
+                        Menu Cepat
+                    </h3>
+                    <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                        {quickActions.map((action) => (
+                            <Link
+                                key={action.href}
+                                href={action.href}
+                                className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-slate-50 transition-colors group"
                             >
-                                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
-                                    <div className="w-20 h-20 rounded-full bg-white shadow-lg flex items-center justify-center">
-                                        <div className="w-[72px] h-[72px] rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white text-2xl font-bold">
-                                            {userName.charAt(0).toUpperCase()}
-                                        </div>
-                                    </div>
+                                <div className={`w-9 h-9 rounded-lg ${action.iconBg} flex items-center justify-center shrink-0`}>
+                                    <action.icon className={`w-4 h-4 ${action.iconColor}`} />
                                 </div>
-                            </div>
-
-                            <div className="pt-14 pb-6 px-6 text-center">
-                                <h2 className="text-lg font-bold text-slate-900">{userName}</h2>
-                                <p className="text-sm text-slate-500 mt-1">{userEmail}</p>
-
-                                <div className="flex items-center justify-center gap-2 mt-3 text-xs text-slate-400">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    Bergabung {joinDate}
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-slate-900">{action.label}</p>
+                                    <p className="text-xs text-slate-400 truncate">{action.desc}</p>
                                 </div>
-
-                                <form action={signOut} className="mt-6">
-                                    <button
-                                        type="submit"
-                                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
-                                    >
-                                        <LogOut className="w-4 h-4" />
-                                        Keluar
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Main Content */}
-                    <div className="md:col-span-2 space-y-6">
-                        {/* ─── Booking History Stats ────────────────────────── */}
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 text-center">
-                                <div className="w-10 h-10 mx-auto rounded-xl bg-amber-50 flex items-center justify-center mb-2">
-                                    <Calendar className="w-5 h-5 text-amber-600" />
-                                </div>
-                                <p className="text-2xl font-bold text-slate-900">{stats.upcoming}</p>
-                                <p className="text-xs text-slate-500 font-medium mt-0.5">Akan Datang</p>
-                            </div>
-                            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 text-center">
-                                <div className="w-10 h-10 mx-auto rounded-xl bg-emerald-50 flex items-center justify-center mb-2">
-                                    <Waves className="w-5 h-5 text-emerald-600" />
-                                </div>
-                                <p className="text-2xl font-bold text-slate-900">{stats.inProgress}</p>
-                                <p className="text-xs text-slate-500 font-medium mt-0.5">Berlangsung</p>
-                            </div>
-                            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 text-center">
-                                <div className="w-10 h-10 mx-auto rounded-xl bg-blue-50 flex items-center justify-center mb-2">
-                                    <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <p className="text-2xl font-bold text-slate-900">{stats.completed}</p>
-                                <p className="text-xs text-slate-500 font-medium mt-0.5">Selesai</p>
-                            </div>
-                        </div>
-
-                        {/* Quick Actions */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                            <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                                Menu Cepat
-                            </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Link
-                                    href="/services"
-                                    className="flex items-center gap-3 p-4 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors group"
-                                >
-                                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Anchor className="w-5 h-5 text-primary" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-semibold text-slate-900">Paket Selam</p>
-                                        <p className="text-xs text-slate-500">Jelajahi layanan</p>
-                                    </div>
-                                </Link>
-
-                                <Link
-                                    href="/lokasi"
-                                    className="flex items-center gap-3 p-4 rounded-xl bg-cyan-50 hover:bg-cyan-100 transition-colors group"
-                                >
-                                    <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <MapPin className="w-5 h-5 text-secondary" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-semibold text-slate-900">Peta Lokasi</p>
-                                        <p className="text-xs text-slate-500">Lihat dive sites</p>
-                                    </div>
-                                </Link>
-                            </div>
-                        </div>
-
-                        {/* Bookings Summary */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-semibold text-slate-900">
-                                    Booking Saya
-                                </h3>
-                                {stats.total > 0 && (
-                                    <span className="text-xs font-bold text-slate-500">
-                                        {stats.total} total
-                                    </span>
-                                )}
-                            </div>
-
-                            {stats.total === 0 ? (
-                                <div className="text-center py-8">
-                                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                                        <Calendar className="w-8 h-8 text-gray-300" />
-                                    </div>
-                                    <p className="text-slate-500 text-sm font-medium">
-                                        Belum ada perjalanan selam. Mulai petualanganmu!
-                                    </p>
-                                    <Link
-                                        href="/services"
-                                        className="inline-block mt-4 px-6 py-2.5 rounded-full text-sm font-semibold text-white transition-all hover:shadow-lg"
-                                        style={{ background: "linear-gradient(135deg, #023E8A, #0077B6)" }}
-                                    >
-                                        Cari Paket Selam
-                                    </Link>
-                                </div>
-                            ) : (
-                                <div>
-                                    <p className="text-sm text-slate-600 mb-4">
-                                        Kamu memiliki <span className="font-bold text-slate-900">{stats.upcoming}</span> perjalanan yang akan datang
-                                        {stats.inProgress > 0 && (
-                                            <> dan <span className="font-bold text-emerald-700">{stats.inProgress}</span> yang sedang berlangsung</>
-                                        )}.
-                                    </p>
-                                    <Link
-                                        href="/dashboard/bookings"
-                                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-lg"
-                                        style={{ background: "linear-gradient(135deg, #023E8A, #0077B6)" }}
-                                    >
-                                        <ClipboardList className="w-4 h-4" />
-                                        Lihat Semua Perjalanan
-                                    </Link>
-                                </div>
-                            )}
-                        </div>
+                                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+                            </Link>
+                        ))}
                     </div>
                 </div>
+
+                {/* ─── Booking Summary ────────────────────────── */}
+                <div>
+                    <h3 className="text-sm font-semibold text-slate-700 mb-2 px-1">
+                        Booking Saya
+                    </h3>
+                    <div className="bg-white rounded-xl border border-slate-200 p-5">
+                        {stats.total === 0 ? (
+                            <div className="text-center py-4">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                                    <Calendar className="w-5 h-5 text-slate-300" />
+                                </div>
+                                <p className="text-sm text-slate-500 mb-4">
+                                    Belum ada perjalanan selam tercatat.
+                                </p>
+                                <Link
+                                    href="/services"
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#023E8A] hover:bg-[#03045E] transition-colors"
+                                >
+                                    <Search className="w-3.5 h-3.5" />
+                                    Cari Paket Selam
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-sm text-slate-600">
+                                        <span className="font-semibold text-slate-900">{stats.upcoming}</span> akan datang
+                                        {stats.inProgress > 0 && (
+                                            <> · <span className="font-semibold text-emerald-700">{stats.inProgress}</span> berlangsung</>
+                                        )}
+                                        {stats.completed > 0 && (
+                                            <> · <span className="font-semibold text-slate-700">{stats.completed}</span> selesai</>
+                                        )}
+                                    </p>
+                                </div>
+                                <Link
+                                    href="/dashboard/bookings"
+                                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-[#023E8A] bg-blue-50 hover:bg-blue-100 transition-colors shrink-0"
+                                >
+                                    <ClipboardList className="w-3.5 h-3.5" />
+                                    Lihat Semua
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
             </div>
         </div>
     );
 }
+

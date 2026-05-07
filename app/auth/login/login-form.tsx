@@ -1,10 +1,41 @@
 "use client";
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/app/auth/actions";
-import { Anchor, Mail, Lock, Eye, EyeOff, Waves } from "lucide-react";
+import { Anchor, Mail, Lock, Eye, EyeOff, Waves, Loader2 } from "lucide-react";
+
+function LoginSubmitButton({ isLoading }: { isLoading: boolean }) {
+    const { pending } = useFormStatus();
+    const loading = pending || isLoading;
+
+    return (
+        <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 rounded-xl font-semibold text-white transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{
+                background: loading
+                    ? "rgba(255,255,255,0.1)"
+                    : "linear-gradient(135deg, #0077B6, #00B4D8)",
+                boxShadow: loading
+                    ? "none"
+                    : "0 8px 25px rgba(0, 119, 182, 0.4)",
+            }}
+        >
+            {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Memproses...
+                </span>
+            ) : (
+                "Masuk"
+            )}
+        </button>
+    );
+}
 
 export default function LoginForm() {
     const searchParams = useSearchParams();
@@ -183,46 +214,7 @@ export default function LoginForm() {
                         </div>
 
                         {/* Submit */}
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full py-3.5 rounded-xl font-semibold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                            style={{
-                                background: isLoading
-                                    ? "rgba(255,255,255,0.1)"
-                                    : "linear-gradient(135deg, #0077B6, #00B4D8)",
-                                boxShadow: isLoading
-                                    ? "none"
-                                    : "0 8px 25px rgba(0, 119, 182, 0.4)",
-                            }}
-                        >
-                            {isLoading ? (
-                                <span className="flex items-center justify-center gap-2">
-                                    <svg
-                                        className="animate-spin w-5 h-5"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="4"
-                                        />
-                                        <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                        />
-                                    </svg>
-                                    Memproses...
-                                </span>
-                            ) : (
-                                "Masuk"
-                            )}
-                        </button>
+                        <LoginSubmitButton isLoading={isLoading} />
                     </form>
 
                     {/* Divider */}

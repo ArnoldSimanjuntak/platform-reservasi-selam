@@ -198,3 +198,68 @@ export async function createService(
     revalidatePath("/services");
     redirect("/dashboard/provider/services");
 }
+
+export async function deleteService(formData: FormData) {
+    const supabase = await createClient();
+
+    const serviceId = (formData.get("service_id") as string)?.trim();
+    const redirectTo = (formData.get("redirect_to") as string) || "/dashboard/provider/services";
+
+    if (!serviceId) {
+        redirect(`${redirectTo}?error=${encodeURIComponent("Layanan tidak valid.")}`);
+    }
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect("/auth/login");
+    }
+
+    const { data: userRecord } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+    const role = userRecord?.role ?? user.user_metadata?.role ?? "customer";
+
+    let deleteQuery = supabase
+        .from("services")
+        .delete()
+        .eq("id", serviceId);
+
+    if (role !== "admin") {
+        const { data: provider } = await supabase
+            .from("providers")
+            .select("id")
+            .eq("owner_user_id", user.id)
+            .maybeSingle();
+
+        if (!provider) {
+            redirect(`${redirectTo}?error=${encodeURIComponent("Profil provider tidak ditemukan.")}`);
+        }
+
+        deleteQuery = deleteQuery.eq("provider_id", provider.id);
+    }
+
+    const { data: deletedRows, error } = await deleteQuery.select("id");
+
+    if (error) {
+        const message = error.message.toLowerCase().includes("violates foreign key")
+            ? "Layanan belum bisa dihapus karena masih punya data booking terkait. Nonaktifkan layanan terlebih dahulu."
+            : `Gagal menghapus layanan. (${error.message})`;
+        redirect(`${redirectTo}?error=${encodeURIComponent(message)}`);
+    }
+
+    if (!deletedRows || deletedRows.length === 0) {
+        redirect(`${redirectTo}?error=${encodeURIComponent("Layanan tidak ditemukan atau Anda tidak punya akses.")}`);
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/provider/services");
+    revalidatePath("/admin/services");
+    revalidatePath("/services");
+    redirect(`${redirectTo}?message=${encodeURIComponent("Layanan berhasil dihapus.")}`);
+}
