@@ -68,7 +68,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
                 <div className="absolute bottom-0 inset-x-0 p-6 z-10 flex flex-col justify-end text-white transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
                     {getIcon(service.type)}
                     
-                    <h3 className="font-serif text-2xl font-bold mb-1 leading-tight line-clamp-2 drop-shadow-md">
+                    <h3 className="text-2xl font-bold mb-1 leading-tight line-clamp-2 drop-shadow-md">
                         {service.name}
                     </h3>
 

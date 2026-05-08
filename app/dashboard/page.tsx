@@ -645,6 +645,145 @@ function CustomerDashboardView({
         },
     ];
 
+    const firstName = userName.split(" ")[0] || userName;
+
+    return (
+        <div className="min-h-screen bg-gray-50 pt-24 pb-24 sm:pb-12">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6">
+                <div className="mb-7">
+                    <h1 className="text-3xl font-bold text-slate-950">
+                        Dashboard Wisatawan
+                    </h1>
+                    <p className="mt-1 text-slate-500">
+                        Selamat datang kembali, <span className="font-semibold text-slate-700">{firstName}</span>!
+                    </p>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+                    <aside className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                        <div className="h-28 bg-gradient-to-br from-[#023E8A] to-[#0077B6]" />
+                        <div className="-mt-14 px-7 pb-7 text-center">
+                            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-[#023E8A] text-3xl font-bold text-white shadow-md">
+                                {userName.charAt(0).toUpperCase()}
+                            </div>
+                            <h2 className="mt-4 text-xl font-bold text-slate-950">{userName}</h2>
+                            <p className="mt-1 truncate text-sm text-slate-500">{userEmail}</p>
+                            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-400">
+                                <Calendar className="h-4 w-4" />
+                                <span>Bergabung {joinDate}</span>
+                            </div>
+
+                            <div className="mt-6 space-y-2 text-left">
+                                <Link
+                                    href="/dashboard/bookings"
+                                    className="flex items-center gap-3 rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-[#023E8A] transition-colors hover:bg-blue-100"
+                                >
+                                    <ClipboardList className="h-4 w-4" />
+                                    Booking Saya
+                                </Link>
+                                <Link
+                                    href="/services"
+                                    className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+                                >
+                                    <Package className="h-4 w-4" />
+                                    Cari Paket Selam
+                                </Link>
+                                <Link
+                                    href="/lokasi"
+                                    className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+                                >
+                                    <MapPin className="h-4 w-4" />
+                                    Peta Lokasi
+                                </Link>
+                            </div>
+
+                            <form action={signOut} className="mt-4">
+                                <button
+                                    type="submit"
+                                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                    Keluar
+                                </button>
+                            </form>
+                        </div>
+                    </aside>
+
+                    <main className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                            {statCards.map((s) => (
+                                <div
+                                    key={s.label}
+                                    className={`rounded-2xl border ${s.border} bg-white p-5 shadow-sm`}
+                                >
+                                    <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${s.bg}`}>
+                                        <s.icon className={`h-5 w-5 ${s.iconColor}`} />
+                                    </div>
+                                    <p className="text-3xl font-bold tabular-nums text-slate-950">{s.value}</p>
+                                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        {s.label}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+
+                        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#023E8A]">
+                                    <Anchor className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-950">Ringkasan Aktivitas</h2>
+                                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                                        {stats.total === 0
+                                            ? "Belum ada perjalanan selam tercatat. Jelajahi paket selam dan pilih layanan yang sesuai."
+                                            : `${stats.upcoming} booking akan datang, ${stats.inProgress} berlangsung, dan ${stats.completed} selesai.`}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                                {quickActions.map((action) => (
+                                    <Link
+                                        key={action.href}
+                                        href={action.href}
+                                        className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:bg-white hover:shadow-sm"
+                                    >
+                                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${action.iconBg}`}>
+                                            <action.icon className={`h-5 w-5 ${action.iconColor}`} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-slate-950">{action.label}</p>
+                                            <p className="truncate text-xs text-slate-500">{action.desc}</p>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </section>
+
+                        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-950">Booking Saya</h2>
+                                    <p className="mt-1 text-sm text-slate-500">
+                                        Pantau status perjalanan dan riwayat pesanan Anda.
+                                    </p>
+                                </div>
+                                <Link
+                                    href="/dashboard/bookings"
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#023E8A] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#012f6b]"
+                                >
+                                    <ClipboardList className="h-4 w-4" />
+                                    Lihat Semua
+                                </Link>
+                            </div>
+                        </section>
+                    </main>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-gray-50 pt-20 pb-24 sm:pb-12">
             <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-5">
@@ -798,4 +937,3 @@ function CustomerDashboardView({
         </div>
     );
 }
-

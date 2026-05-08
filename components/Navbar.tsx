@@ -10,14 +10,24 @@ import { useCartStore } from "@/lib/cart-store";
 import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
 
 // ─── Types ─────────────────────────────────────────────────────
-interface AuthState {
-    user: SupabaseUser | null;
+export interface NavbarUser {
+    id: string;
+    email: string | null;
+    name: string | null;
+}
+
+export interface NavbarInitialAuthState {
+    user: NavbarUser | null;
     role: string | null;
     providerVerified: boolean;
     isLoading: boolean;
 }
 
 type NavLink = { name: string; href: string; isButton?: boolean };
+
+interface NavbarProps {
+    initialAuthState?: NavbarInitialAuthState;
+}
 
 function isAbortError(error: unknown): boolean {
     if (error instanceof DOMException && error.name === "AbortError") return true;
@@ -49,7 +59,7 @@ const adminNavLinks: NavLink[] = [
 
 // ─── Helpers ────────────────────────────────────────────────────
 async function fetchUserWithRole(supabase: ReturnType<typeof createClient>): Promise<{
-    user: SupabaseUser | null;
+    user: NavbarUser | null;
     role: string | null;
     providerVerified: boolean;
 }> {
@@ -71,6 +81,11 @@ async function fetchUserWithRole(supabase: ReturnType<typeof createClient>): Pro
         return { user: null, role: null, providerVerified: false };
     }
     const currentUser = user;
+    const navbarUser: NavbarUser = {
+        id: currentUser.id,
+        email: currentUser.email ?? null,
+        name: (currentUser.user_metadata?.name as string | undefined) ?? null,
+    };
 
     // Ambil role dari DB (ground truth) agar tidak memakai metadata/cookie yang bisa stale.
     try {
@@ -83,8 +98,8 @@ async function fetchUserWithRole(supabase: ReturnType<typeof createClient>): Pro
         if (roleError) throw roleError;
 
         return {
-            user: currentUser,
-            role: data?.role ?? "customer",
+            user: navbarUser,
+            role: data?.role ?? null,
             providerVerified: false,
         };
     } catch (error) {
@@ -92,8 +107,8 @@ async function fetchUserWithRole(supabase: ReturnType<typeof createClient>): Pro
             console.warn("[Navbar] role fetch error:", error);
         }
         return {
-            user: currentUser,
-            role: "customer",
+            user: navbarUser,
+            role: null,
             providerVerified: false,
         };
     }
@@ -113,13 +128,15 @@ async function fetchProviderVerificationStatus(
 }
 
 // ─── Main Component ─────────────────────────────────────────────
-export default function Navbar() {
-    const [authState, setAuthState] = useState<AuthState>({
-        user: null,
-        role: null,
-        providerVerified: false,
-        isLoading: true,
-    });
+export default function Navbar({ initialAuthState }: NavbarProps) {
+    const [authState, setAuthState] = useState<NavbarInitialAuthState>(
+        initialAuthState ?? {
+            user: null,
+            role: null,
+            providerVerified: false,
+            isLoading: true,
+        }
+    );
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -131,11 +148,58 @@ export default function Navbar() {
     const mountedRef = useRef(true);
     const authRequestIdRef = useRef(0);
 
+    // Sinkronkan state saat payload auth awal dari server berubah (mis. setelah login redirect).
+    useEffect(() => {
+        if (!initialAuthState) return;
+        setAuthState(initialAuthState);
+    }, [initialAuthState]);
+
+    const syncAuthStateFromServer = useCallback(async (showLoading: boolean) => {
+        const requestId = ++authRequestIdRef.current;
+        if (showLoading) {
+            setAuthState((prev) => ({ ...prev, isLoading: true }));
+        }
+
+        try {
+            const response = await fetch("/api/auth/navbar-state", {
+                cache: "no-store",
+                credentials: "same-origin",
+            });
+            if (!response.ok) throw new Error(`Navbar auth sync failed: ${response.status}`);
+
+            const nextState = (await response.json()) as NavbarInitialAuthState;
+            if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
+            setAuthState(nextState);
+        } catch (error) {
+            if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
+            if (!isAbortError(error)) {
+                console.warn("[Navbar] server auth sync error:", error);
+            }
+            setAuthState((prev) => ({ ...prev, isLoading: false }));
+        }
+    }, []);
+
     // ── Inisialisasi auth sekali saat mount ────────────────────
     useEffect(() => {
         mountedRef.current = true;
 
         const supabase = createClient();
+        const applySessionSnapshot = (session: Session | null) => {
+            if (!session?.user || !mountedRef.current) return;
+            const sessionUser: NavbarUser = {
+                id: session.user.id,
+                email: session.user.email ?? null,
+                name: (session.user.user_metadata?.name as string | undefined) ?? null,
+            };
+            setAuthState((prev) => ({
+                user: sessionUser,
+                // Hindari kebocoran role dari sesi lama saat user berganti / sesi baru.
+                role: prev.user?.id === sessionUser.id ? prev.role : null,
+                providerVerified: prev.user?.id === sessionUser.id ? prev.providerVerified : false,
+                isLoading: true,
+            }));
+        };
+
         const refreshAuthState = async (showLoading: boolean) => {
             const requestId = ++authRequestIdRef.current;
             if (showLoading) {
@@ -143,12 +207,10 @@ export default function Navbar() {
             }
 
             try {
-                const { user, role } = await Promise.race([
-                    fetchUserWithRole(supabase),
-                    new Promise<{ user: null; role: null; providerVerified: false }>((resolve) =>
-                        setTimeout(() => resolve({ user: null, role: null, providerVerified: false }), 4000)
-                    ),
-                ]);
+                const { data: { session } } = await supabase.auth.getSession();
+                applySessionSnapshot(session);
+
+                const { user, role } = await fetchUserWithRole(supabase);
 
                 let providerVerified = false;
                 if (user && role === "provider") {
@@ -185,27 +247,28 @@ export default function Navbar() {
                     event === "TOKEN_REFRESHED" ||
                     event === "USER_UPDATED"
                 ) {
+                    applySessionSnapshot(session);
                     setTimeout(() => {
-                        void refreshAuthState(false);
+                        void syncAuthStateFromServer(false);
                     }, 0);
                 }
             }
         );
 
-        void refreshAuthState(true);
+        void syncAuthStateFromServer(!initialAuthState);
 
         return () => {
             mountedRef.current = false;
             subscription.unsubscribe();
         };
-        // Sengaja tidak ada deps — hanya mount sekali
-    }, []);
+    }, [initialAuthState, syncAuthStateFromServer]);
 
     // ── Tutup mobile menu saat pindah halaman ─────────────────
     useEffect(() => {
         setIsMobileMenuOpen(false);
         setIsProfileMenuOpen(false);
-    }, [pathname]);
+        void syncAuthStateFromServer(false);
+    }, [pathname, syncAuthStateFromServer]);
 
     // ── Scroll listener ────────────────────────────────────────
     useEffect(() => {
@@ -256,6 +319,8 @@ export default function Navbar() {
 
     // ── Derived state ──────────────────────────────────────────
     const { user, role, providerVerified, isLoading } = authState;
+    const isRoleResolving = !!user && role === null;
+    const isAuthResolving = isLoading || isRoleResolving;
     const isHomePage = pathname === "/";
     const isAuthPage = pathname.startsWith("/auth");
     const isDark = isScrolled || isMobileMenuOpen || !isHomePage;
@@ -268,10 +333,7 @@ export default function Navbar() {
         isProvider ? providerNavLinks :
         customerNavLinks;
 
-    const userName =
-        user?.user_metadata?.name ||
-        user?.email?.split("@")[0] ||
-        "User";
+    const userName = user?.name || user?.email?.split("@")[0] || "User";
 
     if (isAuthPage) return null;
 
@@ -298,7 +360,7 @@ export default function Navbar() {
 
                 {/* Desktop Nav */}
                 <div className="hidden md:flex items-center gap-8">
-                    {navLinks.map((link) => (
+                    {!isAuthResolving && navLinks.map((link) => (
                         <Link
                             key={link.href}
                             href={link.href}
@@ -319,7 +381,7 @@ export default function Navbar() {
                     ))}
 
                     {/* Booking history shortcut — hanya customer */}
-                    {!isProvider && !isAdmin && user && (
+                    {!isAuthResolving && !isProvider && !isAdmin && user && (
                         <Link
                             href="/dashboard/bookings"
                             className={`relative p-2.5 rounded-full transition-colors ${
@@ -334,7 +396,7 @@ export default function Navbar() {
                     )}
 
                     {/* Auth section */}
-                    {isLoading ? (
+                    {isAuthResolving ? (
                         <div className="w-20 h-10 rounded-full bg-gray-200/50 animate-pulse" />
                     ) : user ? (
                         <ProfileDropdown
@@ -384,13 +446,13 @@ export default function Navbar() {
             {/* Mobile Menu */}
             {isMobileMenuOpen && (
                 <MobileMenu
-                    navLinks={navLinks}
+                    navLinks={isAuthResolving ? [] : navLinks}
                     user={user}
                     userName={userName}
                     isProvider={isProvider}
                     isProviderPending={isProviderPending}
                     isAdmin={isAdmin}
-                    isLoading={isLoading}
+                    isLoading={isAuthResolving}
                     isLoggingOut={isLoggingOut}
                     onClose={() => setIsMobileMenuOpen(false)}
                     onSignOut={handleSignOut}
@@ -559,7 +621,7 @@ function MobileMenu({
     onSignOut,
 }: {
     navLinks: NavLink[];
-    user: SupabaseUser | null;
+    user: NavbarUser | null;
     userName: string;
     isProvider: boolean;
     isProviderPending: boolean;

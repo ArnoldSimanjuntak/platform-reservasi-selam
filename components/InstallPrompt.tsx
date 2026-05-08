@@ -20,6 +20,24 @@ export default function InstallPrompt() {
     const [isInstalled, setIsInstalled] = useState(false);
     const [isInstalling, setIsInstalling] = useState(false);
     const [isIOS, setIsIOS] = useState(false);
+    const [isBrave, setIsBrave] = useState(false);
+
+    const getDismissedAt = (): string | null => {
+        try {
+            return localStorage.getItem("sulutdive-install-dismissed");
+        } catch {
+            return null;
+        }
+    };
+
+    const setDismissedAt = () => {
+        try {
+            localStorage.setItem("sulutdive-install-dismissed", new Date().toISOString());
+        } catch {
+            // Storage bisa diblokir oleh privacy settings browser (mis. Brave Shields strict).
+            // Jangan gagalkan UX install prompt hanya karena localStorage tidak tersedia.
+        }
+    };
 
     useEffect(() => {
         if (
@@ -31,9 +49,10 @@ export default function InstallPrompt() {
         }
 
         setIsIOS(/iPad|iPhone|iPod/.test(window.navigator.userAgent) && !(window as any).MSStream);
+        setIsBrave((window.navigator as any).brave?.isBrave ? true : false);
 
         const maybeShowBanner = () => {
-            const dismissed = localStorage.getItem("sulutdive-install-dismissed");
+            const dismissed = getDismissedAt();
             if (dismissed) {
                 const daysSince =
                     (Date.now() - new Date(dismissed).getTime()) / (1000 * 60 * 60 * 24);
@@ -100,7 +119,7 @@ export default function InstallPrompt() {
 
     const handleDismiss = () => {
         setShowBanner(false);
-        localStorage.setItem("sulutdive-install-dismissed", new Date().toISOString());
+        setDismissedAt();
     };
 
     if (isInstalled) return null;
@@ -142,6 +161,11 @@ export default function InstallPrompt() {
                                     {isIOS && !deferredPrompt && (
                                         <p className="text-xs text-blue-700 mt-2 font-semibold">
                                             iPhone/iPad: tekan Share lalu Add to Home Screen.
+                                        </p>
+                                    )}
+                                    {!isIOS && isBrave && !deferredPrompt && (
+                                        <p className="text-xs text-blue-700 mt-2 font-semibold">
+                                            Brave: buka menu (≡) lalu Save and Share - Install page as app.
                                         </p>
                                     )}
                                 </div>

@@ -165,7 +165,7 @@ export async function signIn(formData: FormData) {
                 .maybeSingle();
 
             const isVerified = providerRecord?.verification_status === "verified" && !!providerRecord?.is_active;
-            redirect(isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup");
+            redirect(isVerified ? "/dashboard" : "/dashboard/provider/setup");
         }
 
         if (role === "customer" && wantsProvider) {

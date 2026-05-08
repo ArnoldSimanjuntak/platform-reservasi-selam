@@ -12,6 +12,7 @@ interface PremiumServiceCardProps {
 
 export default function PremiumServiceCard({ service }: PremiumServiceCardProps) {
     const [isBooking, setIsBooking] = useState(false);
+    const previewImage = service.image_url || "/images/lembeh-map.png";
 
     const getIcon = (type: string) => {
         switch (type) {
@@ -40,7 +41,7 @@ export default function PremiumServiceCard({ service }: PremiumServiceCardProps)
             {/* Image Container with Tall Aspect Ratio */}
             <div className="relative w-full aspect-[4/5] overflow-hidden bg-neutral-900">
                 <Image
-                    src={service.image_url || `https://picsum.photos/seed/${service.id}/800/1000`}
+                    src={previewImage}
                     alt={service.name}
                     fill
                     className="object-cover transition-transform duration-700 ease-out group-hover:scale-110 opacity-90 group-hover:opacity-100"
@@ -66,7 +67,7 @@ export default function PremiumServiceCard({ service }: PremiumServiceCardProps)
                 <div className="absolute bottom-0 inset-x-0 p-6 z-10 flex flex-col justify-end text-white transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
                     {getIcon(service.type)}
                     
-                    <h3 className="font-serif text-2xl font-bold mb-1 leading-tight line-clamp-2 drop-shadow-md">
+                    <h3 className="text-2xl font-bold mb-1 leading-tight line-clamp-2 drop-shadow-md">
                         {service.name}
                     </h3>
 

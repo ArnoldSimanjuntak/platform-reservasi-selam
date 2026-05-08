@@ -6,6 +6,7 @@ import { getServices } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { Service } from "@/lib/supabase";
+import { Camera, UserCheck, Waves } from "lucide-react";
 
 // Force-dynamic: halaman ini mengecek session, jangan cache.
 export const dynamic = "force-dynamic";
@@ -46,18 +47,21 @@ export default async function Home() {
             <HeroBooking />
 
             {/* Map Section: Discover The Critter Capital */}
-            <section className="bg-white py-24 md:py-32 border-b border-gray-100">
+            <section className="bg-white py-20 md:py-28 border-b border-gray-100">
                 <div className="container mx-auto px-4 max-w-6xl text-center">
-                    <span className="text-accent font-bold uppercase tracking-widest text-xs mb-3 block">Interactive Guide</span>
-                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-deepSea mb-12">
-                        Discover The Critter Capital <br className="hidden md:block" /> of The World
+                    <span className="text-secondary font-bold uppercase tracking-widest text-xs mb-3 block">Peta Interaktif</span>
+                    <h2 className="text-3xl md:text-5xl font-extrabold text-deepSea mb-5 tracking-tight">
+                        Jelajahi Titik Selam Lembeh
                     </h2>
+                    <p className="max-w-2xl mx-auto text-slate-500 text-base mb-10">
+                        Lihat persebaran dive site, area keberangkatan, dan titik populer sebelum memilih layanan selam.
+                    </p>
                     
-                    <div className="w-full h-[65vh] min-h-[450px] rounded-[2rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-gray-100 bg-gray-50 transform hover:scale-[1.01] transition-transform duration-700">
+                    <div className="w-full h-[65vh] min-h-[450px] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(2,62,138,0.12)] border border-slate-200 bg-gray-50">
                         <MapWrapper />
                     </div>
                     <p className="mt-6 text-gray-500 text-sm font-medium">
-                        Explore our curated map to find the perfect muck diving locations.
+                        Gunakan peta ini untuk membandingkan lokasi sebelum membuat pesanan.
                     </p>
                 </div>
             </section>
@@ -66,10 +70,10 @@ export default async function Home() {
             <section className="container mx-auto px-4 py-24 md:py-32 max-w-7xl">
                 <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
                     <div>
-                        <span className="text-accent font-bold uppercase tracking-widest text-xs mb-3 block">Curated Experiences</span>
-                        <h2 className="text-4xl md:text-5xl font-serif font-bold text-deepSea leading-tight">
-                            Premium Dive <br />
-                            <span className="text-primary font-sans">Packages</span>
+                        <span className="text-secondary font-bold uppercase tracking-widest text-xs mb-3 block">Layanan Tersedia</span>
+                        <h2 className="text-3xl md:text-5xl font-extrabold text-deepSea leading-tight tracking-tight">
+                            Paket Selam <br />
+                            <span className="text-primary">Pilihan</span>
                         </h2>
                     </div>
                     <Link
@@ -89,9 +93,7 @@ export default async function Home() {
                 ) : services && services.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10 mt-8">
                         {services.slice(0, 4).map((service: Service) => (
-                            <Link key={service.id} href={`/services/${service.id}`} className="block h-full">
-                                <PremiumServiceCard service={service} />
-                            </Link>
+                            <PremiumServiceCard key={service.id} service={service} />
                         ))}
                     </div>
                 ) : (
@@ -103,26 +105,32 @@ export default async function Home() {
             </section>
 
             {/* Why Choose Us / Value Prop for Lembeh */}
-            <section className="bg-gradient-to-b from-white to-[#023E8A]/5 py-24 md:py-32">
+            <section className="bg-slate-50 py-20 md:py-28">
                 <div className="container mx-auto px-4 max-w-5xl text-center">
-                    <span className="text-accent font-bold uppercase tracking-widest text-xs mb-3 block">Why Choose Us</span>
-                    <h2 className="text-4xl md:text-5xl font-serif font-bold text-deepSea mb-16">
-                        The Lembeh Experience
+                    <span className="text-secondary font-bold uppercase tracking-widest text-xs mb-3 block">Keunggulan Platform</span>
+                    <h2 className="text-3xl md:text-5xl font-extrabold text-deepSea mb-14 tracking-tight">
+                        Pengalaman Selam yang Lebih Terarah
                     </h2>
-                    <div className="grid md:grid-cols-3 gap-10">
-                        <div className="p-8 bg-white/50 backdrop-blur-sm rounded-3xl shadow-sm border border-white hover:bg-white hover:shadow-xl transition-all duration-500 group">
-                            <div className="w-20 h-20 bg-blue-50/80 rounded-2xl flex items-center justify-center mx-auto mb-6 text-3xl group-hover:scale-110 transition-transform duration-500">🐙</div>
-                            <h3 className="text-xl font-bold mb-3 font-serif">Critter Capital</h3>
+                    <div className="grid md:grid-cols-3 gap-6">
+                        <div className="p-7 bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-shadow duration-300 group">
+                            <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-5 text-primary">
+                                <Waves className="w-7 h-7" />
+                            </div>
+                            <h3 className="text-lg font-bold mb-3 text-deepSea">Critter Capital</h3>
                             <p className="text-gray-500 leading-relaxed">Rumah bagi mimic octopus, hairy frogfish, dan pygmy seahorse.</p>
                         </div>
-                        <div className="p-8 bg-white/50 backdrop-blur-sm rounded-3xl shadow-sm border border-white hover:bg-white hover:shadow-xl transition-all duration-500 group">
-                            <div className="w-20 h-20 bg-teal-50/80 rounded-2xl flex items-center justify-center mx-auto mb-6 text-3xl group-hover:scale-110 transition-transform duration-500">📸</div>
-                            <h3 className="text-xl font-bold mb-3 font-serif">Surga Fotografer</h3>
+                        <div className="p-7 bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-shadow duration-300 group">
+                            <div className="w-14 h-14 bg-cyan-50 rounded-xl flex items-center justify-center mx-auto mb-5 text-cyan-700">
+                                <Camera className="w-7 h-7" />
+                            </div>
+                            <h3 className="text-lg font-bold mb-3 text-deepSea">Surga Fotografer</h3>
                             <p className="text-gray-500 leading-relaxed">Arus tenang dan dasar pasir hitam, kondisi sempurna untuk foto makro resolusi tinggi.</p>
                         </div>
-                        <div className="p-8 bg-white/50 backdrop-blur-sm rounded-3xl shadow-sm border border-white hover:bg-white hover:shadow-xl transition-all duration-500 group">
-                            <div className="w-20 h-20 bg-purple-50/80 rounded-2xl flex items-center justify-center mx-auto mb-6 text-3xl group-hover:scale-110 transition-transform duration-500">👨‍✈️</div>
-                            <h3 className="text-xl font-bold mb-3 font-serif">Guide Ahli</h3>
+                        <div className="p-7 bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-shadow duration-300 group">
+                            <div className="w-14 h-14 bg-emerald-50 rounded-xl flex items-center justify-center mx-auto mb-5 text-emerald-700">
+                                <UserCheck className="w-7 h-7" />
+                            </div>
+                            <h3 className="text-lg font-bold mb-3 text-deepSea">Guide Ahli</h3>
                             <p className="text-gray-500 leading-relaxed">Guide kami terlatih khusus untuk menemukan hewan unik berukuran milimeter.</p>
                         </div>
                     </div>

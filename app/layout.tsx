@@ -1,17 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import Navbar from "@/components/Navbar";
+import { Plus_Jakarta_Sans } from "next/font/google";
+import Navbar, { type NavbarInitialAuthState } from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import InstallPrompt from "@/components/InstallPrompt";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import BottomNav from "@/components/BottomNav";
+import SessionTimeout from "@/components/SessionTimeout";
+import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
 export const dynamic = 'force-dynamic';
 
-const inter = Inter({
-  variable: "--font-inter",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -48,11 +51,69 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({
+async function getInitialNavbarAuthState(): Promise<NavbarInitialAuthState> {
+  const fallback: NavbarInitialAuthState = {
+    user: null,
+    role: null,
+    providerVerified: false,
+    isLoading: false,
+  };
+
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) return fallback;
+
+    const navbarUser = {
+      id: user.id,
+      email: user.email ?? null,
+      name: (user.user_metadata?.name as string | undefined) ?? null,
+    };
+
+    const { data: userRecord } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const role = userRecord?.role ?? null;
+    if (!role) {
+      return {
+        user: navbarUser,
+        role: null,
+        providerVerified: false,
+        isLoading: true,
+      };
+    }
+
+    let providerVerified = false;
+    if (role === "provider") {
+      const { data: provider } = await supabase
+        .from("providers")
+        .select("verification_status, is_active")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+      providerVerified = provider?.verification_status === "verified" && !!provider?.is_active;
+    }
+
+    return {
+      user: navbarUser,
+      role,
+      providerVerified,
+      isLoading: false,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialNavbarAuthState = await getInitialNavbarAuthState();
+
   return (
     <html lang="id">
       <head>
@@ -66,7 +127,6 @@ export default function RootLayout({
             __html: `
               window.__deferredInstallPrompt = null;
               window.addEventListener('beforeinstallprompt', function(e) {
-                e.preventDefault();
                 window.__deferredInstallPrompt = e;
               }, { once: true });
             `,
@@ -74,13 +134,14 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} font-sans antialiased bg-neutral text-deepSea max-md:pb-16`}
+        className={`${jakarta.variable} font-sans antialiased bg-neutral text-deepSea max-md:pb-16`}
       >
-        <Navbar />
+        <Navbar initialAuthState={initialNavbarAuthState} />
         {children}
         <Footer />
         <BottomNav />
         <InstallPrompt />
+        <SessionTimeout />
         <ServiceWorkerRegistration />
       </body>
     </html>
