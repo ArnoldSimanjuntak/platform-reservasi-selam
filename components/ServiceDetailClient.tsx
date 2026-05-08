@@ -5,16 +5,14 @@ import { useState, useEffect } from "react";
 import {
     MapPin,
     Star,
-    CheckCircle2,
-    XCircle,
-    Camera,
     Anchor,
-    Wifi,
-    Utensils,
     Ship,
     Clock,
     Info,
     ShieldAlert,
+    Users,
+    Package,
+    Tag,
 } from "lucide-react";
 import type { Service, DiveSite } from "@/lib/supabase";
 import BookingForm from "@/components/BookingForm";
@@ -66,29 +64,61 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
     const isBoat = service.type === "boat";
     const heroImage = service.image_url || "/images/lembeh-map.png";
 
-    // Dummy features data based on service type
-    const features = [
-        { icon: Camera, label: "Camera Room", description: "Dedicated room for rinsing & camera setup" },
-        { icon: Anchor, label: "Dive Guide", description: "1:4 guide to diver ratio" },
-        { icon: Wifi, label: "Free Wi-Fi", description: "Satellite connection on the boat" },
-        { icon: Utensils, label: "Lunch", description: "Manadonese buffet lunch" },
-        { icon: Ship, label: "Speedboat", description: "Twin engine 200PK" },
-        { icon: Clock, label: "Duration", description: "8 Hours (08:00 - 16:00)" },
+    const serviceTypeLabel: Record<string, string> = {
+        boat: "Kapal",
+        instructor: "Instruktur / Guide",
+        gear: "Peralatan Selam",
+    };
+
+    const serviceFacts = [
+        {
+            icon: Tag,
+            label: "Tipe Layanan",
+            description: serviceTypeLabel[service.type] ?? service.type,
+        },
+        {
+            icon: Users,
+            label: isGear ? "Jumlah Unit" : "Kapasitas Maksimal",
+            description: isGear
+                ? `${service.max_capacity} unit tersedia per hari`
+                : `${service.max_capacity} peserta per hari`,
+        },
+        ...(service.provider?.name
+            ? [{
+                icon: Anchor,
+                label: "Penyedia",
+                description: service.provider.name,
+            }]
+            : []),
+        ...(service.provider?.location
+            ? [{
+                icon: MapPin,
+                label: "Lokasi Provider",
+                description: service.provider.location,
+            }]
+            : []),
+        ...(service.dive_site_category
+            ? [{
+                icon: Ship,
+                label: "Kategori Spot",
+                description: service.dive_site_category,
+            }]
+            : []),
+        {
+            icon: Clock,
+            label: "Ketersediaan",
+            description: service.is_available === false ? "Tidak tersedia" : "Tersedia untuk dipesan",
+        },
     ];
 
-    const includes = [
-        "Hotel pickup from Bitung area",
-        "3x Dives (Tank & Weight)",
-        "Lunch & snacks",
-        "Clean towels",
-        "First Aid & Emergency Oxygen",
-    ];
-
-    const excludes = [
-        "Gear rental (BCD, Regulator, Wetsuit)",
-        "Marine park entry fee",
-        "Tips for crew & guide",
-        "Photo/video documentation",
+    const bookingNotes = [
+        isBoat
+            ? "Wisatawan memilih spot selam dan tanggal pada formulir pemesanan."
+            : "Wisatawan memilih tanggal dan jumlah sesuai ketersediaan layanan.",
+        "Fasilitas tambahan hanya berlaku jika dicantumkan langsung pada deskripsi layanan.",
+        service.provider?.contact
+            ? `Kontak provider: ${service.provider.contact}`
+            : "Kontak provider belum dicantumkan.",
     ];
 
     const formatPrice = (price: number) => {
@@ -154,18 +184,15 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                         <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100">
                             <h2 className="text-2xl font-bold text-deepSea mb-4">About This Service</h2>
                             <p className="text-gray-600 leading-relaxed text-lg">
-                                {service.description || "Enjoy the best diving experience in Lembeh Strait with us. This service is specially designed for macro photographers and muck diving enthusiasts looking for comfort and personalized service."}
-                            </p>
-                            <p className="text-gray-600 leading-relaxed text-lg mt-4">
-                                Guided by certified dive masters who know every inch of Lembeh&apos;s black sand, you will easily find rare &quot;Critters&quot; like the Blue Ring Octopus, Flamboyant Cuttlefish, and Hairy Frogfish.
+                                {service.description || "Provider belum menambahkan deskripsi layanan. Detail fasilitas dan ketentuan sebaiknya dikonfirmasi sebelum memesan."}
                             </p>
                         </div>
 
-                        {/* Facilities */}
+                        {/* Service Facts */}
                         <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100">
-                            <h2 className="text-2xl font-bold text-deepSea mb-6">Facilities & Key Features</h2>
+                            <h2 className="text-2xl font-bold text-deepSea mb-6">Informasi Layanan</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {features.map((feature, idx) => (
+                                {serviceFacts.map((feature, idx) => (
                                     <div key={idx} className="flex items-start gap-4 p-4 rounded-xl bg-gray-50 hover:bg-blue-50 transition-colors border border-gray-100">
                                         <div className="bg-white p-2.5 rounded-lg shadow-sm text-primary">
                                             <feature.icon className="w-6 h-6" />
@@ -179,39 +206,17 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                             </div>
                         </div>
 
-                        {/* Includes / Excludes */}
+                        {/* Booking Notes */}
                         <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100">
-                            <h2 className="text-2xl font-bold text-deepSea mb-6">Package Details</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div>
-                                    <h3 className="font-semibold text-green-700 mb-4 flex items-center gap-2">
-                                        <CheckCircle2 className="w-5 h-5" />
-                                        What&apos;s Included
-                                    </h3>
-                                    <ul className="space-y-3">
-                                        {includes.map((item, idx) => (
-                                            <li key={idx} className="flex items-start gap-3 text-gray-600">
-                                                <CheckCircle2 className="w-4 h-4 text-green-500 mt-1 shrink-0" />
-                                                <span className="text-sm">{item}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-red-700 mb-4 flex items-center gap-2">
-                                        <XCircle className="w-5 h-5" />
-                                        What&apos;s Excluded
-                                    </h3>
-                                    <ul className="space-y-3">
-                                        {excludes.map((item, idx) => (
-                                            <li key={idx} className="flex items-start gap-3 text-gray-600">
-                                                <XCircle className="w-4 h-4 text-red-500 mt-1 shrink-0" />
-                                                <span className="text-sm">{item}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
+                            <h2 className="text-2xl font-bold text-deepSea mb-6">Catatan Pemesanan</h2>
+                            <ul className="space-y-3">
+                                {bookingNotes.map((item, idx) => (
+                                    <li key={idx} className="flex items-start gap-3 text-gray-600">
+                                        <Package className="w-4 h-4 text-primary mt-1 shrink-0" />
+                                        <span className="text-sm">{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
 
                     </div>
@@ -278,7 +283,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                             <div className="bg-blue-50 rounded-xl p-4 flex items-start gap-3 border border-blue-100">
                                 <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                                 <p className="text-xs text-blue-800 leading-relaxed">
-                                    <strong>Best Price Guarantee:</strong> If you find a lower price for the same package, we&apos;ll match it.
+                                    <strong>Catatan:</strong> Informasi fasilitas mengikuti deskripsi yang ditulis provider atau admin pada layanan ini.
                                 </p>
                             </div>
                         </div>
