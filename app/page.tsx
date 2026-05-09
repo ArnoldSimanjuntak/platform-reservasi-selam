@@ -34,7 +34,7 @@ export default async function Home() {
         // Admin DIIZINKAN melihat landing page sebagai superadmin marketplace.
         // Jika role null (DB error), middleware sudah menangani \u2014 biarkan render.
         if (role === "provider") {
-            redirect("/dashboard/provider/orders");
+            redirect("/dashboard");
         }
     }
 

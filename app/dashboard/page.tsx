@@ -659,8 +659,8 @@ function CustomerDashboardView({
                     </p>
                 </div>
 
-                <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-                    <aside className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="grid items-start gap-6 lg:grid-cols-[320px_1fr]">
+                    <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="h-28 bg-gradient-to-br from-[#023E8A] to-[#0077B6]" />
                         <div className="-mt-14 px-7 pb-7 text-center">
                             <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-[#023E8A] text-3xl font-bold text-white shadow-md">
@@ -714,25 +714,27 @@ function CustomerDashboardView({
                             {statCards.map((s) => (
                                 <div
                                     key={s.label}
-                                    className={`rounded-2xl border ${s.border} bg-white p-5 shadow-sm`}
+                                    className={`flex min-h-[142px] min-w-0 flex-col justify-between rounded-2xl border ${s.border} bg-white p-5 shadow-sm`}
                                 >
-                                    <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${s.bg}`}>
+                                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${s.bg}`}>
                                         <s.icon className={`h-5 w-5 ${s.iconColor}`} />
                                     </div>
-                                    <p className="text-3xl font-bold tabular-nums text-slate-950">{s.value}</p>
-                                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        {s.label}
-                                    </p>
+                                    <div className="min-w-0">
+                                        <p className="text-3xl font-bold tabular-nums text-slate-950">{s.value}</p>
+                                        <p className="mt-1 truncate text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            {s.label}
+                                        </p>
+                                    </div>
                                 </div>
                             ))}
                         </div>
 
                         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                             <div className="flex items-start gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#023E8A]">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#023E8A]">
                                     <Anchor className="h-5 w-5" />
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                     <h2 className="text-xl font-bold text-slate-950">Ringkasan Aktivitas</h2>
                                     <p className="mt-1 text-sm leading-6 text-slate-500">
                                         {stats.total === 0
@@ -747,13 +749,13 @@ function CustomerDashboardView({
                                     <Link
                                         key={action.href}
                                         href={action.href}
-                                        className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:bg-white hover:shadow-sm"
+                                        className="group flex min-h-[92px] min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:bg-white hover:shadow-sm"
                                     >
                                         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${action.iconBg}`}>
                                             <action.icon className={`h-5 w-5 ${action.iconColor}`} />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-sm font-bold text-slate-950">{action.label}</p>
+                                            <p className="truncate text-sm font-bold text-slate-950">{action.label}</p>
                                             <p className="truncate text-xs text-slate-500">{action.desc}</p>
                                         </div>
                                     </Link>

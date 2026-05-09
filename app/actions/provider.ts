@@ -252,6 +252,87 @@ export async function setupProviderProfile(
     redirect("/dashboard/provider/setup?notice=Dokumen+berhasil+diunggah.+Status+menunggu+verifikasi+admin.");
 }
 
+export async function updateProviderProfile(
+    formData: FormData
+): Promise<ProviderSetupResult> {
+    const supabase = await createClient();
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect("/auth/login");
+    }
+
+    const name = (formData.get("name") as string)?.trim();
+    const location = (formData.get("location") as string)?.trim();
+    const contact = (formData.get("contact") as string)?.trim();
+    const description = (formData.get("description") as string)?.trim();
+    const primaryType = (formData.get("primary_type") as string)?.trim();
+    const latStr = formData.get("latitude") as string | null;
+    const lngStr = formData.get("longitude") as string | null;
+
+    if (!name || name.length < 3) {
+        return { success: false, message: "Nama usaha wajib diisi (minimal 3 karakter)." };
+    }
+    if (!location) {
+        return { success: false, message: "Lokasi pangkalan/dermaga wajib diisi." };
+    }
+    if (!contact) {
+        return { success: false, message: "Nomor WhatsApp wajib diisi." };
+    }
+    if (!primaryType) {
+        return { success: false, message: "Tipe layanan utama wajib dipilih." };
+    }
+
+    const latitude = latStr ? parseFloat(latStr) : null;
+    const longitude = lngStr ? parseFloat(lngStr) : null;
+
+    const { data: provider } = await supabase
+        .from("providers")
+        .select("id, verification_status, is_active")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+
+    if (!provider) {
+        return { success: false, message: "Profil provider tidak ditemukan." };
+    }
+
+    if (provider.verification_status !== "verified" || !provider.is_active) {
+        return {
+            success: false,
+            message: "Profil belum terverifikasi. Gunakan formulir verifikasi untuk mengajukan ulang data.",
+        };
+    }
+
+    const { error } = await supabase
+        .from("providers")
+        .update({
+            name,
+            location,
+            latitude,
+            longitude,
+            contact,
+            description: description || null,
+            primary_type: primaryType,
+        })
+        .eq("id", provider.id);
+
+    if (error) {
+        return {
+            success: false,
+            message: `Gagal memperbarui profil bisnis. (${error.message})`,
+        };
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/provider/setup");
+    revalidatePath("/services");
+
+    return { success: true, message: "Profil bisnis berhasil diperbarui." };
+}
+
 // ─── Admin verification action ───────────────────────────────────
 export async function verifyProviderIdentity(
     providerId: string,

@@ -78,10 +78,10 @@ export default function HeroBooking() {
             {/* Floating Booking Bar (Overlaps next section) */}
             <div className="absolute bottom-0 left-0 right-0 z-30 px-4 translate-y-1/2">
                 <div className="container mx-auto max-w-5xl">
-                    <div className="bg-white rounded-2xl p-4 md:p-5 shadow-[0_24px_70px_rgba(2,62,138,0.18)] border border-slate-100 flex flex-col lg:flex-row items-stretch gap-4 lg:gap-5">
+                    <div className="grid items-stretch gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_24px_70px_rgba(2,62,138,0.18)] md:p-5 lg:grid-cols-[1.45fr_1.05fr_1.05fr_auto]">
 
                         {/* Tipe Layanan */}
-                        <div className="flex-[1.4] w-full rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="min-h-[132px] rounded-xl border border-slate-200 bg-slate-50 p-3">
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 text-left">Kebutuhan Layanan</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {serviceTypes.map((type) => {
@@ -92,50 +92,44 @@ export default function HeroBooking() {
                                             key={type.value}
                                             type="button"
                                             onClick={() => setServiceType(type.value)}
-                                            className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                                            className={`flex min-h-[82px] min-w-0 flex-col rounded-lg border px-3 py-2.5 text-left transition-colors ${
                                                 isActive
                                                     ? "border-primary bg-white text-primary shadow-sm"
                                                     : "border-transparent bg-transparent text-slate-600 hover:bg-white"
                                             }`}
                                         >
-                                            <Icon className="mb-1 h-4 w-4" />
-                                            <span className="block text-sm font-bold leading-tight">{type.label}</span>
-                                            <span className="hidden text-[11px] leading-tight text-slate-400 sm:block">{type.description}</span>
+                                            <Icon className="mb-1 h-4 w-4 shrink-0" />
+                                            <span className="block min-w-0 text-sm font-bold leading-tight">{type.label}</span>
+                                            <span className="mt-0.5 hidden text-[11px] leading-tight text-slate-400 sm:line-clamp-2">{type.description}</span>
                                         </button>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        {/* Divider */}
-                        <div className="hidden lg:block w-px h-12 bg-gray-300" />
-
                         {/* Tanggal Dive */}
-                        <div className="flex-1 w-full flex flex-col items-start rounded-xl p-3 md:p-4 border border-slate-200 bg-white transition-colors cursor-pointer">
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 w-full text-left">Tanggal Dive</label>
-                            <div className="flex items-center gap-3 text-deepSea font-semibold w-full relative">
+                        <div className="flex min-h-[132px] flex-col justify-center rounded-xl border border-slate-200 bg-white p-4 transition-colors">
+                            <label className="block w-full text-left text-xs font-bold uppercase tracking-wider text-gray-500">Tanggal Dive</label>
+                            <div className="relative mt-3 flex w-full items-center gap-3 text-deepSea font-semibold">
                                 <Calendar className="w-5 h-5 text-primary absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
                                     type="date"
-                                    className="w-full bg-transparent border-none outline-none pl-8 text-deepSea cursor-pointer font-sans"
+                                    className="w-full min-w-0 bg-transparent border-none outline-none pl-8 text-deepSea cursor-pointer font-sans text-base font-bold"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
                                 />
                             </div>
                         </div>
 
-                        {/* Divider */}
-                        <div className="hidden lg:block w-px h-12 bg-gray-300" />
-
                         {/* Jumlah Penyelam */}
-                        <div className="flex-1 w-full rounded-xl p-3 md:p-4 border border-slate-200 bg-white flex flex-col justify-center">
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 text-left">Jumlah Penyelam</label>
-                            <div className="flex items-center justify-between text-deepSea font-semibold">
-                                <div className="flex items-center gap-3">
+                        <div className="flex min-h-[132px] flex-col justify-center rounded-xl border border-slate-200 bg-white p-4">
+                            <label className="block text-left text-xs font-bold uppercase tracking-wider text-gray-500">Jumlah Penyelam</label>
+                            <div className="mt-3 flex items-center justify-between gap-3 text-deepSea font-semibold">
+                                <div className="flex min-w-0 items-center gap-3">
                                     <Users className="w-5 h-5 text-primary" />
-                                    <span>{pax} Divers</span>
+                                    <span className="truncate text-base font-bold">{pax} Divers</span>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex shrink-0 gap-2">
                                     <button
                                         onClick={() => setPax(Math.max(1, pax - 1))}
                                         className="w-7 h-7 rounded-md bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-gray-100 transition-colors"
@@ -157,7 +151,7 @@ export default function HeroBooking() {
                         {/* CTA Button */}
                         <button
                             onClick={handleSearch}
-                            className="w-full lg:w-auto bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-2 h-full whitespace-nowrap lg:min-h-[72px]"
+                            className="flex min-h-[132px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-primary to-secondary px-8 py-4 font-bold text-white shadow-lg transition-all hover:from-primary/90 hover:to-secondary/90 hover:shadow-primary/30 active:scale-95 lg:w-auto"
                         >
                             <Search className="w-5 h-5" />
                             Cari Layanan

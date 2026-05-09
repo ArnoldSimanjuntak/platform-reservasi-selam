@@ -146,7 +146,7 @@ export async function updateSession(request: NextRequest) {
             return redirectWithSessionCookies(
                 request,
                 supabaseResponse,
-                isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup"
+                isVerified ? "/dashboard" : "/dashboard/provider/setup"
             );
         }
 
@@ -185,7 +185,7 @@ export async function updateSession(request: NextRequest) {
             return redirectWithSessionCookies(
                 request,
                 supabaseResponse,
-                isVerified ? "/dashboard/provider/orders" : "/dashboard/provider/setup"
+                isVerified ? "/dashboard" : "/dashboard/provider/setup"
             );
         }
         else {
