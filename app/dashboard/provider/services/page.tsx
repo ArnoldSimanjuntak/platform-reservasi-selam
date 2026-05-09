@@ -208,13 +208,13 @@ export default async function ProviderServicesPage({
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-1">
-                                            <button
-                                                type="button"
+                                            <Link
+                                                href={`/dashboard/provider/services/${service.id}/edit`}
                                                 className="p-2 rounded-lg text-slate-400 hover:text-primary hover:bg-blue-50 transition-colors"
                                                 title="Edit layanan"
                                             >
                                                 <Pencil className="w-4 h-4" />
-                                            </button>
+                                            </Link>
                                             <DeleteServiceButton
                                                 serviceId={service.id}
                                                 serviceName={service.name}

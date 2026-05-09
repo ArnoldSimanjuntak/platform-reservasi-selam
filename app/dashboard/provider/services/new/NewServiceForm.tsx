@@ -18,13 +18,28 @@ import {
     MapPin,
     ImagePlus,
     ShieldCheck,
+    ToggleLeft,
 } from "lucide-react";
-import { createService } from "@/app/actions/service";
+import { createService, updateService } from "@/app/actions/service";
 import type { CreateServiceResult } from "@/app/actions/service";
+
+export interface ServiceFormInitialValue {
+    id: string;
+    name: string;
+    type: string;
+    price: number;
+    max_capacity: number;
+    description: string | null;
+    dive_site_category: string | null;
+    image_url: string | null;
+    is_available: boolean | null;
+}
 
 interface NewServiceFormProps {
     isAdmin: boolean;
     providerId: string | null;
+    mode?: "create" | "edit";
+    initialService?: ServiceFormInitialValue | null;
 }
 
 const serviceTypes = [
@@ -70,11 +85,17 @@ const diveSiteCategories = [
     { value: "Wreck", label: "🚢 Wreck Dive" },
 ];
 
-export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormProps) {
+export default function NewServiceForm({
+    isAdmin,
+    providerId,
+    mode = "create",
+    initialService = null,
+}: NewServiceFormProps) {
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<CreateServiceResult | null>(null);
-    const [selectedType, setSelectedType] = useState("");
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [selectedType, setSelectedType] = useState(initialService?.type || "");
+    const [imagePreview, setImagePreview] = useState<string | null>(initialService?.image_url || null);
+    const isEdit = mode === "edit";
 
     function handleSubmit(formData: FormData) {
         setResult(null);
@@ -82,8 +103,12 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
         if (providerId) {
             formData.set("_provider_id_override", providerId);
         }
+        if (isEdit && initialService?.id) {
+            formData.set("service_id", initialService.id);
+        }
         startTransition(async () => {
-            const res = await createService(formData);
+            const action = isEdit ? updateService : createService;
+            const res = await action(formData);
             // Jika sampai sini = ada error (sukses = redirect otomatis)
             setResult(res);
         });
@@ -107,10 +132,12 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                         <Anchor className="w-8 h-8 text-primary" />
                     </div>
                     <h1 className="text-2xl font-extrabold text-slate-900">
-                        Tambah Layanan Baru
+                        {isEdit ? "Edit Layanan" : "Tambah Layanan Baru"}
                     </h1>
                     <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-                        Layanan yang Anda tambahkan akan muncul di marketplace SulutDive dan bisa dipesan oleh wisatawan.
+                        {isEdit
+                            ? "Perbarui detail layanan yang tampil di marketplace SulutDive."
+                            : "Layanan yang Anda tambahkan akan muncul di marketplace SulutDive dan bisa dipesan oleh wisatawan."}
                     </p>
 
                     {/* Admin badge */}
@@ -133,6 +160,10 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                     )}
 
                     <form action={handleSubmit} className="space-y-6">
+                        {isEdit && initialService?.id && (
+                            <input type="hidden" name="service_id" value={initialService.id} />
+                        )}
+
                         {/* ── Tipe Layanan (Visual Selection) ── */}
                         <div>
                             <label className="block text-sm font-bold text-slate-900 mb-3">
@@ -204,6 +235,7 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                                     type="text"
                                     required
                                     minLength={3}
+                                    defaultValue={initialService?.name ?? ""}
                                     placeholder="Contoh: Kapal Nelayan Pak Budi - 6 Orang"
                                     className="block w-full pl-11 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-slate-900 font-medium placeholder-slate-400 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-base transition-all"
                                 />
@@ -227,6 +259,7 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                                         required
                                         min={0}
                                         step={1000}
+                                        defaultValue={initialService?.price ?? ""}
                                         placeholder="350000"
                                         className="block w-full pl-11 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-slate-900 font-medium placeholder-slate-400 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-base transition-all"
                                     />
@@ -247,6 +280,7 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                                         required
                                         min={1}
                                         max={100}
+                                        defaultValue={initialService?.max_capacity ?? ""}
                                         placeholder="6"
                                         className="block w-full pl-11 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-slate-900 font-medium placeholder-slate-400 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-base transition-all"
                                     />
@@ -266,6 +300,7 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                                 <select
                                     id="dive_site_category"
                                     name="dive_site_category"
+                                    defaultValue={initialService?.dive_site_category ?? ""}
                                     className="block w-full pl-11 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-slate-900 font-medium bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-base transition-all appearance-none"
                                 >
                                     {diveSiteCategories.map((cat) => (
@@ -293,6 +328,7 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                                     id="description"
                                     name="description"
                                     rows={4}
+                                    defaultValue={initialService?.description ?? ""}
                                     placeholder="Jelaskan apa saja yang termasuk dalam layanan ini, fasilitas, durasi, atau keunggulan..."
                                     className="block w-full pl-11 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-slate-900 font-medium placeholder-slate-400 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-base transition-all resize-none"
                                 />
@@ -303,6 +339,7 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                         <div>
                             <label className="block text-sm font-bold text-slate-900 mb-2">
                                 Foto Layanan
+                                {isEdit && <span className="ml-1 text-xs font-medium text-slate-500">(kosongkan jika tidak ingin mengganti)</span>}
                             </label>
                             <label
                                 htmlFor="image"
@@ -340,6 +377,33 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                         </div>
 
                         {/* ── Submit ── */}
+                        {isEdit && (
+                            <div>
+                                <label className="block text-sm font-bold text-slate-900 mb-2">
+                                    Status Layanan
+                                </label>
+                                <input type="hidden" name="is_available" value="false" />
+                                <label className="flex items-center justify-between gap-4 rounded-xl border-2 border-gray-200 bg-gray-50 px-4 py-3.5">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm">
+                                            <ToggleLeft className="w-5 h-5 text-slate-500" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-slate-900">Tersedia untuk dipesan</p>
+                                            <p className="text-xs text-slate-500">Matikan jika layanan sementara tidak menerima booking.</p>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        name="is_available"
+                                        value="true"
+                                        defaultChecked={initialService?.is_available !== false}
+                                        className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
+                                    />
+                                </label>
+                            </div>
+                        )}
+
                         <div className="pt-2">
                             <button
                                 type="submit"
@@ -350,11 +414,11 @@ export default function NewServiceForm({ isAdmin, providerId }: NewServiceFormPr
                                 {isPending ? (
                                     <span className="flex items-center gap-2">
                                         <Loader2 className="h-5 w-5 animate-spin" />
-                                        Menyimpan Layanan...
+                                        {isEdit ? "Memperbarui Layanan..." : "Menyimpan Layanan..."}
                                     </span>
                                 ) : (
                                     <span className="flex items-center gap-2">
-                                        Simpan Layanan
+                                        {isEdit ? "Simpan Perubahan" : "Simpan Layanan"}
                                         <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                                     </span>
                                 )}
