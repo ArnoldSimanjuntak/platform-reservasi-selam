@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, Suspense } from "react";
+import { useEffect, useState, useTransition, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -186,6 +186,17 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
     const effectiveSubmitted = submitted || submittedLocally;
     const isPendingReview = mode === "pending" || effectiveSubmitted;
 
+    useEffect(() => {
+        if (!submittedLocally) return;
+
+        const timeoutId = window.setTimeout(() => {
+            router.replace("/dashboard/provider/setup?submitted=1");
+            router.refresh();
+        }, 300);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [router, submittedLocally]);
+
     function handleSubmit(formData: FormData) {
         setResult(null);
         startTransition(async () => {
@@ -194,8 +205,6 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
             setResult(res);
             if (res.success && !isVerified) {
                 setSubmittedLocally(true);
-                router.replace("/dashboard/provider/setup?submitted=1");
-                router.refresh();
             }
         });
     }

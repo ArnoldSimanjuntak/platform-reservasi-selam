@@ -50,7 +50,7 @@ async function signProviderDocumentUrl(
 
     if (error) {
         console.warn("[admin/verifikasi] Failed to sign provider document:", error.message);
-        return value ?? null;
+        return null;
     }
 
     return data.signedUrl;
