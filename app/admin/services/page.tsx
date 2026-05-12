@@ -11,9 +11,8 @@ import {
     CheckCircle2,
     XCircle,
     ArrowLeft,
-    PlusCircle,
+    Eye,
 } from "lucide-react";
-import DeleteServiceButton from "@/components/DeleteServiceButton";
 
 export const dynamic = "force-dynamic";
 
@@ -105,15 +104,11 @@ export default async function AdminServicesPage({
                             <p className="text-sm text-slate-500 mt-0.5">
                                 {allServices.length} layanan terdaftar &bull; {activeCount} aktif
                             </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                                Panel ini bersifat read-only. Provider mengelola layanan melalui dashboard masing-masing.
+                            </p>
                         </div>
                     </div>
-                    <Link
-                        href="/dashboard/provider/services/new"
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#023E8A] to-[#0077B6] hover:opacity-90 transition-opacity"
-                    >
-                        <PlusCircle className="w-4 h-4" />
-                        Tambah Layanan
-                    </Link>
                 </div>
 
                 {searchParams?.message && (
@@ -172,7 +167,7 @@ export default async function AdminServicesPage({
                                         <th className="text-left px-5 py-3.5 text-xs font-black text-slate-500 uppercase tracking-wider">Harga</th>
                                         <th className="text-left px-5 py-3.5 text-xs font-black text-slate-500 uppercase tracking-wider">Status</th>
                                         <th className="text-left px-5 py-3.5 text-xs font-black text-slate-500 uppercase tracking-wider">Terdaftar</th>
-                                        <th className="text-right px-5 py-3.5 text-xs font-black text-slate-500 uppercase tracking-wider">Aksi</th>
+                                        <th className="text-right px-5 py-3.5 text-xs font-black text-slate-500 uppercase tracking-wider">Detail</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
@@ -218,11 +213,13 @@ export default async function AdminServicesPage({
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div className="flex justify-end">
-                                                    <DeleteServiceButton
-                                                        serviceId={service.id}
-                                                        serviceName={service.name}
-                                                        redirectTo="/admin/services"
-                                                    />
+                                                    <Link
+                                                        href={`/services/${service.id}`}
+                                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-[#023E8A] transition-colors hover:bg-blue-100"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                        Lihat
+                                                    </Link>
                                                 </div>
                                             </td>
                                         </tr>
