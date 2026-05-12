@@ -3,6 +3,7 @@
 import { useState, useTransition, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
 import {
     Ship,
@@ -172,15 +173,18 @@ function StatusBanner({ mode, notice, submitted }: { mode: ProviderMode; notice?
 }
 
 function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSetupClientProps) {
+    const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<ProviderSetupResult | null>(null);
+    const [submittedLocally, setSubmittedLocally] = useState(false);
     const [selectedType, setSelectedType] = useState(provider?.primary_type || "boat");
     const [locationText, setLocationText] = useState(provider?.location || "");
     const [lat, setLat] = useState<number | null>(provider?.latitude ?? null);
     const [lng, setLng] = useState<number | null>(provider?.longitude ?? null);
 
     const isVerified = mode === "verified";
-    const isPendingReview = mode === "pending";
+    const effectiveSubmitted = submitted || submittedLocally;
+    const isPendingReview = mode === "pending" || effectiveSubmitted;
 
     function handleSubmit(formData: FormData) {
         setResult(null);
@@ -188,6 +192,11 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
             const action = isVerified ? updateProviderProfile : setupProviderProfile;
             const res = await action(formData);
             setResult(res);
+            if (res.success && !isVerified) {
+                setSubmittedLocally(true);
+                router.replace("/dashboard/provider/setup?submitted=1");
+                router.refresh();
+            }
         });
     }
 
@@ -213,7 +222,7 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
                     </form>
                 </div>
 
-                <StatusBanner mode={mode} notice={notice} submitted={submitted} />
+                <StatusBanner mode={mode} notice={notice} submitted={effectiveSubmitted} />
 
                 {isPendingReview && (
                     <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

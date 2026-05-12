@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { ShieldCheck, Ship, UserCog, CheckCircle, LogOut, Clock, ShieldAlert } from "lucide-react";
 import AdminVerificationClient from "./AdminVerificationClient";
 import { signOut } from "@/app/auth/actions";
@@ -8,8 +9,56 @@ import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
 
+function createStorageAdminClient() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!url || !serviceRoleKey) return null;
+
+    return createSupabaseClient(url, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+    });
+}
+
+function extractProviderDocumentPath(value?: string | null) {
+    if (!value) return null;
+
+    const publicMarker = "/storage/v1/object/public/provider-documents/";
+    const signedMarker = "/storage/v1/object/sign/provider-documents/";
+    const marker = value.includes(publicMarker)
+        ? publicMarker
+        : value.includes(signedMarker)
+        ? signedMarker
+        : null;
+
+    if (!marker) return value;
+
+    const rawPath = value.split(marker)[1]?.split("?")[0];
+    return rawPath ? decodeURIComponent(rawPath) : null;
+}
+
+async function signProviderDocumentUrl(
+    storageClient: Awaited<ReturnType<typeof createClient>>,
+    value?: string | null
+) {
+    const path = extractProviderDocumentPath(value);
+    if (!path) return null;
+
+    const { data, error } = await storageClient.storage
+        .from("provider-documents")
+        .createSignedUrl(path, 60 * 60);
+
+    if (error) {
+        console.warn("[admin/verifikasi] Failed to sign provider document:", error.message);
+        return value ?? null;
+    }
+
+    return data.signedUrl;
+}
+
 export default async function AdminVerificationPage() {
     const supabase = await createClient();
+    const storageClient = createStorageAdminClient() ?? supabase;
 
     // ─── 1. Auth & Admin Role Check ─────────────────────────────
     const {
@@ -47,7 +96,13 @@ export default async function AdminVerificationPage() {
         `)
         .order("created_at", { ascending: true });
 
-    const providers = allProviders || [];
+    const providers = await Promise.all(
+        (allProviders || []).map(async (provider) => ({
+            ...provider,
+            identity_card_url: await signProviderDocumentUrl(storageClient, provider.identity_card_url),
+            certification_url: await signProviderDocumentUrl(storageClient, provider.certification_url),
+        }))
+    );
     const pendingProviders = providers.filter(p => p.verification_status === "pending");
     const verifiedProviders = providers.filter(p => p.verification_status === "verified");
     const rejectedProviders = providers.filter(p => p.verification_status === "rejected");
