@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 interface ProviderSetupPageProps {
     searchParams?: {
         notice?: string;
+        submitted?: string;
     };
 }
 
@@ -16,6 +17,7 @@ function resolveMode(provider: ProviderProfileSnapshot | null): ProviderMode {
     if (!provider) return "setup";
     if (provider.verification_status === "verified" && provider.is_active) return "verified";
     if (provider.verification_status === "rejected") return "rejected";
+    if (!provider.identity_card_url) return "setup";
     return "pending";
 }
 
@@ -37,7 +39,7 @@ export default async function ProviderSetupPage({ searchParams }: ProviderSetupP
             .maybeSingle(),
         supabase
             .from("providers")
-            .select("id, name, location, contact, description, primary_type, latitude, longitude, verification_status, is_active")
+            .select("id, name, location, contact, description, primary_type, latitude, longitude, verification_status, is_active, identity_card_url, certification_url")
             .eq("owner_user_id", user.id)
             .maybeSingle(),
     ]);
@@ -61,6 +63,8 @@ export default async function ProviderSetupPage({ searchParams }: ProviderSetupP
             longitude: provider.longitude ?? null,
             verification_status: provider.verification_status ?? null,
             is_active: provider.is_active ?? null,
+            identity_card_url: provider.identity_card_url ?? null,
+            certification_url: provider.certification_url ?? null,
         }
         : null;
 
@@ -69,6 +73,7 @@ export default async function ProviderSetupPage({ searchParams }: ProviderSetupP
             mode={resolveMode(profile)}
             provider={profile}
             notice={searchParams?.notice ?? null}
+            submitted={searchParams?.submitted === "1"}
         />
     );
 }

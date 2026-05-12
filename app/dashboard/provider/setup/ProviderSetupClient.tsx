@@ -3,6 +3,7 @@
 import { useState, useTransition, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { signOut } from "@/app/auth/actions";
 import {
     Ship,
     MapPin,
@@ -20,6 +21,10 @@ import {
     CheckCircle2,
     ClipboardList,
     Package,
+    ArrowLeft,
+    LogOut,
+    ShieldCheck,
+    Info,
 } from "lucide-react";
 import { setupProviderProfile, updateProviderProfile } from "@/app/actions/provider";
 import type { ProviderSetupResult } from "@/app/actions/provider";
@@ -37,12 +42,15 @@ export interface ProviderProfileSnapshot {
     longitude: number | null;
     verification_status: string | null;
     is_active: boolean | null;
+    identity_card_url: string | null;
+    certification_url: string | null;
 }
 
 interface ProviderSetupClientProps {
     mode: ProviderMode;
     provider: ProviderProfileSnapshot | null;
     notice?: string | null;
+    submitted?: boolean;
 }
 
 const providerTypes = [
@@ -90,7 +98,21 @@ const ProviderMapPicker = dynamic(
     }
 );
 
-function StatusBanner({ mode, notice }: { mode: ProviderMode; notice?: string | null }) {
+function StatusBanner({ mode, notice, submitted }: { mode: ProviderMode; notice?: string | null; submitted?: boolean }) {
+    if (submitted) {
+        return (
+            <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3 shadow-sm">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                    <p className="text-sm text-emerald-900 font-extrabold">Pengajuan verifikasi berhasil dikirim</p>
+                    <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
+                        Dokumen dan profil bisnis Anda sudah masuk antrean review admin. Selama proses ini, akun belum bisa menerima pesanan sampai status disetujui.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     if (notice) {
         return (
             <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
@@ -126,7 +148,7 @@ function StatusBanner({ mode, notice }: { mode: ProviderMode; notice?: string | 
 
     if (mode === "pending") {
         return (
-            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 shadow-sm">
+            <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3 shadow-sm">
                 <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                 <div>
                     <p className="text-sm text-amber-800 font-bold">Status: Menunggu Verifikasi Admin</p>
@@ -136,10 +158,20 @@ function StatusBanner({ mode, notice }: { mode: ProviderMode; notice?: string | 
         );
     }
 
-    return null;
+    return (
+        <div className="mb-6 p-4 rounded-2xl bg-blue-50 border border-blue-200 flex items-start gap-3 shadow-sm">
+            <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <div>
+                <p className="text-sm text-slate-900 font-extrabold">Lengkapi data verifikasi provider</p>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                    Isi profil usaha, lokasi pangkalan, kontak WhatsApp, dan unggah dokumen identitas. Setelah dikirim, admin akan meninjau data Anda sebelum layanan bisa menerima pesanan.
+                </p>
+            </div>
+        </div>
+    );
 }
 
-function ProviderSetupContent({ mode, provider, notice }: ProviderSetupClientProps) {
+function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSetupClientProps) {
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<ProviderSetupResult | null>(null);
     const [selectedType, setSelectedType] = useState(provider?.primary_type || "boat");
@@ -148,6 +180,7 @@ function ProviderSetupContent({ mode, provider, notice }: ProviderSetupClientPro
     const [lng, setLng] = useState<number | null>(provider?.longitude ?? null);
 
     const isVerified = mode === "verified";
+    const isPendingReview = mode === "pending";
 
     function handleSubmit(formData: FormData) {
         setResult(null);
@@ -161,9 +194,60 @@ function ProviderSetupContent({ mode, provider, notice }: ProviderSetupClientPro
     return (
         <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl w-full mx-auto">
-                <StatusBanner mode={mode} notice={notice} />
+                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <Link
+                        href="/dashboard"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Kembali ke Dashboard
+                    </Link>
+                    <form action={signOut}>
+                        <button
+                            type="submit"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 sm:w-auto"
+                        >
+                            <LogOut className="h-4 w-4" />
+                            Keluar
+                        </button>
+                    </form>
+                </div>
 
-                <div className="text-center mb-8">
+                <StatusBanner mode={mode} notice={notice} submitted={submitted} />
+
+                {isPendingReview && (
+                    <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                                <ShieldCheck className="h-6 w-6" />
+                            </div>
+                            <div className="min-w-0">
+                                <h1 className="text-xl font-extrabold text-slate-950">Kredensial sedang diproses admin</h1>
+                                <p className="mt-2 text-sm leading-6 text-slate-600">
+                                    Data yang tampil di halaman ini hanya milik akun Anda. Admin akan memeriksa identitas, kontak, dan kelayakan profil sebelum mengaktifkan akses operasional provider.
+                                </p>
+                                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                    {["Dokumen terkirim", "Review admin", "Akses provider aktif"].map((step, index) => (
+                                        <div
+                                            key={step}
+                                            className={`rounded-2xl border p-3 text-xs font-bold ${
+                                                index === 0
+                                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                    : index === 1
+                                                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                                                    : "border-slate-200 bg-slate-50 text-slate-500"
+                                            }`}
+                                        >
+                                            {step}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {!isPendingReview && <div className="text-center mb-8">
                     <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-200 shadow-sm">
                         <Anchor className="w-8 h-8 text-primary" />
                     </div>
@@ -175,8 +259,38 @@ function ProviderSetupContent({ mode, provider, notice }: ProviderSetupClientPro
                             ? "Perbarui informasi usaha, kontak, dan lokasi pangkalan yang dilihat wisatawan."
                             : "Lengkapi informasi usaha dan verifikasi identitas untuk menjamin keamanan transaksi."}
                     </p>
-                </div>
+                </div>}
 
+                {isPendingReview ? (
+                    <div className="bg-white py-8 px-6 sm:px-8 shadow-lg border border-gray-100 rounded-3xl">
+                        <div className="grid gap-4">
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Nama Usaha</p>
+                                <p className="mt-1 text-sm font-bold text-slate-900">{provider?.name || "-"}</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Lokasi Pangkalan</p>
+                                <p className="mt-1 text-sm font-bold text-slate-900">{provider?.location || "-"}</p>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Kontak WhatsApp</p>
+                                    <p className="mt-1 text-sm font-bold text-slate-900">{provider?.contact || "-"}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Status Dokumen</p>
+                                    <p className="mt-1 text-sm font-bold text-amber-700">Menunggu review admin</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                            <p className="text-sm font-bold text-primary">Apa yang bisa dilakukan sekarang?</p>
+                            <p className="mt-1 text-xs leading-6 text-slate-600">
+                                Anda bisa kembali ke dashboard atau keluar dari akun. Jika ada kesalahan data, tunggu keputusan admin atau hubungi support untuk pembaruan dokumen.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
                 <div className="bg-white py-8 px-6 sm:px-8 shadow-lg border border-gray-100 rounded-3xl">
                     {result && (
                         <div className={`mb-6 p-4 rounded-xl border flex items-start gap-3 ${
@@ -404,6 +518,7 @@ function ProviderSetupContent({ mode, provider, notice }: ProviderSetupClientPro
                         </div>
                     </form>
                 </div>
+                )}
             </div>
         </div>
     );

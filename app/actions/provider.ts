@@ -249,7 +249,7 @@ export async function setupProviderProfile(
     // ─── 4. Revalidasi cache & redirect ke halaman setup (status verifikasi) ─
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/provider/setup");
-    redirect("/dashboard/provider/setup?notice=Dokumen+berhasil+diunggah.+Status+menunggu+verifikasi+admin.");
+    redirect("/dashboard/provider/setup?submitted=1");
 }
 
 export async function updateProviderProfile(
