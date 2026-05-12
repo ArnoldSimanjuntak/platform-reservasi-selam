@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -25,7 +25,7 @@ export async function createService(
 ): Promise<CreateServiceResult> {
     const supabase = await createClient();
 
-    // ─── 1. Verifikasi autentikasi ────────────────────────────
+    // â”€â”€â”€ 1. Verifikasi autentikasi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -34,7 +34,7 @@ export async function createService(
         redirect("/auth/login");
     }
 
-    // ─── 2. Ambil role user untuk menentukan alur ─────────────
+    // â”€â”€â”€ 2. Ambil role user untuk menentukan alur â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const { data: userRecord } = await supabase
         .from("users")
         .select("role")
@@ -43,46 +43,38 @@ export async function createService(
 
     const role = userRecord?.role ?? user.user_metadata?.role;
 
-    // ─── 3. Resolve provider_id berdasarkan role ──────────────
-    // Admin Bypass: Admin tidak wajib punya baris di tabel providers.
-    // Mereka bisa membuat layanan demo/contoh langsung.
-    // Provider biasa harus punya profil verified di tabel providers.
     let resolvedProviderId: string | null = null;
 
-    if (role === "admin") {
-        // Admin: baca override jika ada (dikirim dari Server Component)
-        const override = (formData.get("_provider_id_override") as string) || null;
-        resolvedProviderId = override || null;
-        // Admin tetap bisa insert meski resolvedProviderId null —
-        // layanan akan muncul tanpa provider owner (katalog global)
-    } else {
-        // Provider biasa: wajib punya baris di tabel providers
-        const { data: provider } = await supabase
-            .from("providers")
-            .select("id, verification_status, is_active")
-            .eq("owner_user_id", user.id)
-            .single();
-
-        if (!provider) {
-            return {
-                success: false,
-                message: "Profil bisnis Anda belum lengkap. Silakan lengkapi terlebih dahulu.",
-            };
-        }
-
-        // Double-check verifikasi di sisi Server Action (defense in depth)
-        // Halaman sudah memblokir akses, tapi ini failsafe jika bypass URL langsung
-        if (provider.verification_status !== "verified" || !provider.is_active) {
-            return {
-                success: false,
-                message: "Akun Anda belum diverifikasi oleh Admin. Silakan tunggu persetujuan.",
-            };
-        }
-
-        resolvedProviderId = provider.id;
+    if (role !== "provider") {
+        return {
+            success: false,
+            message: "Hanya provider terverifikasi yang dapat membuat layanan.",
+        };
     }
 
-    // ─── 3. Ekstrak & validasi input ──────────────────────────
+    const { data: provider } = await supabase
+        .from("providers")
+        .select("id, verification_status, is_active")
+        .eq("owner_user_id", user.id)
+        .single();
+
+    if (!provider) {
+        return {
+            success: false,
+            message: "Profil bisnis Anda belum lengkap. Silakan lengkapi terlebih dahulu.",
+        };
+    }
+
+    if (provider.verification_status !== "verified" || !provider.is_active) {
+        return {
+            success: false,
+            message: "Akun Anda belum diverifikasi oleh Admin. Silakan tunggu persetujuan.",
+        };
+    }
+
+    resolvedProviderId = provider.id;
+
+    // â”€â”€â”€ 3. Ekstrak & validasi input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const name = (formData.get("name") as string)?.trim();
     const type = (formData.get("type") as string)?.trim();
     const priceStr = formData.get("price") as string;
@@ -122,7 +114,7 @@ export async function createService(
         };
     }
 
-    // ─── 4. Upload gambar ke Supabase Storage ─────────────────
+    // â”€â”€â”€ 4. Upload gambar ke Supabase Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     let imageUrl: string | null = null;
 
     if (imageFile && imageFile.size > 0) {
@@ -171,7 +163,7 @@ export async function createService(
         imageUrl = publicUrlData.publicUrl;
     }
 
-    // ─── 5. INSERT ke tabel services ──────────────────────────
+    // â”€â”€â”€ 5. INSERT ke tabel services â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const { error: insertError } = await supabase.from("services").insert({
         provider_id: resolvedProviderId,   // null untuk admin tanpa provider row
         name,
@@ -192,7 +184,7 @@ export async function createService(
         };
     }
 
-    // ─── 6. Revalidasi & redirect ─────────────────────────────
+    // â”€â”€â”€ 6. Revalidasi & redirect â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/provider/services");
     revalidatePath("/services");
@@ -267,33 +259,35 @@ export async function updateService(
         .maybeSingle();
 
     const role = userRecord?.role ?? user.user_metadata?.role;
-    const isAdmin = role === "admin";
 
-    let providerId: string | null = null;
-
-    if (!isAdmin) {
-        const { data: provider } = await supabase
-            .from("providers")
-            .select("id, verification_status, is_active")
-            .eq("owner_user_id", user.id)
-            .maybeSingle();
-
-        if (!provider) {
-            return {
-                success: false,
-                message: "Profil provider tidak ditemukan.",
-            };
-        }
-
-        if (provider.verification_status !== "verified" || !provider.is_active) {
-            return {
-                success: false,
-                message: "Akun Anda belum diverifikasi oleh Admin.",
-            };
-        }
-
-        providerId = provider.id;
+    if (role !== "provider") {
+        return {
+            success: false,
+            message: "Hanya provider pemilik layanan yang dapat mengedit layanan.",
+        };
     }
+
+    const { data: provider } = await supabase
+        .from("providers")
+        .select("id, verification_status, is_active")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+
+    if (!provider) {
+        return {
+            success: false,
+            message: "Profil provider tidak ditemukan.",
+        };
+    }
+
+    if (provider.verification_status !== "verified" || !provider.is_active) {
+        return {
+            success: false,
+            message: "Akun Anda belum diverifikasi oleh Admin.",
+        };
+    }
+
+    const providerId = provider.id;
 
     let imageUrl: string | undefined;
 
@@ -358,9 +352,7 @@ export async function updateService(
         .update(updatePayload)
         .eq("id", serviceId);
 
-    if (!isAdmin) {
-        updateQuery = updateQuery.eq("provider_id", providerId);
-    }
+    updateQuery = updateQuery.eq("provider_id", providerId);
 
     const { data: updatedRows, error } = await updateQuery.select("id");
 
@@ -418,7 +410,11 @@ export async function deleteService(formData: FormData) {
         .delete()
         .eq("id", serviceId);
 
-    if (role !== "admin") {
+    if (role === "admin") {
+        if (!redirectTo.startsWith("/admin/services")) {
+            redirect(`/admin/services?error=${encodeURIComponent("Admin hanya dapat menghapus layanan dari panel admin.")}`);
+        }
+    } else {
         const { data: provider } = await supabase
             .from("providers")
             .select("id")

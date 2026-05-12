@@ -27,41 +27,35 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
         .maybeSingle();
 
     const role = userRecord?.role ?? user.user_metadata?.role;
-    const isAdmin = role === "admin";
-    let providerId: string | null = null;
 
-    if (!isAdmin) {
-        if (role !== "provider") {
-            redirect("/dashboard");
-        }
-
-        const { data: provider } = await supabase
-            .from("providers")
-            .select("id, verification_status, is_active")
-            .eq("owner_user_id", user.id)
-            .maybeSingle();
-
-        if (!provider) {
-            redirect("/dashboard/provider/setup?notice=Lengkapi+profil+bisnis+Anda+terlebih+dahulu.");
-        }
-
-        if (provider.verification_status !== "verified" || provider.is_active !== true) {
-            redirect("/dashboard/provider/setup?notice=Akun+Anda+belum+terverifikasi+untuk+mengelola+layanan.");
-        }
-
-        providerId = provider.id;
+    if (role === "admin") {
+        redirect("/admin/services");
     }
 
-    let serviceQuery = supabase
+    if (role !== "provider") {
+        redirect("/dashboard");
+    }
+
+    const { data: provider } = await supabase
+        .from("providers")
+        .select("id, verification_status, is_active")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+
+    if (!provider) {
+        redirect("/dashboard/provider/setup?notice=Lengkapi+profil+bisnis+Anda+terlebih+dahulu.");
+    }
+
+    if (provider.verification_status !== "verified" || provider.is_active !== true) {
+        redirect("/dashboard/provider/setup?notice=Akun+Anda+belum+terverifikasi+untuk+mengelola+layanan.");
+    }
+
+    const { data: service } = await supabase
         .from("services")
         .select("id, provider_id, name, type, price, max_capacity, description, dive_site_category, image_url, is_available")
-        .eq("id", params.id);
-
-    if (!isAdmin) {
-        serviceQuery = serviceQuery.eq("provider_id", providerId);
-    }
-
-    const { data: service } = await serviceQuery.maybeSingle();
+        .eq("id", params.id)
+        .eq("provider_id", provider.id)
+        .maybeSingle();
 
     if (!service) {
         redirect("/dashboard/provider/services?error=Layanan+tidak+ditemukan+atau+Anda+tidak+punya+akses.");
@@ -81,8 +75,8 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
 
     return (
         <NewServiceForm
-            isAdmin={isAdmin}
-            providerId={providerId}
+            isAdmin={false}
+            providerId={provider.id}
             mode="edit"
             initialService={initialService}
         />

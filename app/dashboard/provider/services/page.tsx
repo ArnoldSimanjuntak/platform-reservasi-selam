@@ -1,10 +1,10 @@
-// force-dynamic: status verifikasi provider harus selalu fresh dari DB.
+﻿// force-dynamic: status verifikasi provider harus selalu fresh dari DB.
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Ship, Wrench, Users, Package, Plus, ArrowLeft, CheckCircle2, XCircle, DollarSign, Pencil, ShieldCheck } from "lucide-react";
+import { Ship, Wrench, Users, Package, Plus, ArrowLeft, CheckCircle2, XCircle, DollarSign, Pencil } from "lucide-react";
 import DeleteServiceButton from "@/components/DeleteServiceButton";
 
 export default async function ProviderServicesPage({
@@ -21,7 +21,7 @@ export default async function ProviderServicesPage({
         redirect("/auth/login");
     }
 
-    // ─── Ambil role user (dari DB, bukan hanya metadata) ──────
+    // â”€â”€â”€ Ambil role user (dari DB, bukan hanya metadata) â”€â”€â”€â”€â”€â”€
     const { data: userRecord } = await supabase
         .from("users")
         .select("role")
@@ -29,40 +29,33 @@ export default async function ProviderServicesPage({
         .single();
 
     const role = userRecord?.role ?? user.user_metadata?.role;
-
-    // ─── Admin Bypass: Admin tidak perlu punya baris di providers ──
-    // Admin boleh lihat SEMUA layanan di sistem (tanpa filter provider_id)
-    const isAdmin = role === "admin";
-
-    // ─── Ambil provider milik user ini (skip untuk admin) ──────
-    let provider: { id: string; name: string } | null = null;
-
-    if (!isAdmin) {
-        const { data: providerData } = await supabase
-            .from("providers")
-            .select("id, name")
-            .eq("owner_user_id", user.id)
-            .single();
-
-        if (!providerData) {
-            redirect("/dashboard/provider/setup");
-        }
-
-        provider = providerData;
+    if (role === "admin") {
+        redirect("/admin/services");
     }
 
-    // ─── Ambil layanan: Admin = semua layanan, Provider = milik sendiri ──
-    // Admin menggunakan supabase server client yang memiliki akses lebih luas.
-    // RLS "Providers manage own services" hanya berlaku untuk non-admin.
-    const servicesBaseQuery = supabase
+    if (role !== "provider") {
+        redirect("/dashboard");
+    }
+
+    const { data: provider } = await supabase
+        .from("providers")
+        .select("id, name, verification_status, is_active")
+        .eq("owner_user_id", user.id)
+        .single();
+
+    if (!provider) {
+        redirect("/dashboard/provider/setup");
+    }
+
+    if (provider.verification_status !== "verified" || !provider.is_active) {
+        redirect("/dashboard/provider/setup?notice=Akun+Anda+belum+terverifikasi+untuk+mengelola+layanan.");
+    }
+
+    const { data: services, error } = await supabase
         .from("services")
         .select("*")
+        .eq("provider_id", provider.id)
         .order("created_at", { ascending: false });
-
-    const { data: services, error } = isAdmin
-        ? await servicesBaseQuery
-        : await servicesBaseQuery.eq("provider_id", provider!.id);
-
 
     const typeConfig: Record<string, { label: string; icon: React.ElementType; bg: string; text: string }> = {
         boat: { label: "Kapal", icon: Ship, bg: "bg-blue-50", text: "text-blue-700" },
@@ -87,17 +80,8 @@ export default async function ProviderServicesPage({
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900">Manajemen Layanan</h1>
                             <p className="text-sm text-slate-500 mt-1 font-medium">
-                                {isAdmin
-                                    ? `Panel Admin — ${services?.length || 0} layanan di seluruh sistem`
-                                    : `${provider?.name} — ${services?.length || 0} layanan terdaftar`
-                                }
+                                {provider.name} - {services?.length || 0} layanan terdaftar
                             </p>
-                            {isAdmin && (
-                                <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-700">
-                                    <ShieldCheck className="w-3 h-3" />
-                                    Mode Admin — Semua Provider
-                                </div>
-                            )}
                         </div>
                         <Link
                             href="/dashboard/provider/services/new"
@@ -153,7 +137,7 @@ export default async function ProviderServicesPage({
                     </div>
                 )}
 
-                {/* Services List — Mobile-First Card Stack */}
+                {/* Services List â€” Mobile-First Card Stack */}
                 {services && services.length > 0 && (
                     <div className="space-y-4">
                         {services.map((service: any) => {
@@ -232,3 +216,4 @@ export default async function ProviderServicesPage({
         </div>
     );
 }
+

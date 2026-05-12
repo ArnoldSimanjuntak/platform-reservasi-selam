@@ -1,4 +1,4 @@
-// ─── Server Component — auth guard + verification check ───────────────────
+﻿// â”€â”€â”€ Server Component â€” auth guard + verification check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // force-dynamic: status verifikasi harus selalu fresh dari DB, jangan pakai cache.
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ import NewServiceForm from "./NewServiceForm";
 export default async function NewServicePage() {
     const supabase = await createClient();
 
-    // ─── 1. Verifikasi sesi ──────────────────────────────────────
+    // â”€â”€â”€ 1. Verifikasi sesi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -18,7 +18,7 @@ export default async function NewServicePage() {
         redirect("/auth/login");
     }
 
-    // ─── 2. Ambil role dari DB (ground truth, bukan hanya metadata) ──
+    // â”€â”€â”€ 2. Ambil role dari DB (ground truth, bukan hanya metadata) â”€â”€
     const { data: userRecord } = await supabase
         .from("users")
         .select("role")
@@ -27,19 +27,16 @@ export default async function NewServicePage() {
 
     const role = userRecord?.role ?? user.user_metadata?.role;
 
-    // ─── 3. Admin Bypass: Admin tidak perlu cek tabel providers ─────
-    // Admin bisa menambah layanan contoh / demo tanpa perlu jadi provider.
     if (role === "admin") {
-        // Langsung render form, lewati seluruh pengecekan provider
-        return <NewServiceForm isAdmin={true} providerId={null} />;
+        redirect("/admin/services");
     }
 
-    // ─── 4. Non-admin: harus role 'provider' ───────────────────────
+    // â”€â”€â”€ 4. Non-admin: harus role 'provider' â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (role !== "provider") {
         redirect("/dashboard");
     }
 
-    // ─── 5. Cek status verifikasi provider secara real-time dari DB ─
+    // â”€â”€â”€ 5. Cek status verifikasi provider secara real-time dari DB â”€
     // (force-dynamic memastikan baris ini selalu berjalan, tidak terpakai cache)
     const { data: provider } = await supabase
         .from("providers")
@@ -47,12 +44,12 @@ export default async function NewServicePage() {
         .eq("owner_user_id", user.id)
         .single();
 
-    // Jika profil provider belum dibuat sama sekali → paksa ke setup
+    // Jika profil provider belum dibuat sama sekali â†’ paksa ke setup
     if (!provider) {
         redirect("/dashboard/provider/setup?notice=Lengkapi+profil+bisnis+Anda+terlebih+dahulu.");
     }
 
-    // ─── 6. Blokir akses jika belum terverifikasi ──────────────────
+    // â”€â”€â”€ 6. Blokir akses jika belum terverifikasi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Hanya provider yang sudah 'verified' DAN is_active yang boleh tambah layanan.
     const isVerified =
         provider.verification_status === "verified" && provider.is_active === true;
@@ -65,6 +62,6 @@ export default async function NewServicePage() {
         redirect(`/dashboard/provider/setup?notice=${statusMsg}`);
     }
 
-    // ─── 7. Semua validasi lulus → render form ─────────────────────
+    // â”€â”€â”€ 7. Semua validasi lulus â†’ render form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     return <NewServiceForm isAdmin={false} providerId={provider.id} />;
 }
