@@ -313,6 +313,7 @@ export async function createBooking(
     // ─── 10. Invalidate cache agar halaman bookings langsung up-to-date ───
     revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard");
+    revalidatePath("/admin/orders");
 
     return {
         success: true,
@@ -487,6 +488,11 @@ export async function updateBookingStatus(
         completed: "Selesai",
         cancelled: "Dibatalkan",
     };
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard/provider/orders");
+    revalidatePath("/admin/orders");
 
     return {
         success: true,

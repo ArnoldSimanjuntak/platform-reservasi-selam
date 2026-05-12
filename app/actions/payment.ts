@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
 
 export interface PaymentVerificationResult {
     success: boolean;
@@ -104,6 +105,11 @@ export async function submitPaymentProof(
         };
     }
 
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard/provider/orders");
+    revalidatePath("/admin/orders");
+
     return {
         success: true,
         message: "Bukti pembayaran berhasil dikirim! Menunggu verifikasi dari provider.",
@@ -171,6 +177,11 @@ export async function verifyPayment(
         console.error("Payment verify error:", updateError);
         return { success: false, message: `Gagal memverifikasi: ${updateError.message}` };
     }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard/provider/orders");
+    revalidatePath("/admin/orders");
 
     return {
         success: true,

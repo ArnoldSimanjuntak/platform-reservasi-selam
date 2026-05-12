@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { signOut } from "@/app/auth/actions";
 import {
@@ -16,6 +17,17 @@ import {
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+function createAdminDbClient() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!url || !serviceRoleKey) return null;
+
+    return createSupabaseClient(url, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+    });
+}
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
     pending:     { label: "Menunggu",    bg: "bg-amber-100",   text: "text-amber-700" },
@@ -36,12 +48,15 @@ export default async function AdminOrdersPage() {
 
     const adminName = userRecord?.name || user.user_metadata?.name || user.email?.split("@")[0] || "Admin";
 
-    // Fetch all bookings with service name
-    const { data: bookings, error } = await supabase
+    const adminDb = createAdminDbClient() ?? supabase;
+
+    // Admin sudah diverifikasi di atas; service-role dipakai server-side agar RLS user/provider
+    // tidak menyembunyikan transaksi platform dari panel admin.
+    const { data: bookings, error } = await adminDb
         .from("bookings")
         .select(`
             id, status, total_price, booking_date, total_participants, created_at,
-            services ( name, type )
+            service:services ( name, type )
         `)
         .order("created_at", { ascending: false })
         .limit(200);
@@ -170,7 +185,7 @@ export default async function AdminOrdersPage() {
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {allBookings.map((booking) => {
-                                        const service = (Array.isArray(booking.services) ? booking.services[0] : booking.services) as { name: string; type: string } | null;
+                                        const service = (Array.isArray(booking.service) ? booking.service[0] : booking.service) as { name: string; type: string } | null;
                                         const statusCfg = STATUS_CONFIG[booking.status] || STATUS_CONFIG.pending;
                                         return (
                                             <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
