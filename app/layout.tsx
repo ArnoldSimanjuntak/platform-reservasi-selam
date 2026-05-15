@@ -17,6 +17,17 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+const supabaseOrigin = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return null;
+
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+})();
+
 export const metadata: Metadata = {
   title: "SulutDive — Reservasi Selam Lembeh",
   description:
@@ -119,6 +130,12 @@ export default async function RootLayout({
       <head>
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        {supabaseOrigin ? (
+          <>
+            <link rel="preconnect" href={supabaseOrigin} crossOrigin="" />
+            <link rel="dns-prefetch" href={supabaseOrigin} />
+          </>
+        ) : null}
         {/* Script kritis: Tangkap beforeinstallprompt SEBELUM React hydration.
             Browser memicu event ini sangat awal — jika React belum mount,
             event akan hilang selamanya. Script ini menyimpannya ke global. */}
@@ -139,7 +156,7 @@ export default async function RootLayout({
         <Navbar initialAuthState={initialNavbarAuthState} />
         {children}
         <Footer />
-        <BottomNav />
+        <BottomNav initialAuthState={initialNavbarAuthState} />
         <InstallPrompt />
         <SessionTimeout />
         <ServiceWorkerRegistration />

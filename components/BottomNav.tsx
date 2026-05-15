@@ -1,11 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Home, Map, ClipboardList, User, ShieldCheck } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { BriefcaseBusiness, ClipboardList, Home, Map, User, UserCog } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { NavbarInitialAuthState } from "@/components/Navbar";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+
+interface BottomNavProps {
+    initialAuthState?: NavbarInitialAuthState;
+}
+
+type BottomNavItem = {
+    href: string;
+    label: string;
+    icon: typeof Home;
+    active: (pathname: string) => boolean;
+};
 
 function isAbortError(error: unknown): boolean {
     if (error instanceof DOMException && error.name === "AbortError") return true;
@@ -13,146 +25,222 @@ function isAbortError(error: unknown): boolean {
     return String(error).toLowerCase().includes("aborted");
 }
 
-export default function BottomNav() {
-    const [userRole, setUserRole] = useState<string | null>(null);
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+function getNavItems(authState: NavbarInitialAuthState): BottomNavItem[] {
+    const { user, role, providerVerified } = authState;
+    const isAuthenticated = !!user;
+    const bookingHref = isAuthenticated ? "/dashboard/bookings" : "/auth/login";
+    const profileHref = isAuthenticated ? "/dashboard" : "/auth/login?redirectTo=/dashboard";
+
+    if (role === "provider") {
+        if (!providerVerified) {
+            return [
+                {
+                    href: "/dashboard",
+                    label: "Dashboard",
+                    icon: Home,
+                    active: (currentPath) => currentPath === "/dashboard",
+                },
+                {
+                    href: "/dashboard/provider/setup",
+                    label: "Verifikasi",
+                    icon: UserCog,
+                    active: (currentPath) => currentPath.startsWith("/dashboard/provider/setup"),
+                },
+            ];
+        }
+
+        return [
+            {
+                href: "/dashboard",
+                label: "Dashboard",
+                icon: Home,
+                active: (currentPath) => currentPath === "/dashboard",
+            },
+            {
+                href: "/dashboard/provider/orders",
+                label: "Pesanan",
+                icon: ClipboardList,
+                active: (currentPath) => currentPath.startsWith("/dashboard/provider/orders"),
+            },
+            {
+                href: "/dashboard/provider/services",
+                label: "Layanan",
+                icon: BriefcaseBusiness,
+                active: (currentPath) => currentPath.startsWith("/dashboard/provider/services"),
+            },
+            {
+                href: "/dashboard/provider/setup",
+                label: "Profil Bisnis",
+                icon: UserCog,
+                active: (currentPath) => currentPath.startsWith("/dashboard/provider/setup"),
+            },
+        ];
+    }
+
+    return [
+        {
+            href: "/",
+            label: "Home",
+            icon: Home,
+            active: (currentPath) => currentPath === "/",
+        },
+        {
+            href: "/lokasi",
+            label: "Dive Map",
+            icon: Map,
+            active: (currentPath) => currentPath.startsWith("/lokasi"),
+        },
+        {
+            href: bookingHref,
+            label: "Pesanan",
+            icon: ClipboardList,
+            active: (currentPath) => currentPath.startsWith("/dashboard/bookings"),
+        },
+        {
+            href: profileHref,
+            label: "Profil",
+            icon: User,
+            active: (currentPath) => currentPath === "/dashboard",
+        },
+    ];
+}
+
+export default function BottomNav({ initialAuthState }: BottomNavProps) {
+    const [authState, setAuthState] = useState<NavbarInitialAuthState>(
+        initialAuthState ?? {
+            user: null,
+            role: null,
+            providerVerified: false,
+            isLoading: true,
+        }
+    );
     const pathname = usePathname();
+    const mountedRef = useRef(true);
     const authRequestIdRef = useRef(0);
 
-    // Sembunyikan navigasi bawah pada halaman auth
-    const isAuthPage = pathname.startsWith("/auth");
-    const isAdminPage = pathname.startsWith("/admin");
+    const syncAuthStateFromServer = useCallback(async (showLoading: boolean) => {
+        const requestId = ++authRequestIdRef.current;
+        if (showLoading) {
+            setAuthState((prev) => ({ ...prev, isLoading: true }));
+        }
 
-    useEffect(() => {
-        const supabase = createClient();
+        try {
+            const response = await fetch("/api/auth/navbar-state", {
+                cache: "no-store",
+                credentials: "same-origin",
+            });
+            if (!response.ok) throw new Error(`Bottom nav auth sync failed: ${response.status}`);
 
-        const fetchFreshRole = async (userId: string) => {
-            try {
-                const { data, error } = await supabase
-                    .from("users")
-                    .select("role")
-                    .eq("id", userId)
-                    .maybeSingle();
-                if (error) return "customer";
-                return data?.role ?? "customer";
-            } catch (error) {
-                if (!isAbortError(error)) {
-                    console.warn("[BottomNav] role fetch error:", error);
-                }
-                return "customer";
+            const nextState = (await response.json()) as NavbarInitialAuthState;
+            if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
+            setAuthState(nextState);
+        } catch (error) {
+            if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
+            if (!isAbortError(error)) {
+                console.warn("[BottomNav] server auth sync error:", error);
             }
-        };
-
-        const checkUser = async () => {
-            const requestId = ++authRequestIdRef.current;
-            setIsAuthenticated(null);
-            setUserRole(null);
-
-            const { data: { user } } = await supabase.auth.getUser();
-            if (requestId !== authRequestIdRef.current) return;
-
-            if (user) {
-                setIsAuthenticated(true);
-                const role = await fetchFreshRole(user.id);
-                if (requestId === authRequestIdRef.current) setUserRole(role);
-            } else {
-                setIsAuthenticated(false);
-                setUserRole(null);
-            }
-        };
-
-        checkUser();
-
-        const { data: authListener } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-            const requestId = ++authRequestIdRef.current;
-            setIsAuthenticated(null);
-            setUserRole(null);
-
-            if (session?.user) {
-                setIsAuthenticated(true);
-                setTimeout(() => {
-                    void fetchFreshRole(session.user.id).then((role) => {
-                        if (requestId === authRequestIdRef.current) setUserRole(role);
-                    });
-                }, 0);
-            } else {
-                setIsAuthenticated(false);
-                setUserRole(null);
-            }
-        });
-
-        return () => {
-            authListener.subscription.unsubscribe();
-        };
+            setAuthState((prev) => ({ ...prev, isLoading: false }));
+        }
     }, []);
 
-    if (isAuthPage || isAdminPage || userRole === "admin") return null;
+    useEffect(() => {
+        if (!initialAuthState) return;
+        setAuthState(initialAuthState);
+    }, [initialAuthState]);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        const supabase = createClient();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (event: AuthChangeEvent, session: Session | null) => {
+                if (!mountedRef.current) return;
+
+                if (event === "SIGNED_OUT" || !session?.user) {
+                    authRequestIdRef.current++;
+                    setAuthState({
+                        user: null,
+                        role: null,
+                        providerVerified: false,
+                        isLoading: false,
+                    });
+                    return;
+                }
+
+                if (event === "INITIAL_SESSION") {
+                    if (!initialAuthState) {
+                        void syncAuthStateFromServer(false);
+                    }
+                    return;
+                }
+
+                if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+                    setAuthState((prev) => ({
+                        ...prev,
+                        user: {
+                            id: session.user.id,
+                            email: session.user.email ?? null,
+                            name: (session.user.user_metadata?.name as string | undefined) ?? null,
+                        },
+                        role: prev.user?.id === session.user.id ? prev.role : null,
+                        providerVerified: prev.user?.id === session.user.id ? prev.providerVerified : false,
+                        isLoading: true,
+                    }));
+
+                    setTimeout(() => {
+                        void syncAuthStateFromServer(false);
+                    }, 0);
+                }
+            }
+        );
+
+        if (!initialAuthState) {
+            void syncAuthStateFromServer(true);
+        }
+
+        return () => {
+            mountedRef.current = false;
+            subscription.unsubscribe();
+        };
+    }, [initialAuthState, syncAuthStateFromServer]);
+
+    const isAuthPage = pathname.startsWith("/auth");
+    const isAdminPage = pathname.startsWith("/admin");
+    const isRoleResolving = !!authState.user && authState.role === null;
+
+    if (isAuthPage || isAdminPage || authState.role === "admin" || authState.isLoading || isRoleResolving) {
+        return null;
+    }
+
+    const navItems = getNavItems(authState);
 
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-[100] pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-            <div className="flex justify-around items-center h-16 px-2">
-                <Link 
-                    href={userRole === "provider" ? "/dashboard/provider/orders" : "/"} 
-                    className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-                        (pathname === "/" || pathname === "/dashboard/provider/orders" && userRole === "provider") ? "text-[#023E8A]" : "text-slate-400 hover:text-slate-600"
-                    }`}
-                >
-                    <Home className={`w-5 h-5 ${(pathname === "/" || pathname === "/dashboard/provider/orders" && userRole === "provider") ? "fill-blue-50" : ""}`} />
-                    <span className="text-[10px] font-bold">Home</span>
-                </Link>
+        <nav
+            aria-label="Navigasi utama mobile"
+            className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-[100] pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]"
+        >
+            <div className="flex items-center h-16 px-2">
+                {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = item.active(pathname);
 
-                <Link 
-                    href="/lokasi" 
-                    className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-                        pathname.startsWith("/lokasi") ? "text-[#023E8A]" : "text-slate-400 hover:text-slate-600"
-                    }`}
-                >
-                    <Map className={`w-5 h-5 ${pathname.startsWith("/lokasi") ? "fill-blue-50" : ""}`} />
-                    <span className="text-[10px] font-bold">Dive Map</span>
-                </Link>
-
-                {userRole === "admin" ? (
-                    <Link 
-                        href="/admin/verifikasi" 
-                        className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-                            pathname.startsWith("/admin") ? "text-[#023E8A]" : "text-slate-400 hover:text-slate-600"
-                        }`}
-                    >
-                        <ShieldCheck className={`w-5 h-5 ${pathname.startsWith("/admin") ? "fill-blue-50/50" : ""}`} />
-                        <span className="text-[10px] font-bold">Verifikasi</span>
-                    </Link>
-                ) : userRole === "provider" ? (
-                    <Link 
-                        href="/dashboard/provider/orders" 
-                        className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-                            pathname.startsWith("/dashboard/provider/orders") ? "text-[#023E8A]" : "text-slate-400 hover:text-slate-600"
-                        }`}
-                    >
-                        <ClipboardList className={`w-5 h-5 ${pathname.startsWith("/dashboard/provider/orders") ? "fill-blue-50" : ""}`} />
-                        <span className="text-[10px] font-bold">Pesanan</span>
-                    </Link>
-                ) : (
-                    <Link 
-                        href={isAuthenticated ? "/dashboard/bookings" : "/auth/login"} 
-                        className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-                            pathname.startsWith("/dashboard/bookings") ? "text-[#023E8A]" : "text-slate-400 hover:text-slate-600"
-                        }`}
-                    >
-                        <ClipboardList className={`w-5 h-5 ${pathname.startsWith("/dashboard/bookings") ? "fill-blue-50" : ""}`} />
-                        <span className="text-[10px] font-bold">Pesanan</span>
-                    </Link>
-                )}
-
-                <Link
-                    href={isAuthenticated ? "/dashboard" : "/auth/login?redirectTo=/dashboard"}
-                    className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-                        pathname === "/dashboard" ? "text-[#023E8A]" : "text-slate-400 hover:text-slate-600"
-                    }`}
-                >
-                    <User className={`w-5 h-5 ${pathname === "/dashboard" ? "fill-blue-50" : ""}`} />
-                    <span className="text-[10px] font-bold">Profil</span>
-                </Link>
+                    return (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={`flex flex-col items-center justify-center min-w-0 flex-1 h-full gap-1 transition-colors ${
+                                isActive ? "text-[#023E8A]" : "text-slate-400 hover:text-slate-600"
+                            }`}
+                            aria-current={isActive ? "page" : undefined}
+                        >
+                            <Icon className={`w-5 h-5 shrink-0 ${isActive ? "fill-blue-50" : ""}`} />
+                            <span className="w-full truncate px-1 text-center text-[10px] font-bold">
+                                {item.label}
+                            </span>
+                        </Link>
+                    );
+                })}
             </div>
-        </div>
+        </nav>
     );
 }

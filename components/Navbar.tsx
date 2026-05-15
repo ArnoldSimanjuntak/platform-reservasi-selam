@@ -241,12 +241,17 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
                     return;
                 }
 
-                if (
-                    event === "INITIAL_SESSION" ||
-                    event === "SIGNED_IN" ||
-                    event === "TOKEN_REFRESHED" ||
-                    event === "USER_UPDATED"
-                ) {
+                if (event === "INITIAL_SESSION") {
+                    applySessionSnapshot(session);
+                    if (!initialAuthState) {
+                        setTimeout(() => {
+                            void syncAuthStateFromServer(false);
+                        }, 0);
+                    }
+                    return;
+                }
+
+                if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
                     applySessionSnapshot(session);
                     setTimeout(() => {
                         void syncAuthStateFromServer(false);
@@ -255,7 +260,9 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
             }
         );
 
-        void syncAuthStateFromServer(!initialAuthState);
+        if (!initialAuthState) {
+            void syncAuthStateFromServer(true);
+        }
 
         return () => {
             mountedRef.current = false;
