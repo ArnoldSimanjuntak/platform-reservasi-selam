@@ -114,7 +114,12 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
     const bookingNotes = [
         isBoat
             ? "Wisatawan memilih spot selam dan tanggal pada formulir pemesanan."
+            : isGear
+            ? "Penyewaan alat tidak memerlukan pilihan spot selam. Pemesanan dihitung berdasarkan tanggal mulai, durasi sewa, dan jumlah unit."
             : "Wisatawan memilih tanggal dan jumlah sesuai ketersediaan layanan.",
+        ...(isGear
+            ? ["Lokasi pengambilan atau pengembalian alat mengikuti informasi dari provider dan sebaiknya dikonfirmasi sebelum hari sewa."]
+            : []),
         "Fasilitas tambahan hanya berlaku jika dicantumkan langsung pada deskripsi layanan.",
         service.provider?.contact
             ? `Kontak provider: ${service.provider.contact}`

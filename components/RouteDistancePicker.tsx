@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -15,77 +15,18 @@ import "leaflet/dist/leaflet.css";
 import { getMapProviders } from "@/lib/supabase";
 import type { ProviderMapPin } from "@/lib/supabase";
 
-// ─── Types ───────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface LocationPoint {
     id: string;
     name: string;
     lat: number;
     lng: number;
-    type: "public_port" | "resort" | "dive_spot" | "provider_base";
+    type: "dive_spot" | "provider_base";
     label?: string;
 }
 
-// ─── Departure Points (Ports & Resorts) ─────────────────────
-const DEPARTURE_POINTS: LocationPoint[] = [
-    {
-        id: "pateten",
-        name: "Pelabuhan Pateten",
-        lat: 1.4560,
-        lng: 125.2100,
-        type: "public_port",
-        label: "Public Port",
-    },
-    {
-        id: "dermaga-ruko",
-        name: "Dermaga Ruko Bitung",
-        lat: 1.4475,
-        lng: 125.1950,
-        type: "public_port",
-        label: "Public Port",
-    },
-    {
-        id: "pelabuhan-bitung",
-        name: "Pelabuhan Bitung",
-        lat: 1.4400,
-        lng: 125.1880,
-        type: "public_port",
-        label: "Public Port",
-    },
-    {
-        id: "dabirahe",
-        name: "Dabirahe Resort",
-        lat: 1.4735,
-        lng: 125.2370,
-        type: "resort",
-        label: "Private Resort",
-    },
-    {
-        id: "bastianos",
-        name: "Bastianos Lembeh Resort",
-        lat: 1.4690,
-        lng: 125.2340,
-        type: "resort",
-        label: "Private Resort",
-    },
-    {
-        id: "kungkungan",
-        name: "Kungkungan Bay Resort",
-        lat: 1.4715,
-        lng: 125.2477,
-        type: "resort",
-        label: "Private Resort",
-    },
-    {
-        id: "lembeh-resort",
-        name: "Lembeh Resort",
-        lat: 1.4580,
-        lng: 125.2320,
-        type: "resort",
-        label: "Private Resort",
-    },
-];
 
-// ─── Dive Spots (loaded from data_selam.json coordinates) ───
+// â”€â”€â”€ Dive Spots (loaded from data_selam.json coordinates) â”€â”€â”€
 const DIVE_SPOTS: LocationPoint[] = [
     { id: "nudi-falls", name: "Nudi Falls", lat: 1.4606494, lng: 125.2270824, type: "dive_spot" },
     { id: "angels-window", name: "Angel's Window", lat: 1.4959408, lng: 125.2618465, type: "dive_spot" },
@@ -109,7 +50,7 @@ const DIVE_SPOTS: LocationPoint[] = [
     { id: "serena-besar", name: "Serena Besar", lat: 1.4595817, lng: 125.2338971, type: "dive_spot" },
 ];
 
-// ─── Custom Icons ────────────────────────────────────────────
+// â”€â”€â”€ Custom Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const createIcon = (color: string, emoji: string) =>
     L.divIcon({
         html: `<div style="
@@ -126,12 +67,10 @@ const createIcon = (color: string, emoji: string) =>
         className: "",
     });
 
-const portIcon      = createIcon("#023E8A", "⚓");
-const resortIcon    = createIcon("#0077B6", "🏨");
-const providerIcon  = createIcon("#0077B6", "🚤"); // Pangkalan provider dari DB
-const diveIcon      = createIcon("#E63946", "🤿");
+const providerIcon  = createIcon("#0077B6", "ðŸš¤"); // Pangkalan provider dari DB
+const diveIcon      = createIcon("#E63946", "ðŸ¤¿");
 
-// ─── Haversine Distance ──────────────────────────────────────
+// â”€â”€â”€ Haversine Distance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 6371; // km
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -146,7 +85,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
     return R * c;
 }
 
-// ─── Map Bounds Fitter ───────────────────────────────────────
+// â”€â”€â”€ Map Bounds Fitter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FitBounds({ start, end }: { start: [number, number]; end: [number, number] }) {
     const map = useMap();
 
@@ -158,7 +97,7 @@ function FitBounds({ start, end }: { start: [number, number]; end: [number, numb
     return null;
 }
 
-// ─── Main Component ──────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function RouteDistancePicker() {
     const searchParams = useSearchParams();
     const [departureId, setDepartureId] = useState("");
@@ -166,7 +105,7 @@ export default function RouteDistancePicker() {
     // Pangkalan provider dari Supabase (terverifikasi + punya koordinat)
     const [providerBases, setProviderBases] = useState<LocationPoint[]>([]);
 
-    // ── Route Sync: baca koordinat dari URL params (dikirim oleh Dive Map popup)
+    // â”€â”€ Route Sync: baca koordinat dari URL params (dikirim oleh Dive Map popup)
     // Format: /route-planner?start_lat=1.456&start_lng=125.21&start_name=Pangkalan+X
     const [customStart, setCustomStart] = useState<LocationPoint | null>(null);
 
@@ -189,7 +128,7 @@ export default function RouteDistancePicker() {
         }
     }, [searchParams]);
 
-    // ── Fetch provider bases dari Supabase
+    // â”€â”€ Fetch provider bases dari Supabase
     useEffect(() => {
         getMapProviders().then(({ data }) => {
             if (data) {
@@ -206,9 +145,9 @@ export default function RouteDistancePicker() {
         });
     }, []);
 
-    // Gabungkan semua titik berangkat: statis + dari DB + custom (dari peta)
+    // Departure point hanya memakai pangkalan provider agar estimasi mengikuti layanan aktual.
     const allDeparturePoints = useMemo(() => {
-        const points = [...DEPARTURE_POINTS, ...providerBases];
+        const points = [...providerBases];
         if (customStart && !points.find((p) => p.id === customStart.id)) {
             points.unshift(customStart);
         }
@@ -236,7 +175,7 @@ export default function RouteDistancePicker() {
 
     return (
         <div className="space-y-6">
-            {/* ─── Dropdowns ─────────────────────────────────── */}
+            {/* â”€â”€â”€ Dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Departure */}
                 <div className="space-y-2">
@@ -244,29 +183,15 @@ export default function RouteDistancePicker() {
                         Departure Point
                     </label>
                     <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg">⚓</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg">âš“</span>
                         <select
                             value={departureId}
                             onChange={(e) => setDepartureId(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-700 font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none cursor-pointer text-sm"
                         >
-                            <option value="">Select departure...</option>
-                            <optgroup label="🏛️ Public Ports">
-                                {DEPARTURE_POINTS.filter((p) => p.type === "public_port").map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name}
-                                    </option>
-                                ))}
-                            </optgroup>
-                            <optgroup label="🏨 Private Resorts">
-                                {DEPARTURE_POINTS.filter((p) => p.type === "resort").map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name}
-                                    </option>
-                                ))}
-                            </optgroup>
+                            <option value="">Select provider base...</option>
                             {providerBases.length > 0 && (
-                                <optgroup label="🚤 Pangkalan Provider">
+                                <optgroup label="ðŸš¤ Pangkalan Provider">
                                     {providerBases.map((p) => (
                                         <option key={p.id} value={p.id}>
                                             {p.name}
@@ -275,29 +200,24 @@ export default function RouteDistancePicker() {
                                 </optgroup>
                             )}
                             {customStart && (
-                                <optgroup label="📍 Dari Peta">
+                                <optgroup label="ðŸ“ Dari Peta">
                                     <option value={customStart.id}>{customStart.name}</option>
                                 </optgroup>
                             )}
                         </select>
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                            ▾
+                            â–¾
                         </div>
                     </div>
                     {departure && (
-                        <span
-                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                departure.type === "public_port"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : departure.type === "provider_base"
-                                    ? "bg-[#023E8A]/10 text-[#023E8A]"
-                                    : "bg-amber-100 text-amber-800"
-                            }`}
-                        >
-                            {departure.type === "public_port" ? "🏛️ Public Port"
-                                : departure.type === "provider_base" ? "🚤 Pangkalan Provider"
-                                : "🏨 Resort"}
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#023E8A]/10 text-[#023E8A]">
+                            Pangkalan Provider
                         </span>
+                    )}
+                    {providerBases.length === 0 && !customStart && (
+                        <p className="text-xs text-slate-500">
+                            Belum ada pangkalan provider terverifikasi dengan koordinat.
+                        </p>
                     )}
                 </div>
 
@@ -307,7 +227,7 @@ export default function RouteDistancePicker() {
                         Dive Destination
                     </label>
                     <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg">🤿</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg">ðŸ¤¿</span>
                         <select
                             value={destinationId}
                             onChange={(e) => setDestinationId(e.target.value)}
@@ -321,13 +241,13 @@ export default function RouteDistancePicker() {
                             ))}
                         </select>
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                            ▾
+                            â–¾
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* ─── Map ───────────────────────────────────────── */}
+            {/* â”€â”€â”€ Map â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden border-4 border-white shadow-xl relative">
                 <MapContainer
                     center={center}
@@ -344,11 +264,7 @@ export default function RouteDistancePicker() {
                     {departure && (
                         <Marker
                             position={[departure.lat, departure.lng]}
-                            icon={
-                                departure.type === "public_port" ? portIcon
-                                : departure.type === "provider_base" ? providerIcon
-                                : resortIcon
-                            }
+                            icon={providerIcon}
                         >
                             <Popup>
                                 <div className="text-center">
@@ -408,14 +324,14 @@ export default function RouteDistancePicker() {
                 </MapContainer>
             </div>
 
-            {/* ─── Route Info Card ────────────────────────────── */}
+            {/* â”€â”€â”€ Route Info Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {departure && destination && distance !== null && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
                     {/* Header gradient */}
                     <div className="bg-gradient-to-r from-primary to-secondary px-6 py-4 text-white">
                         <h3 className="font-bold text-lg">Route Summary</h3>
                         <p className="text-sm opacity-80">
-                            {departure.name} → {destination.name}
+                            {departure.name} â†’ {destination.name}
                         </p>
                     </div>
 
@@ -449,7 +365,7 @@ export default function RouteDistancePicker() {
                                     Departure
                                 </p>
                                 <p className="text-lg font-bold text-amber-700">
-                                    {departure.type === "public_port" ? "🏛️ Public" : "🏨 Resort"}
+                                    Provider
                                 </p>
                                 <p className="text-xs text-gray-500">{departure.label}</p>
                             </div>
@@ -459,16 +375,16 @@ export default function RouteDistancePicker() {
                                 <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
                                     Destination
                                 </p>
-                                <p className="text-lg font-bold text-gray-700">🤿 Dive</p>
+                                <p className="text-lg font-bold text-gray-700">ðŸ¤¿ Dive</p>
                                 <p className="text-xs text-gray-500">
-                                    {destination.lat.toFixed(4)}°N
+                                    {destination.lat.toFixed(4)}Â°N
                                 </p>
                             </div>
                         </div>
 
                         {/* Info note */}
                         <div className="mt-4 p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-xs text-blue-800 flex items-start gap-2">
-                            <span className="text-base leading-none mt-0.5">ℹ️</span>
+                            <span className="text-base leading-none mt-0.5">â„¹ï¸</span>
                             <p>
                                 Distance shown is a straight-line estimate (Haversine formula).
                                 Actual boat route may vary due to weather conditions, currents,

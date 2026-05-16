@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 export interface CreateServiceResult {
     success: boolean;
     message: string;
+    redirectTo?: string;
 }
 
 /**
@@ -188,7 +189,11 @@ export async function createService(
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/provider/services");
     revalidatePath("/services");
-    redirect("/dashboard/provider/services");
+    return {
+        success: true,
+        message: "Layanan berhasil dibuat.",
+        redirectTo: "/dashboard/provider/services?message=Layanan+berhasil+dibuat.",
+    };
 }
 
 export async function updateService(
@@ -376,7 +381,11 @@ export async function updateService(
     revalidatePath(`/dashboard/provider/services/${serviceId}/edit`);
     revalidatePath(`/services/${serviceId}`);
     revalidatePath("/services");
-    redirect("/dashboard/provider/services?message=Layanan+berhasil+diperbarui.");
+    return {
+        success: true,
+        message: "Layanan berhasil diperbarui.",
+        redirectTo: "/dashboard/provider/services?message=Layanan+berhasil+diperbarui.",
+    };
 }
 
 export async function deleteService(formData: FormData) {

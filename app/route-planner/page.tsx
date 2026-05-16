@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
     title: "Route Planner - SulutDive Lembeh",
     description:
-        "Plan your dive trip route from port or resort to dive spots in Lembeh Strait. See estimated distance and travel time.",
+        "Plan your dive trip route from provider bases to dive spots in Lembeh Strait. See estimated distance and travel time.",
 };
 
 export default function RoutePlannerPage() {
@@ -17,8 +17,8 @@ export default function RoutePlannerPage() {
                         Route & Distance Planner
                     </h1>
                     <p className="text-gray-600 max-w-2xl mx-auto">
-                        Select your departure point and dive destination to visualize the
-                        route and estimate travel distance across Lembeh Strait.
+                        Select a provider base and dive destination to visualize the
+                        estimated boat route across Lembeh Strait.
                     </p>
                 </div>
 
@@ -46,6 +46,9 @@ export default function RoutePlannerPage() {
                         <span className="text-gray-500">7+ km · + Rp 300,000/trip</span>
                     </div>
                 </div>
+                <p className="mt-4 text-center text-xs text-slate-500">
+                    Route planner berlaku untuk layanan kapal dan instruktur yang berangkat dari pangkalan provider. Penyewaan alat selam tidak memakai estimasi rute karena dihitung berdasarkan jumlah unit dan durasi sewa.
+                </p>
             </div>
         </main>
     );

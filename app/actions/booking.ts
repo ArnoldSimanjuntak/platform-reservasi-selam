@@ -162,12 +162,21 @@ export async function createBooking(
     }
 
     // ─── 4. Ambil Surcharge dari Dive Site (jika ada) ───────────
+    const normalizedDiveSiteId = service.type === "gear" ? undefined : diveSiteId;
+
+    if (service.type === "boat" && !normalizedDiveSiteId) {
+        return {
+            success: false,
+            message: "Pilih destinasi dive terlebih dahulu untuk layanan kapal.",
+        };
+    }
+
     let surcharge = 0;
-    if (diveSiteId) {
+    if (normalizedDiveSiteId) {
         const { data: diveSite, error: siteError } = await supabase
             .from("dive_sites")
             .select("id, surcharge_fee")
-            .eq("id", diveSiteId)
+            .eq("id", normalizedDiveSiteId)
             .single();
 
         if (siteError || !diveSite) {
@@ -268,7 +277,7 @@ export async function createBooking(
     if (service.type === "gear") {
         // Gear: price per unit per day × quantity × days
         totalPrice = service.price * totalParticipants * effectiveDays;
-    } else if (diveSiteId && surcharge > 0) {
+    } else if (normalizedDiveSiteId && surcharge > 0) {
         // Boat dengan surcharge jarak ke dive site
         totalPrice = service.price * totalParticipants + surcharge;
     } else {
@@ -286,7 +295,7 @@ export async function createBooking(
             user_id: user.id,
             service_id: serviceId,
             provider_id: service.provider_id || null,
-            dive_site_id: diveSiteId || null,
+            dive_site_id: normalizedDiveSiteId || null,
             booking_date: bookingDate,
             total_participants: totalParticipants,   // jumlah penyelam ATAU jumlah unit gear
             rental_days: service.type === "gear" ? effectiveDays : null,  // hanya untuk gear

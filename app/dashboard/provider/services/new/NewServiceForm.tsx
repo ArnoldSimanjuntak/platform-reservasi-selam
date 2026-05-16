@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     Ship,
     Users as UsersIcon,
@@ -19,6 +20,7 @@ import {
     ImagePlus,
     ShieldCheck,
     ToggleLeft,
+    CheckCircle2,
 } from "lucide-react";
 import { createService, updateService } from "@/app/actions/service";
 import type { CreateServiceResult } from "@/app/actions/service";
@@ -79,10 +81,10 @@ const serviceTypes = [
 ];
 
 const diveSiteCategories = [
-    { value: "", label: "— Tidak spesifik —" },
-    { value: "Muck", label: "🏜️ Muck Diving" },
-    { value: "Coral", label: "🪸 Coral Reef" },
-    { value: "Wreck", label: "🚢 Wreck Dive" },
+    { value: "", label: "â€” Tidak spesifik â€”" },
+    { value: "Muck", label: "ðŸœï¸ Muck Diving" },
+    { value: "Coral", label: "ðŸª¸ Coral Reef" },
+    { value: "Wreck", label: "ðŸš¢ Wreck Dive" },
 ];
 
 export default function NewServiceForm({
@@ -91,6 +93,7 @@ export default function NewServiceForm({
     mode = "create",
     initialService = null,
 }: NewServiceFormProps) {
+    const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<CreateServiceResult | null>(null);
     const [selectedType, setSelectedType] = useState(initialService?.type || "");
@@ -109,8 +112,13 @@ export default function NewServiceForm({
         startTransition(async () => {
             const action = isEdit ? updateService : createService;
             const res = await action(formData);
-            // Jika sampai sini = ada error (sukses = redirect otomatis)
             setResult(res);
+            if (res.success) {
+                setTimeout(() => {
+                    router.replace(res.redirectTo ?? "/dashboard/provider/services");
+                    router.refresh();
+                }, 900);
+            }
         });
     }
 
@@ -144,7 +152,7 @@ export default function NewServiceForm({
                     {isAdmin && (
                         <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700">
                             <ShieldCheck className="w-3.5 h-3.5" />
-                            Mode Admin — layanan tidak terikat provider manapun
+                            Mode Admin â€” layanan tidak terikat provider manapun
                         </div>
                     )}
                 </div>
@@ -158,13 +166,22 @@ export default function NewServiceForm({
                             <p className="text-sm text-red-700 font-semibold">{result.message}</p>
                         </div>
                     )}
+                    {result?.success && (
+                        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-sm text-emerald-800 font-semibold">{result.message}</p>
+                                <p className="text-xs text-emerald-700 mt-1">Anda akan diarahkan ke halaman manajemen layanan.</p>
+                            </div>
+                        </div>
+                    )}
 
                     <form action={handleSubmit} className="space-y-6">
                         {isEdit && initialService?.id && (
                             <input type="hidden" name="service_id" value={initialService.id} />
                         )}
 
-                        {/* ── Tipe Layanan (Visual Selection) ── */}
+                        {/* â”€â”€ Tipe Layanan (Visual Selection) â”€â”€ */}
                         <div>
                             <label className="block text-sm font-bold text-slate-900 mb-3">
                                 Tipe Layanan <span className="text-red-500">*</span>
@@ -220,7 +237,7 @@ export default function NewServiceForm({
                             </div>
                         </div>
 
-                        {/* ── Nama Layanan ── */}
+                        {/* â”€â”€ Nama Layanan â”€â”€ */}
                         <div>
                             <label htmlFor="name" className="block text-sm font-bold text-slate-900 mb-2">
                                 Nama Layanan <span className="text-red-500">*</span>
@@ -242,7 +259,7 @@ export default function NewServiceForm({
                             </div>
                         </div>
 
-                        {/* ── Harga & Kapasitas (Side by Side) ── */}
+                        {/* â”€â”€ Harga & Kapasitas (Side by Side) â”€â”€ */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="price" className="block text-sm font-bold text-slate-900 mb-2">
@@ -288,7 +305,8 @@ export default function NewServiceForm({
                             </div>
                         </div>
 
-                        {/* ── Kategori Dive Site ── */}
+                        {/* â”€â”€ Kategori Dive Site â”€â”€ */}
+                        {selectedType !== "gear" ? (
                         <div>
                             <label htmlFor="dive_site_category" className="block text-sm font-bold text-slate-900 mb-2">
                                 Kategori Dive Site
@@ -314,8 +332,16 @@ export default function NewServiceForm({
                                 Opsional. Pilih jenis spot selam yang paling sesuai dengan layanan Anda.
                             </p>
                         </div>
+                        ) : (
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                                <p className="font-bold">Penyewaan alat tidak memakai lokasi selam.</p>
+                                <p className="mt-1 text-xs leading-relaxed">
+                                    Ketersediaan dihitung dari jumlah unit dan durasi sewa. Detail pengambilan atau pengembalian alat sebaiknya ditulis pada deskripsi layanan.
+                                </p>
+                            </div>
+                        )}
 
-                        {/* ── Deskripsi ── */}
+                        {/* â”€â”€ Deskripsi â”€â”€ */}
                         <div>
                             <label htmlFor="description" className="block text-sm font-bold text-slate-900 mb-2">
                                 Deskripsi Layanan
@@ -335,7 +361,7 @@ export default function NewServiceForm({
                             </div>
                         </div>
 
-                        {/* ── Upload Gambar ── */}
+                        {/* â”€â”€ Upload Gambar â”€â”€ */}
                         <div>
                             <label className="block text-sm font-bold text-slate-900 mb-2">
                                 Foto Layanan
@@ -357,7 +383,7 @@ export default function NewServiceForm({
                                     <div className="flex flex-col items-center gap-2 py-4">
                                         <ImagePlus className="w-8 h-8 text-slate-400" />
                                         <p className="text-sm text-slate-500 font-medium">Klik untuk unggah foto</p>
-                                        <p className="text-xs text-slate-400">JPEG, PNG, WebP • Maks 5MB</p>
+                                        <p className="text-xs text-slate-400">JPEG, PNG, WebP â€¢ Maks 5MB</p>
                                     </div>
                                 )}
                                 <input
@@ -376,7 +402,7 @@ export default function NewServiceForm({
                             </label>
                         </div>
 
-                        {/* ── Submit ── */}
+                        {/* â”€â”€ Submit â”€â”€ */}
                         {isEdit && (
                             <div>
                                 <label className="block text-sm font-bold text-slate-900 mb-2">
