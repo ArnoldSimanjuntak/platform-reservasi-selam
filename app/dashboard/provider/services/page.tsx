@@ -143,6 +143,8 @@ export default async function ProviderServicesPage({
                         {services.map((service: any) => {
                             const config = typeConfig[service.type] || typeConfig.boat;
                             const TypeIcon = config.icon;
+                            const capacityLabel = service.type === "gear" ? "Stok" : "Maks.";
+                            const capacityUnit = service.type === "gear" ? "unit" : "orang";
                             return (
                                 <div
                                     key={service.id}
@@ -188,7 +190,7 @@ export default async function ProviderServicesPage({
                                             </span>
                                             <span className="flex items-center gap-1 text-xs text-slate-500 font-medium">
                                                 <Users className="w-3.5 h-3.5" />
-                                                Maks. {service.max_capacity} orang
+                                                {capacityLabel} {service.max_capacity} {capacityUnit}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-1">

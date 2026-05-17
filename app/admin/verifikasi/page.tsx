@@ -139,40 +139,40 @@ export default async function AdminVerificationPage() {
             {/* Main Content */}
             <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
                 {/* ─── Stats Overview Cards ─────────────────────────── */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                    <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left min-w-0">
-                        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 items-stretch">
+                    <div className="h-full min-h-[112px] sm:min-h-[96px] bg-white rounded-2xl shadow-sm border border-amber-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-4 text-center sm:text-left min-w-0">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
                             <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                         </div>
-                        <div className="min-w-0 w-full">
+                        <div className="min-w-0 w-full leading-tight">
                             <p className="text-xl sm:text-2xl font-black text-slate-900">{pendingProviders.length}</p>
-                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold truncate">Menunggu</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold leading-tight">Menunggu</p>
                         </div>
                     </div>
-                    <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left min-w-0">
-                        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                    <div className="h-full min-h-[112px] sm:min-h-[96px] bg-white rounded-2xl shadow-sm border border-emerald-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-4 text-center sm:text-left min-w-0">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                             <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
                         </div>
-                        <div className="min-w-0 w-full">
+                        <div className="min-w-0 w-full leading-tight">
                             <p className="text-xl sm:text-2xl font-black text-slate-900">{verifiedProviders.length}</p>
-                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold truncate">Terverifikasi</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold leading-tight">Terverifikasi</p>
                         </div>
                     </div>
-                    <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left min-w-0">
-                        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                    <div className="h-full min-h-[112px] sm:min-h-[96px] bg-white rounded-2xl shadow-sm border border-red-100 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-4 text-center sm:text-left min-w-0">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
                             <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
                         </div>
-                        <div className="min-w-0 w-full">
+                        <div className="min-w-0 w-full leading-tight">
                             <p className="text-xl sm:text-2xl font-black text-slate-900">{rejectedProviders.length}</p>
-                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold truncate">Ditolak</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold leading-tight">Ditolak</p>
                         </div>
                     </div>
                 </div>
 
                 {/* ─── Verification Panel ───────────────────────────── */}
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 overflow-hidden">
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 sm:p-6 overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                        <div className="min-w-0">
                             <h1 className="text-xl font-extrabold text-[#023E8A] flex items-center gap-2">
                                 <UserCog className="w-6 h-6 text-[#0077B6]" />
                                 Verifikasi Penyedia Layanan

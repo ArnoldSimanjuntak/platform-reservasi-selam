@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
@@ -58,13 +58,13 @@ interface ProviderOrderFeedProps {
 
 type BookingRealtimeRow = Partial<Order> & { id: string };
 
-// ─── Helper: Get today's date as YYYY-MM-DD (WITA-safe) ────────
+// â”€â”€â”€ Helper: Get today's date as YYYY-MM-DD (WITA-safe) â”€â”€â”€â”€â”€â”€â”€â”€
 function getTodayStr(): string {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-// ─── Status Config (updated: upcoming → confirmed) ─────────────
+// â”€â”€â”€ Status Config (updated: upcoming â†’ confirmed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const statusConfig: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
     pending:     { label: "Menunggu",    bg: "bg-amber-50 border-amber-200",  text: "text-amber-800",   icon: Clock },
     confirmed:   { label: "Dikonfirmasi", bg: "bg-blue-50 border-blue-200",   text: "text-blue-800",    icon: CalendarCheck },
@@ -93,7 +93,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
     useEffect(() => {
         const supabase = createClient();
 
-        // ─── Initial Fetch ─────────────────────────────────────────
+        // â”€â”€â”€ Initial Fetch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const fetchOrders = async () => {
             const { data } = await supabase
                 .from("bookings")
@@ -108,7 +108,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
 
         fetchOrders();
 
-        // ─── Realtime Subscription ─────────────────────────────────
+        // â”€â”€â”€ Realtime Subscription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const channel = supabase
             .channel(`provider-orders-${providerId}`)
             .on(
@@ -155,7 +155,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
         };
     }, [providerId]);
 
-    // ─── Generic Status Update Handler ─────────────────────────
+    // â”€â”€â”€ Generic Status Update Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const handleStatusUpdate = (bookingId: string, newStatus: BookingStatusAction) => {
         setActionResult(null);
         startTransition(async () => {
@@ -182,7 +182,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
         });
     };
 
-    // ─── Payment Verification Handler ──────────────────────────
+    // â”€â”€â”€ Payment Verification Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const handleVerifyPayment = (bookingId: string, action: "approve" | "reject") => {
         setActionResult(null);
         startTransition(async () => {
@@ -215,7 +215,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
         });
     };
 
-    // ─── Open Payment Proof (via Signed URL jika bucket privat) ──
+    // â”€â”€â”€ Open Payment Proof (via Signed URL jika bucket privat) â”€â”€
     const handleViewProof = async (bookingId: string, fallbackUrl: string) => {
         setLoadingProofId(bookingId);
         try {
@@ -229,13 +229,14 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
         }
     };
 
-    // ─── handleStartDive: Only when confirmed + today ───────────
-    const handleStartDive = (order: Order) => {
+    // â”€â”€â”€ handleStartDive: Only when confirmed + today â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    const handleStartOrder = (order: Order) => {
         if (order.status !== "confirmed") return;
+        const isGearOrder = order.service?.type === "gear";
         if (order.booking_date !== todayStr) {
             setActionResult({
                 id: order.id,
-                msg: `Dive hanya bisa dimulai pada tanggal booking (${formatDate(order.booking_date)}). Hari ini bukan jadwalnya.`,
+                msg: `${isGearOrder ? "Sewa alat" : "Dive"} hanya bisa dimulai pada tanggal booking (${formatDate(order.booking_date)}). Hari ini bukan jadwalnya.`,
                 ok: false,
             });
             return;
@@ -258,7 +259,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
             minimumFractionDigits: 0,
         }).format(amount);
 
-    // ─── Render ────────────────────────────────────────────────
+    // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (isLoading) {
         return (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -360,7 +361,12 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                         const StatusIcon = status.icon;
                         const ServiceIcon = serviceTypeIcon[order.service?.type || "boat"] || Ship;
                         const isToday = order.booking_date === todayStr;
-                        const canStartDive = order.status === "confirmed" && isToday;
+                        const isGearOrder = order.service?.type === "gear";
+                        const participantLabel = isGearOrder ? "unit" : "peserta";
+                        const canStartOrder = order.status === "confirmed" && isToday;
+                        const startLabel = isGearOrder ? "Mulai Sewa" : "Mulai Selam";
+                        const todayLabel = isGearOrder ? "Mulai Sewa Hari Ini" : "Tersedia Hari Ini";
+                        const statusLabel = order.status === "in_progress" && isGearOrder ? "Sedang Disewa" : status.label;
 
                         return (
                             <div
@@ -375,7 +381,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                 {isToday && order.status !== "completed" && order.status !== "cancelled" && (
                                     <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1.5">
                                         <Calendar className="w-3.5 h-3.5" />
-                                        Tersedia Hari Ini
+                                        {todayLabel}
                                     </div>
                                 )}
 
@@ -399,7 +405,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                                 <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600 font-medium">
                                                     <span className="flex items-center gap-1">
                                                         <Users className="w-3.5 h-3.5" />
-                                                        {order.total_participants} peserta
+                                                        {order.total_participants} {participantLabel}
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                         <Calendar className="w-3.5 h-3.5" />
@@ -415,7 +421,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                         {/* Right: Status Badge */}
                                         <span className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1 border ${status.bg} ${status.text}`}>
                                             <StatusIcon className="w-3.5 h-3.5" />
-                                            {status.label}
+                                            {statusLabel}
                                         </span>
                                     </div>
 
@@ -508,17 +514,17 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                                     {order.status === "confirmed" && (
                                                         <>
                                                             <button
-                                                                onClick={() => handleStartDive(order)}
-                                                                disabled={isPending || !canStartDive}
-                                                                title={!isToday ? `Dive dimulai pada ${order.booking_date}` : ""}
+                                                                onClick={() => handleStartOrder(order)}
+                                                                disabled={isPending || !canStartOrder}
+                                                                title={!isToday ? `${isGearOrder ? "Sewa dimulai" : "Dive dimulai"} pada ${order.booking_date}` : ""}
                                                                 className={`px-4 py-2 text-xs font-bold rounded-lg transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5 ${
-                                                                    canStartDive
+                                                                    canStartOrder
                                                                         ? "bg-emerald-600 text-white hover:bg-emerald-700"
                                                                         : "bg-gray-200 text-gray-500 cursor-not-allowed"
                                                                 }`}
                                                             >
-                                                                <Waves className="w-3.5 h-3.5" />
-                                                                Mulai Selam
+                                                                {isGearOrder ? <Wrench className="w-3.5 h-3.5" /> : <Waves className="w-3.5 h-3.5" />}
+                                                                {startLabel}
                                                             </button>
                                                         </>
                                                     )}
@@ -547,3 +553,4 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
         </div>
     );
 }
+

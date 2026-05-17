@@ -284,7 +284,7 @@ export default function NewServiceForm({
                             </div>
                             <div>
                                 <label htmlFor="max_capacity" className="block text-sm font-bold text-slate-900 mb-2">
-                                    Maks. Peserta <span className="text-red-500">*</span>
+                                    {selectedType === "gear" ? "Stok Unit" : "Maks. Peserta"} <span className="text-red-500">*</span>
                                 </label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -298,10 +298,15 @@ export default function NewServiceForm({
                                         min={1}
                                         max={100}
                                         defaultValue={initialService?.max_capacity ?? ""}
-                                        placeholder="6"
+                                        placeholder={selectedType === "gear" ? "Jumlah unit" : "6"}
                                         className="block w-full pl-11 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-slate-900 font-medium placeholder-slate-400 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-base transition-all"
                                     />
                                 </div>
+                                {selectedType === "gear" && (
+                                    <p className="mt-1.5 text-xs text-slate-500 font-medium">
+                                        Dipakai sebagai stok alat yang bisa disewa pada periode tanggal tertentu.
+                                    </p>
+                                )}
                             </div>
                         </div>
 

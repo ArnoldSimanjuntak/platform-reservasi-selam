@@ -155,7 +155,7 @@ export default async function RootLayout({
       >
         <Navbar initialAuthState={initialNavbarAuthState} />
         {children}
-        <Footer />
+        <Footer initialAuthState={initialNavbarAuthState} />
         <BottomNav initialAuthState={initialNavbarAuthState} />
         <InstallPrompt />
         <SessionTimeout />

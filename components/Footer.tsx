@@ -1,7 +1,18 @@
 import Link from "next/link";
 import { Anchor, Mail, Phone, MapPin, Facebook, Instagram, Twitter } from "lucide-react";
+import type { NavbarInitialAuthState } from "@/components/Navbar";
 
-export default function Footer() {
+interface FooterProps {
+    initialAuthState?: NavbarInitialAuthState;
+}
+
+export default function Footer({ initialAuthState }: FooterProps) {
+    const role = initialAuthState?.role;
+
+    if (role === "admin" || role === "provider") {
+        return null;
+    }
+
     return (
         <footer className="bg-deepSea text-white pt-16 pb-8">
             <div className="container mx-auto px-4">
