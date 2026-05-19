@@ -2,7 +2,7 @@ import { Anchor } from "lucide-react";
 
 export default function SetupLoading() {
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center px-4 pb-12 pt-28 sm:px-6 lg:px-8">
             <div className="max-w-md w-full mx-auto">
                 {/* Header Skeleton */}
                 <div className="text-center mb-8 flex flex-col items-center animate-pulse">

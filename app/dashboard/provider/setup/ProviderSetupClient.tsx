@@ -395,7 +395,7 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 px-4 pb-12 pt-28 sm:px-6 lg:px-8">
             <div className="max-w-2xl w-full mx-auto">
                 <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <Link
