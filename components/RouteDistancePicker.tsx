@@ -12,6 +12,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { Anchor, ChevronDown, Info, Waves } from "lucide-react";
 import { getMapProviders } from "@/lib/supabase";
 import type { ProviderMapPin } from "@/lib/supabase";
 
@@ -51,7 +52,7 @@ const DIVE_SPOTS: LocationPoint[] = [
 ];
 
 // â”€â”€â”€ Custom Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const createIcon = (color: string, emoji: string) =>
+const createIcon = (color: string, label: string) =>
     L.divIcon({
         html: `<div style="
             background: ${color};
@@ -61,14 +62,17 @@ const createIcon = (color: string, emoji: string) =>
             font-size: 16px;
             border: 3px solid white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        ">${emoji}</div>`,
+            color: white;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        ">${label}</div>`,
         iconSize: [36, 36],
         iconAnchor: [18, 18],
         className: "",
     });
 
-const providerIcon  = createIcon("#0077B6", "ðŸš¤"); // Pangkalan provider dari DB
-const diveIcon      = createIcon("#E63946", "ðŸ¤¿");
+const providerIcon  = createIcon("#0077B6", "PB"); // Pangkalan provider dari DB
+const diveIcon      = createIcon("#E63946", "DS");
 
 // â”€â”€â”€ Haversine Distance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -183,7 +187,7 @@ export default function RouteDistancePicker() {
                         Departure Point
                     </label>
                     <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg">âš“</span>
+                        <Anchor className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#0077B6]" />
                         <select
                             value={departureId}
                             onChange={(e) => setDepartureId(e.target.value)}
@@ -191,7 +195,7 @@ export default function RouteDistancePicker() {
                         >
                             <option value="">Select provider base...</option>
                             {providerBases.length > 0 && (
-                                <optgroup label="ðŸš¤ Pangkalan Provider">
+                                <optgroup label="Pangkalan Provider">
                                     {providerBases.map((p) => (
                                         <option key={p.id} value={p.id}>
                                             {p.name}
@@ -200,14 +204,12 @@ export default function RouteDistancePicker() {
                                 </optgroup>
                             )}
                             {customStart && (
-                                <optgroup label="ðŸ“ Dari Peta">
+                                <optgroup label="Dari Peta">
                                     <option value={customStart.id}>{customStart.name}</option>
                                 </optgroup>
                             )}
                         </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                            â–¾
-                        </div>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     </div>
                     {departure && (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#023E8A]/10 text-[#023E8A]">
@@ -227,7 +229,7 @@ export default function RouteDistancePicker() {
                         Dive Destination
                     </label>
                     <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg">ðŸ¤¿</span>
+                        <Waves className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#E63946]" />
                         <select
                             value={destinationId}
                             onChange={(e) => setDestinationId(e.target.value)}
@@ -240,9 +242,7 @@ export default function RouteDistancePicker() {
                                 </option>
                             ))}
                         </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                            â–¾
-                        </div>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     </div>
                 </div>
             </div>
@@ -331,7 +331,7 @@ export default function RouteDistancePicker() {
                     <div className="bg-gradient-to-r from-primary to-secondary px-6 py-4 text-white">
                         <h3 className="font-bold text-lg">Route Summary</h3>
                         <p className="text-sm opacity-80">
-                            {departure.name} â†’ {destination.name}
+                            {departure.name} {"->"} {destination.name}
                         </p>
                     </div>
 
@@ -375,16 +375,16 @@ export default function RouteDistancePicker() {
                                 <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
                                     Destination
                                 </p>
-                                <p className="text-lg font-bold text-gray-700">ðŸ¤¿ Dive</p>
+                                <p className="text-lg font-bold text-gray-700">Dive Spot</p>
                                 <p className="text-xs text-gray-500">
-                                    {destination.lat.toFixed(4)}Â°N
+                                    {destination.lat.toFixed(4)} deg N
                                 </p>
                             </div>
                         </div>
 
                         {/* Info note */}
                         <div className="mt-4 p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-xs text-blue-800 flex items-start gap-2">
-                            <span className="text-base leading-none mt-0.5">â„¹ï¸</span>
+                            <Info className="mt-0.5 h-4 w-4 shrink-0" />
                             <p>
                                 Distance shown is a straight-line estimate (Haversine formula).
                                 Actual boat route may vary due to weather conditions, currents,
