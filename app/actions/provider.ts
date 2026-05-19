@@ -4,10 +4,36 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import {
+    getDocumentDefinition,
+    getDocumentTypesForProvider,
+    getMissingRequiredDocumentTypes,
+    getRequiredDocumentTypes,
+    type VerificationDocumentType,
+} from "@/lib/provider-verification";
 
 export interface ProviderSetupResult {
     success: boolean;
     message: string;
+}
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+const PROVIDER_DOCUMENT_BUCKET = "provider-documents";
+const MAX_VERIFICATION_FILE_SIZE = 8 * 1024 * 1024;
+const ALLOWED_VERIFICATION_FILE_TYPES = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "application/pdf",
+]);
+
+interface UploadedVerificationDocument {
+    type: VerificationDocumentType;
+    label: string;
+    storagePath: string;
+    publicUrl: string;
+    isRequired: boolean;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -38,6 +64,135 @@ function createAdminClient() {
     return createSupabaseClient(url, serviceRoleKey, {
         auth: { persistSession: false, autoRefreshToken: false },
     });
+}
+
+function normalizeProviderType(value?: string | null) {
+    if (value === "boat" || value === "instructor" || value === "gear") return value;
+    return null;
+}
+
+function normalizeInstructorScope(primaryType: string, value?: string | null) {
+    if (primaryType !== "instructor") return null;
+    return value === "instructor" ? "instructor" : "guide";
+}
+
+function isUploadFile(value: FormDataEntryValue | null): value is File {
+    return !!value && typeof value === "object" && "size" in value && "name" in value;
+}
+
+function getVerificationFile(formData: FormData, type: VerificationDocumentType) {
+    const direct = formData.get(type);
+    if (isUploadFile(direct) && direct.size > 0) return direct;
+
+    // Backward compatibility with the old instructor field name.
+    if (type === "dive_certificate") {
+        const legacy = formData.get("certification");
+        if (isUploadFile(legacy) && legacy.size > 0) return legacy;
+    }
+
+    return null;
+}
+
+function getFileExtension(file: File) {
+    const byMime: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "application/pdf": "pdf",
+    };
+    if (byMime[file.type]) return byMime[file.type];
+
+    const rawExt = file.name.split(".").pop()?.toLowerCase();
+    if (rawExt && /^[a-z0-9]+$/.test(rawExt)) return rawExt;
+    return "bin";
+}
+
+function validateVerificationFile(file: File, label: string) {
+    if (!ALLOWED_VERIFICATION_FILE_TYPES.has(file.type)) {
+        return `${label} harus berupa JPG, PNG, WebP, atau PDF.`;
+    }
+
+    if (file.size > MAX_VERIFICATION_FILE_SIZE) {
+        return `${label} maksimal 8MB.`;
+    }
+
+    return null;
+}
+
+async function uploadVerificationDocument(
+    supabase: SupabaseServerClient,
+    userId: string,
+    type: VerificationDocumentType,
+    file: File,
+    isRequired: boolean
+): Promise<UploadedVerificationDocument> {
+    const definition = getDocumentDefinition(type);
+    const ext = getFileExtension(file);
+    const storagePath = `${userId}/${type}.${ext}`;
+
+    const { error } = await supabase.storage
+        .from(PROVIDER_DOCUMENT_BUCKET)
+        .upload(storagePath, file, {
+            upsert: true,
+            cacheControl: "no-cache",
+        });
+
+    if (error) throw error;
+
+    const { data } = supabase.storage
+        .from(PROVIDER_DOCUMENT_BUCKET)
+        .getPublicUrl(storagePath);
+
+    return {
+        type,
+        label: definition.label,
+        storagePath,
+        publicUrl: data.publicUrl,
+        isRequired,
+    };
+}
+
+async function upsertVerificationDocuments(
+    supabase: SupabaseServerClient,
+    providerId: string,
+    documents: UploadedVerificationDocument[]
+) {
+    if (documents.length === 0) return null;
+
+    const { error } = await supabase
+        .from("provider_verification_documents")
+        .upsert(
+            documents.map((document) => ({
+                provider_id: providerId,
+                document_type: document.type,
+                label: document.label,
+                storage_path: document.storagePath,
+                public_url: document.publicUrl,
+                is_required: document.isRequired,
+                status: "submitted",
+                notes: null,
+                updated_at: new Date().toISOString(),
+            })),
+            { onConflict: "provider_id,document_type" }
+        )
+        .select("id");
+
+    return error;
+}
+
+function buildSafetyChecklist(
+    primaryType: string,
+    uploadedDocuments: UploadedVerificationDocument[]
+) {
+    if (primaryType !== "boat") return {};
+
+    const submitted = new Set(uploadedDocuments.map((document) => document.type));
+    return {
+        life_jacket: submitted.has("life_jacket_photo"),
+        first_aid: submitted.has("first_aid_photo"),
+        lifebuoy: submitted.has("lifebuoy_photo"),
+        fire_extinguisher: submitted.has("fire_extinguisher_photo"),
+    };
 }
 
 async function ensureUserRowExistsFromAuth(ownerUserId: string) {
@@ -123,7 +278,12 @@ export async function setupProviderProfile(
     const location = (formData.get("location") as string)?.trim();
     const contact = (formData.get("contact") as string)?.trim();
     const description = (formData.get("description") as string)?.trim();
-    const primaryType = (formData.get("primary_type") as string)?.trim();
+    const primaryType = normalizeProviderType((formData.get("primary_type") as string)?.trim());
+    const instructorScope = normalizeInstructorScope(
+        primaryType ?? "",
+        (formData.get("instructor_scope") as string)?.trim()
+    );
+    const businessLicenseNumber = (formData.get("business_license_number") as string)?.trim();
 
     if (!name || name.length < 3) {
         return { success: false, message: "Nama usaha wajib diisi (minimal 3 karakter)." };
@@ -137,61 +297,60 @@ export async function setupProviderProfile(
     if (!primaryType) {
         return { success: false, message: "Tipe layanan utama wajib dipilih." };
     }
-
-    // ─── 3. Upload File Verifikasi (KTP & Sertifikasi) ────────
-    const idCardFile = formData.get("identity_card") as File | null;
-    const certFile = formData.get("certification") as File | null;
-
-    if (!idCardFile || idCardFile.size === 0) {
-        return { success: false, message: "KTP/Identitas wajib diunggah." };
+    if (!businessLicenseNumber) {
+        return { success: false, message: "Nomor NIB atau izin usaha wajib diisi." };
     }
 
-    if (primaryType === "instructor" && (!certFile || certFile.size === 0)) {
-        return { success: false, message: "Sertifikasi selam wajib diunggah untuk instruktur." };
-    }
-
-    let identityCardUrl = null;
-    let certificationUrl = null;
+    // 3. Validasi & upload dokumen verifikasi
+    const requiredDocumentTypes = getRequiredDocumentTypes(primaryType, instructorScope);
+    const allDocumentTypes = getDocumentTypesForProvider(primaryType, instructorScope);
+    const uploadedDocuments: UploadedVerificationDocument[] = [];
 
     try {
-        // Upload KTP — path deterministik agar upsert storage bisa menimpa file lama
-        // Menggunakan user.id sebagai folder dan nama file tetap (tanpa timestamp)
-        // sehingga update profil tidak membuat dokumen baru yang membingungkan Admin.
-        const idExt = idCardFile.name.split(".").pop();
-        const idPath = `${user.id}/ktp.${idExt}`;
-        const { error: idUploadError } = await supabase.storage
-            .from("provider-documents")
-            .upload(idPath, idCardFile, {
-                upsert: true,  // Timpa file lama jika sudah ada — hindari duplikat
-                cacheControl: "no-cache",
-            });
+        for (const documentType of allDocumentTypes) {
+            const definition = getDocumentDefinition(documentType);
+            const file = getVerificationFile(formData, documentType);
+            const isRequired = requiredDocumentTypes.includes(documentType);
 
-        if (idUploadError) throw idUploadError;
-        const { data: idUrlData } = supabase.storage.from("provider-documents").getPublicUrl(idPath);
-        identityCardUrl = idUrlData.publicUrl;
+            if (!file) {
+                if (isRequired) {
+                    return {
+                        success: false,
+                        message: `${definition.label} wajib diunggah.`,
+                    };
+                }
+                continue;
+            }
 
-        // Upload Certification (if instructor) — sama, path deterministik
-        if (primaryType === "instructor" && certFile) {
-            const certExt = certFile.name.split(".").pop();
-            const certPath = `${user.id}/cert.${certExt}`;
-            const { error: certUploadError } = await supabase.storage
-                .from("provider-documents")
-                .upload(certPath, certFile, {
-                    upsert: true,  // Timpa file lama
-                    cacheControl: "no-cache",
-                });
-            
-            if (certUploadError) throw certUploadError;
-            const { data: certUrlData } = supabase.storage.from("provider-documents").getPublicUrl(certPath);
-            certificationUrl = certUrlData.publicUrl;
+            const validationError = validateVerificationFile(file, definition.label);
+            if (validationError) {
+                return { success: false, message: validationError };
+            }
+
+            uploadedDocuments.push(
+                await uploadVerificationDocument(
+                    supabase,
+                    user.id,
+                    documentType,
+                    file,
+                    isRequired
+                )
+            );
         }
     } catch (err: unknown) {
         console.error("Storage upload error:", err);
         return {
             success: false,
-            message: "Gagal mengunggah dokumen. Pastikan Anda telah membuat bucket 'provider-documents'. Error: " + getErrorMessage(err),
+            message:
+                "Gagal mengunggah dokumen. Pastikan bucket 'provider-documents' dan policy storage sudah benar. Error: " +
+                getErrorMessage(err),
         };
     }
+
+    const identityCardUrl =
+        uploadedDocuments.find((document) => document.type === "identity_card")?.publicUrl ?? null;
+    const certificationUrl =
+        uploadedDocuments.find((document) => document.type === "dive_certificate")?.publicUrl ?? null;
 
     // ─── 4. Upsert ke tabel providers ─────────────────────────
     const latStr = formData.get("latitude") as string | null;
@@ -200,7 +359,7 @@ export async function setupProviderProfile(
     const latitude = latStr ? parseFloat(latStr) : null;
     const longitude = lngStr ? parseFloat(lngStr) : null;
 
-    const { error: upsertError } = await supabase
+    const { data: providerRow, error: upsertError } = await supabase
         .from("providers")
         .upsert(
             {
@@ -212,6 +371,12 @@ export async function setupProviderProfile(
                 contact,
                 description: description || null,
                 primary_type: primaryType,
+                business_license_number: businessLicenseNumber,
+                instructor_scope: instructorScope,
+                safety_checklist: buildSafetyChecklist(primaryType, uploadedDocuments),
+                rejection_reason: null,
+                verification_submitted_at: new Date().toISOString(),
+                verified_at: null,
                 identity_card_url: identityCardUrl,
                 certification_url: certificationUrl,
                 is_active: true, // Profil lengkap → aktif di marketplace (tapi butuh verifikasi)
@@ -220,7 +385,9 @@ export async function setupProviderProfile(
             {
                 onConflict: "owner_user_id",
             }
-        );
+        )
+        .select("id")
+        .single();
 
     if (upsertError) {
         console.error("Gagal menyimpan profil provider:", upsertError.message);
@@ -229,6 +396,29 @@ export async function setupProviderProfile(
             message:
                 "Gagal menyimpan profil bisnis Anda. Silakan coba lagi. (" +
                 upsertError.message +
+                ")",
+        };
+    }
+    if (!providerRow) {
+        return {
+            success: false,
+            message: "Profil provider tersimpan tetapi ID provider tidak terbaca. Coba muat ulang halaman.",
+        };
+    }
+
+    const docsError = await upsertVerificationDocuments(
+        supabase,
+        providerRow.id,
+        uploadedDocuments
+    );
+
+    if (docsError) {
+        console.error("Gagal menyimpan dokumen verifikasi:", docsError.message);
+        return {
+            success: false,
+            message:
+                "Profil tersimpan, tetapi checklist dokumen gagal disimpan. Jalankan migration provider_verification_documents lalu coba ajukan ulang. (" +
+                docsError.message +
                 ")",
         };
     }
@@ -274,7 +464,12 @@ export async function updateProviderProfile(
     const location = (formData.get("location") as string)?.trim();
     const contact = (formData.get("contact") as string)?.trim();
     const description = (formData.get("description") as string)?.trim();
-    const primaryType = (formData.get("primary_type") as string)?.trim();
+    const primaryType = normalizeProviderType((formData.get("primary_type") as string)?.trim());
+    const instructorScope = normalizeInstructorScope(
+        primaryType ?? "",
+        (formData.get("instructor_scope") as string)?.trim()
+    );
+    const businessLicenseNumber = (formData.get("business_license_number") as string)?.trim() || null;
     const latStr = formData.get("latitude") as string | null;
     const lngStr = formData.get("longitude") as string | null;
 
@@ -315,13 +510,15 @@ export async function updateProviderProfile(
         .from("providers")
         .update({
             name,
-            location,
-            latitude,
-            longitude,
-            contact,
-            description: description || null,
-            primary_type: primaryType,
-        })
+                location,
+                latitude,
+                longitude,
+                contact,
+                description: description || null,
+                primary_type: primaryType,
+                business_license_number: businessLicenseNumber,
+                instructor_scope: instructorScope,
+            })
         .eq("id", provider.id);
 
     if (error) {
@@ -341,7 +538,8 @@ export async function updateProviderProfile(
 // ─── Admin verification action ───────────────────────────────────
 export async function verifyProviderIdentity(
     providerId: string,
-    action: "approve" | "reject"
+    action: "approve" | "reject",
+    rejectionReason?: string
 ): Promise<{ success: boolean; message: string }> {
     const supabase = await createClient();
     const adminClient = createAdminClient();
@@ -372,10 +570,18 @@ export async function verifyProviderIdentity(
         return { success: false, message: "Hanya Admin yang dapat memverifikasi provider." };
     }
 
+    const cleanedRejectionReason = rejectionReason?.trim() ?? "";
+    if (action === "reject" && !cleanedRejectionReason) {
+        return {
+            success: false,
+            message: "Alasan penolakan wajib diisi agar provider tahu data yang harus diperbaiki.",
+        };
+    }
+
     // 2. Ambil owner provider dari DB sebelum mutasi role user.
     const { data: providerRecord, error: providerFetchError } = await supabase
         .from("providers")
-        .select("owner_user_id")
+        .select("owner_user_id, primary_type, instructor_scope, identity_card_url, certification_url")
         .eq("id", providerId)
         .single();
 
@@ -394,11 +600,56 @@ export async function verifyProviderIdentity(
         };
     }
 
+    if (action === "approve") {
+        const { data: documents, error: documentsError } = await supabase
+            .from("provider_verification_documents")
+            .select("document_type, storage_path, public_url, is_required, status")
+            .eq("provider_id", providerId);
+
+        if (documentsError) {
+            return {
+                success: false,
+                message:
+                    "Gagal membaca checklist dokumen provider. Pastikan migration provider_verification_documents sudah dijalankan. (" +
+                    documentsError.message +
+                    ")",
+            };
+        }
+
+        const missingDocuments = getMissingRequiredDocumentTypes({
+            primary_type: providerRecord.primary_type,
+            instructor_scope: providerRecord.instructor_scope,
+            identity_card_url: providerRecord.identity_card_url,
+            certification_url: providerRecord.certification_url,
+            verification_documents: documents ?? [],
+        });
+
+        if (missingDocuments.length > 0) {
+            const labels = missingDocuments
+                .map((type) => getDocumentDefinition(type).label)
+                .join(", ");
+            return {
+                success: false,
+                message: `Dokumen wajib belum lengkap: ${labels}.`,
+            };
+        }
+    }
+
     // 3. Update status verifikasi + is_active (approve juga mengaktifkan provider)
     const updatePayload =
         action === "approve"
-            ? { verification_status: "verified", is_active: true }
-            : { verification_status: "rejected", is_active: false };
+            ? {
+                verification_status: "verified",
+                is_active: true,
+                rejection_reason: null,
+                verified_at: new Date().toISOString(),
+            }
+            : {
+                verification_status: "rejected",
+                is_active: false,
+                rejection_reason: cleanedRejectionReason,
+                verified_at: null,
+            };
 
     try {
         const { error: providerUpdateError } = await supabase

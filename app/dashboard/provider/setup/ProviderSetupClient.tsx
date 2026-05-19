@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition, Suspense } from "react";
+import { useEffect, useState, useTransition, Suspense, type ElementType } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,6 +10,7 @@ import {
     MapPin,
     Phone,
     FileText,
+    Building2,
     Anchor,
     ArrowRight,
     Loader2,
@@ -17,7 +18,6 @@ import {
     Users as UsersIcon,
     Wrench,
     IdCard,
-    GraduationCap,
     Clock,
     CheckCircle2,
     ClipboardList,
@@ -26,9 +26,21 @@ import {
     LogOut,
     ShieldCheck,
     Info,
+    Upload,
+    Check,
 } from "lucide-react";
 import { setupProviderProfile, updateProviderProfile } from "@/app/actions/provider";
 import type { ProviderSetupResult } from "@/app/actions/provider";
+import {
+    getDocumentDefinition,
+    getDocumentTypesForProvider,
+    getInstructorScopeLabel,
+    getRequiredDocumentTypes,
+    type InstructorScope,
+    type ProviderPrimaryType,
+    type ProviderVerificationDocument,
+    type VerificationDocumentType,
+} from "@/lib/provider-verification";
 
 type ProviderMode = "setup" | "pending" | "verified" | "rejected";
 
@@ -39,12 +51,19 @@ export interface ProviderProfileSnapshot {
     contact: string | null;
     description: string | null;
     primary_type: string | null;
+    business_license_number: string | null;
+    instructor_scope: string | null;
+    safety_checklist: Record<string, boolean> | null;
+    rejection_reason: string | null;
     latitude: number | null;
     longitude: number | null;
     verification_status: string | null;
     is_active: boolean | null;
     identity_card_url: string | null;
     certification_url: string | null;
+    verification_submitted_at: string | null;
+    verified_at: string | null;
+    verification_documents: ProviderVerificationDocument[];
 }
 
 interface ProviderSetupClientProps {
@@ -54,10 +73,21 @@ interface ProviderSetupClientProps {
     submitted?: boolean;
 }
 
-const providerTypes = [
+const providerTypes: Array<{
+    value: ProviderPrimaryType;
+    label: string;
+    description: string;
+    icon: ElementType;
+    bg: string;
+    border: string;
+    activeBg: string;
+    activeBorder: string;
+    text: string;
+}> = [
     {
         value: "boat",
         label: "Penyedia Kapal",
+        description: "Wajib bukti legal dan keselamatan kapal",
         icon: Ship,
         bg: "bg-blue-50",
         border: "border-blue-200",
@@ -67,7 +97,8 @@ const providerTypes = [
     },
     {
         value: "instructor",
-        label: "Instruktur Selam",
+        label: "Guide / Instruktur",
+        description: "Wajib sertifikat selam sesuai cakupan",
         icon: UsersIcon,
         bg: "bg-emerald-50",
         border: "border-emerald-200",
@@ -78,6 +109,7 @@ const providerTypes = [
     {
         value: "gear",
         label: "Penyewaan Alat",
+        description: "Wajib legal usaha dan inventaris alat",
         icon: Wrench,
         bg: "bg-amber-50",
         border: "border-amber-200",
@@ -99,7 +131,150 @@ const ProviderMapPicker = dynamic(
     }
 );
 
-function StatusBanner({ mode, notice, submitted }: { mode: ProviderMode; notice?: string | null; submitted?: boolean }) {
+const ACCEPTED_VERIFICATION_FILES = "image/jpeg,image/png,image/webp,application/pdf";
+
+function getProviderTypeLabel(type?: string | null) {
+    return providerTypes.find((providerType) => providerType.value === type)?.label ?? "Belum dipilih";
+}
+
+function getVerificationDocument(
+    provider: ProviderProfileSnapshot | null,
+    type: VerificationDocumentType
+) {
+    return provider?.verification_documents?.find((document) => document.document_type === type);
+}
+
+function hasSubmittedDocument(provider: ProviderProfileSnapshot | null, type: VerificationDocumentType) {
+    const document = getVerificationDocument(provider, type);
+    if (document?.signed_url || document?.public_url || document?.storage_path) return true;
+    if (type === "identity_card" && provider?.identity_card_url) return true;
+    if (type === "dive_certificate" && provider?.certification_url) return true;
+    return false;
+}
+
+function VerificationDocumentList({ provider }: { provider: ProviderProfileSnapshot | null }) {
+    if (!provider?.primary_type) return null;
+
+    const requiredTypes = getRequiredDocumentTypes(provider.primary_type, provider.instructor_scope);
+    const documentTypes = getDocumentTypesForProvider(provider.primary_type, provider.instructor_scope);
+
+    return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-400">Checklist Dokumen</p>
+                    <p className="text-sm font-extrabold text-slate-900">
+                        {getProviderTypeLabel(provider.primary_type)}
+                        {provider.primary_type === "instructor" ? ` - ${getInstructorScopeLabel(provider.instructor_scope)}` : ""}
+                    </p>
+                </div>
+                <ShieldCheck className="h-5 w-5 text-primary" />
+            </div>
+            <div className="grid gap-2">
+                {documentTypes.map((type) => {
+                    const definition = getDocumentDefinition(type);
+                    const isRequired = requiredTypes.includes(type);
+                    const isSubmitted = hasSubmittedDocument(provider, type);
+
+                    return (
+                        <div
+                            key={type}
+                            className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
+                        >
+                            <div
+                                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                                    isSubmitted ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"
+                                }`}
+                            >
+                                {isSubmitted ? <Check className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-bold text-slate-900">{definition.label}</p>
+                                    <span
+                                        className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                                            isRequired
+                                                ? "bg-red-50 text-red-600"
+                                                : "bg-blue-50 text-primary"
+                                        }`}
+                                    >
+                                        {isRequired ? "Wajib" : "Opsional"}
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-xs leading-5 text-slate-500">{definition.helper}</p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function UploadField({ type, required }: { type: VerificationDocumentType; required: boolean }) {
+    const definition = getDocumentDefinition(type);
+
+    return (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <label htmlFor={type} className="flex items-start gap-3 text-sm font-bold text-slate-900">
+                <Upload className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>
+                    {definition.label} {required && <span className="text-red-500">*</span>}
+                    <span className="mt-1 block text-xs font-medium leading-5 text-slate-500">
+                        {definition.helper}
+                    </span>
+                </span>
+            </label>
+            <input
+                id={type}
+                name={type}
+                type="file"
+                accept={ACCEPTED_VERIFICATION_FILES}
+                required={required}
+                className="mt-3 block w-full text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary hover:file:bg-blue-100"
+            />
+        </div>
+    );
+}
+
+function VerificationUploadFields({
+    selectedType,
+    instructorScope,
+}: {
+    selectedType: ProviderPrimaryType;
+    instructorScope: InstructorScope;
+}) {
+    const requiredTypes = getRequiredDocumentTypes(selectedType, instructorScope);
+    const documentTypes = getDocumentTypesForProvider(selectedType, instructorScope);
+
+    return (
+        <div className="space-y-4">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                <p className="text-sm font-extrabold text-primary">Dokumen disesuaikan dengan jenis provider</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                    Verifikasi SulutDive hanya screening platform. Provider tetap bertanggung jawab atas izin resmi,
+                    standar keselamatan, dan validitas sertifikat yang diunggah.
+                </p>
+            </div>
+
+            {documentTypes.map((type) => (
+                <UploadField key={type} type={type} required={requiredTypes.includes(type)} />
+            ))}
+        </div>
+    );
+}
+
+function StatusBanner({
+    mode,
+    provider,
+    notice,
+    submitted,
+}: {
+    mode: ProviderMode;
+    provider?: ProviderProfileSnapshot | null;
+    notice?: string | null;
+    submitted?: boolean;
+}) {
     if (submitted) {
         return (
             <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3 shadow-sm">
@@ -141,7 +316,11 @@ function StatusBanner({ mode, notice, submitted }: { mode: ProviderMode; notice?
                 <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                 <div>
                     <p className="text-sm text-red-800 font-bold">Status: Ditolak</p>
-                    <p className="text-xs text-red-700 mt-1">Perbarui data dan dokumen verifikasi untuk mengajukan peninjauan ulang.</p>
+                    <p className="text-xs text-red-700 mt-1">
+                        {provider?.rejection_reason
+                            ? `Alasan admin: ${provider.rejection_reason}`
+                            : "Perbarui data dan dokumen verifikasi untuk mengajukan peninjauan ulang."}
+                    </p>
                 </div>
             </div>
         );
@@ -177,7 +356,13 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<ProviderSetupResult | null>(null);
     const [submittedLocally, setSubmittedLocally] = useState(false);
-    const [selectedType, setSelectedType] = useState(provider?.primary_type || "boat");
+    const initialType = provider?.primary_type === "instructor" || provider?.primary_type === "gear"
+        ? provider.primary_type
+        : "boat";
+    const [selectedType, setSelectedType] = useState<ProviderPrimaryType>(initialType);
+    const [selectedInstructorScope, setSelectedInstructorScope] = useState<InstructorScope>(
+        provider?.instructor_scope === "instructor" ? "instructor" : "guide"
+    );
     const [locationText, setLocationText] = useState(provider?.location || "");
     const [lat, setLat] = useState<number | null>(provider?.latitude ?? null);
     const [lng, setLng] = useState<number | null>(provider?.longitude ?? null);
@@ -231,7 +416,7 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
                     </form>
                 </div>
 
-                <StatusBanner mode={mode} notice={notice} submitted={effectiveSubmitted} />
+                <StatusBanner mode={mode} provider={provider} notice={notice} submitted={effectiveSubmitted} />
 
                 {isPendingReview && (
                     <div className="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -300,6 +485,22 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
                                     <p className="mt-1 text-sm font-bold text-amber-700">Menunggu review admin</p>
                                 </div>
                             </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Jenis Provider</p>
+                                    <p className="mt-1 text-sm font-bold text-slate-900">
+                                        {getProviderTypeLabel(provider?.primary_type)}
+                                        {provider?.primary_type === "instructor"
+                                            ? ` - ${getInstructorScopeLabel(provider.instructor_scope)}`
+                                            : ""}
+                                    </p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">NIB / Izin Usaha</p>
+                                    <p className="mt-1 text-sm font-bold text-slate-900">{provider?.business_license_number || "-"}</p>
+                                </div>
+                            </div>
+                            <VerificationDocumentList provider={provider} />
                         </div>
                         <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
                             <p className="text-sm font-bold text-primary">Apa yang bisa dilakukan sekarang?</p>
@@ -335,7 +536,7 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
                             <label className="block text-sm font-bold text-slate-900 mb-3">
                                 Layanan Utama Anda <span className="text-red-500">*</span>
                             </label>
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                                 {providerTypes.map((pt) => {
                                     const Icon = pt.icon;
                                     const isActive = selectedType === pt.value;
@@ -363,11 +564,56 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
                                             <p className={`text-xs font-bold leading-tight ${isActive ? "text-slate-900" : "text-slate-700"}`}>
                                                 {pt.label}
                                             </p>
+                                            <p className="line-clamp-2 text-[11px] leading-4 text-slate-500">
+                                                {pt.description}
+                                            </p>
                                         </label>
                                     );
                                 })}
                             </div>
                         </div>
+
+                        {selectedType === "instructor" && (
+                            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                                <label className="block text-sm font-bold text-slate-900 mb-3">
+                                    Cakupan Provider Instruktur <span className="text-red-500">*</span>
+                                </label>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    {[
+                                        {
+                                            value: "guide" as InstructorScope,
+                                            title: "Guide / Pendamping",
+                                            helper: "Minimum aplikasi: Rescue Diver/setara. Divemaster lebih sesuai untuk pemanduan profesional.",
+                                        },
+                                        {
+                                            value: "instructor" as InstructorScope,
+                                            title: "Instruktur Course",
+                                            helper: "Wajib instructor-level, misalnya PADI Open Water Scuba Instructor atau setara.",
+                                        },
+                                    ].map((option) => (
+                                        <label
+                                            key={option.value}
+                                            className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
+                                                selectedInstructorScope === option.value
+                                                    ? "border-emerald-500 bg-white shadow-sm"
+                                                    : "border-emerald-100 bg-white/60 hover:bg-white"
+                                            }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="instructor_scope"
+                                                value={option.value}
+                                                checked={selectedInstructorScope === option.value}
+                                                onChange={() => setSelectedInstructorScope(option.value)}
+                                                className="sr-only"
+                                            />
+                                            <p className="text-sm font-extrabold text-slate-900">{option.title}</p>
+                                            <p className="mt-1 text-xs leading-5 text-slate-600">{option.helper}</p>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div>
                             <label htmlFor="name" className="block text-sm font-bold text-slate-900 mb-2">
@@ -437,6 +683,27 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
                         </div>
 
                         <div>
+                            <label htmlFor="business_license_number" className="block text-sm font-bold text-slate-900 mb-2">
+                                Nomor NIB / Izin Usaha {!isVerified && <span className="text-red-500">*</span>}
+                            </label>
+                            <div className="relative">
+                                <Building2 className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+                                <input
+                                    id="business_license_number"
+                                    name="business_license_number"
+                                    type="text"
+                                    required={!isVerified}
+                                    defaultValue={provider?.business_license_number ?? ""}
+                                    placeholder="Contoh: NIB atau nomor izin usaha"
+                                    className="block w-full pl-11 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-slate-900 font-bold placeholder-slate-400 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm transition-all"
+                                />
+                            </div>
+                            <p className="mt-2 text-xs leading-5 text-slate-500">
+                                Jika belum memiliki nomor resmi, gunakan nomor dokumen usaha yang dipakai untuk verifikasi.
+                            </p>
+                        </div>
+
+                        <div>
                             <label htmlFor="description" className="block text-sm font-bold text-slate-900 mb-2">
                                 Deskripsi Singkat
                             </label>
@@ -457,41 +724,13 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
                             <div className="pt-4 border-t border-gray-100">
                                 <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
                                     <IdCard className="w-5 h-5 text-primary" />
-                                    Verifikasi Keamanan
+                                    Dokumen Verifikasi
                                 </h3>
 
-                                <div className="space-y-4">
-                                    <div>
-                                        <label htmlFor="identity_card" className="block text-sm font-bold text-slate-900 mb-2">
-                                            Upload KTP Pimpinan/Pemilik <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            id="identity_card"
-                                            name="identity_card"
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp,application/pdf"
-                                            required
-                                            className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-primary hover:file:bg-blue-100"
-                                        />
-                                    </div>
-
-                                    {selectedType === "instructor" && (
-                                        <div className="pt-2 animate-in fade-in slide-in-from-top-2">
-                                            <label htmlFor="certification" className="block text-sm font-bold text-slate-900 mb-2 flex items-center gap-1.5">
-                                                <GraduationCap className="w-4 h-4 text-emerald-600" />
-                                                Upload Sertifikasi Selam (PADI/SSI/dll) <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                id="certification"
-                                                name="certification"
-                                                type="file"
-                                                accept="image/jpeg,image/png,image/webp,application/pdf"
-                                                required
-                                                className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
+                                <VerificationUploadFields
+                                    selectedType={selectedType}
+                                    instructorScope={selectedInstructorScope}
+                                />
                             </div>
                         )}
 

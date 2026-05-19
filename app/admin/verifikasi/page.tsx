@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ShieldCheck, Ship, UserCog, CheckCircle, LogOut, Clock, ShieldAlert } from "lucide-react";
 import AdminVerificationClient from "./AdminVerificationClient";
 import { signOut } from "@/app/auth/actions";
 import type { Provider } from "@/lib/supabase";
+import type { ProviderVerificationDocument } from "@/lib/provider-verification";
 import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,7 @@ function extractProviderDocumentPath(value?: string | null) {
 }
 
 async function signProviderDocumentUrl(
-    storageClient: Awaited<ReturnType<typeof createClient>>,
+    storageClient: SupabaseClient,
     value?: string | null
 ) {
     const path = extractProviderDocumentPath(value);
@@ -56,9 +57,24 @@ async function signProviderDocumentUrl(
     return data.signedUrl;
 }
 
+async function signVerificationDocuments(
+    storageClient: SupabaseClient,
+    documents?: ProviderVerificationDocument[] | null
+) {
+    return Promise.all(
+        (documents ?? []).map(async (document) => ({
+            ...document,
+            signed_url: await signProviderDocumentUrl(
+                storageClient,
+                document.storage_path ?? document.public_url
+            ),
+        }))
+    );
+}
+
 export default async function AdminVerificationPage() {
     const supabase = await createClient();
-    const storageClient = createStorageAdminClient() ?? supabase;
+    const storageClient = (createStorageAdminClient() ?? supabase) as SupabaseClient;
 
     // ─── 1. Auth & Admin Role Check ─────────────────────────────
     const {
@@ -88,11 +104,30 @@ export default async function AdminVerificationPage() {
             location,
             contact,
             primary_type,
+            business_license_number,
+            instructor_scope,
+            safety_checklist,
+            rejection_reason,
             identity_card_url,
             certification_url,
             verification_status,
+            verification_submitted_at,
+            verified_at,
             created_at,
-            owner_user_id
+            owner_user_id,
+            verification_documents:provider_verification_documents (
+                id,
+                provider_id,
+                document_type,
+                label,
+                storage_path,
+                public_url,
+                is_required,
+                status,
+                notes,
+                created_at,
+                updated_at
+            )
         `)
         .order("created_at", { ascending: true });
 
@@ -101,6 +136,10 @@ export default async function AdminVerificationPage() {
             ...provider,
             identity_card_url: await signProviderDocumentUrl(storageClient, provider.identity_card_url),
             certification_url: await signProviderDocumentUrl(storageClient, provider.certification_url),
+            verification_documents: await signVerificationDocuments(
+                storageClient,
+                provider.verification_documents
+            ),
         }))
     );
     const pendingProviders = providers.filter(p => p.verification_status === "pending");
@@ -178,7 +217,7 @@ export default async function AdminVerificationPage() {
                                 Verifikasi Penyedia Layanan
                             </h1>
                             <p className="text-sm text-slate-500 font-medium mt-1">
-                                Tinjau KTP dan Sertifikasi milik Provider baru sebelum mereka dapat berjualan di ekosistem platform.
+                                Tinjau identitas, izin usaha, sertifikat, dan bukti keselamatan provider sebelum mereka berjualan di ekosistem platform.
                             </p>
                         </div>
                         {pendingProviders.length > 0 && (

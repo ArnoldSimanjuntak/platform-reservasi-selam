@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ElementType } from "react";
 import {
     CheckCircle2,
     XCircle,
@@ -8,9 +8,7 @@ import {
     FileImage,
     ShieldCheck,
     ShieldAlert,
-    Award,
     FileText,
-    User,
     Phone,
     MapPin,
     Clock,
@@ -20,6 +18,14 @@ import {
 } from "lucide-react";
 import { verifyProviderIdentity } from "@/app/actions/provider";
 import type { Provider } from "@/lib/supabase";
+import {
+    getDocumentDefinition,
+    getDocumentTypesForProvider,
+    getInstructorScopeLabel,
+    getMissingRequiredDocumentTypes,
+    getRequiredDocumentTypes,
+    type VerificationDocumentType,
+} from "@/lib/provider-verification";
 
 interface AdminVerificationClientProps {
     initialProviders: Provider[];
@@ -28,7 +34,7 @@ interface AdminVerificationClientProps {
 }
 
 // Mapping tipe provider ke ikon dan label yang sesuai
-const TYPE_CONFIG: Record<string, { icon: React.ElementType; label: string; bg: string; text: string; border: string }> = {
+const TYPE_CONFIG: Record<string, { icon: ElementType; label: string; bg: string; text: string; border: string }> = {
     boat: {
         icon: Ship,
         label: "Operator Kapal",
@@ -66,14 +72,16 @@ export default function AdminVerificationClient({
     const [actionResult, setActionResult] = useState<{ id: string; msg: string; isError: boolean } | null>(null);
     const [removingId, setRemovingId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<TabKey>("pending");
+    const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
 
     const handleVerify = (providerId: string, action: "approve" | "reject") => {
         setActionResult(null);
         setPendingId(providerId);
+        const rejectionReason = rejectReasons[providerId]?.trim();
 
         startTransition(async () => {
             try {
-                const res = await verifyProviderIdentity(providerId, action);
+                const res = await verifyProviderIdentity(providerId, action, rejectionReason);
                 setActionResult({ id: providerId, msg: res.message, isError: !res.success });
 
                 if (res.success) {
@@ -91,6 +99,15 @@ export default function AdminVerificationClient({
                 setPendingId(null);
             }
         });
+    };
+
+    const getDocumentUrl = (provider: Provider, type: VerificationDocumentType) => {
+        const document = provider.verification_documents?.find((item) => item.document_type === type);
+        if (document?.signed_url) return document.signed_url;
+        if (document?.public_url) return document.public_url;
+        if (type === "identity_card") return provider.identity_card_url ?? null;
+        if (type === "dive_certificate") return provider.certification_url ?? null;
+        return null;
     };
 
     // Tab data
@@ -140,11 +157,10 @@ export default function AdminVerificationClient({
                         </div>
                         {/* Modal Body */}
                         <div className="p-4 bg-gray-100 flex items-center justify-center relative min-h-[50vh] max-h-[75vh]">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <iframe
                                 src={selectedImage.url}
-                                alt={selectedImage.title}
-                                className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
+                                title={selectedImage.title}
+                                className="h-[70vh] w-full rounded-lg bg-white shadow-sm"
                             />
                         </div>
                         <div className="p-3 bg-slate-50 text-center">
@@ -221,6 +237,16 @@ export default function AdminVerificationClient({
                     const isThisRemoving = removingId === provider.id;
                     const isThisPending = pendingId === provider.id && isPending;
                     const isActionable = activeTab === "pending";
+                    const documentTypes = getDocumentTypesForProvider(
+                        provider.primary_type,
+                        provider.instructor_scope
+                    );
+                    const requiredDocumentTypes = getRequiredDocumentTypes(
+                        provider.primary_type,
+                        provider.instructor_scope
+                    );
+                    const missingDocuments = getMissingRequiredDocumentTypes(provider);
+                    const canApprove = missingDocuments.length === 0;
 
                     return (
                         <div
@@ -303,97 +329,145 @@ export default function AdminVerificationClient({
                                         <MapPin className="w-4 h-4 text-[#023E8A] mt-0.5 shrink-0" />
                                         <div>
                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Lokasi</p>
-                                            <p className="text-sm font-bold text-slate-800 mt-0.5">{provider.location || "—"}</p>
+                                            <p className="text-sm font-bold text-slate-800 mt-0.5">{provider.location || "-"}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
                                         <Phone className="w-4 h-4 text-[#023E8A] mt-0.5 shrink-0" />
                                         <div>
                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Kontak</p>
-                                            <p className="text-sm font-bold text-slate-800 mt-0.5">{provider.contact || "—"}</p>
+                                            <p className="text-sm font-bold text-slate-800 mt-0.5">{provider.contact || "-"}</p>
                                         </div>
                                     </div>
-                                </div>
-
-                                {/* Document Review Row */}
-                                <div className="flex flex-wrap gap-2 mb-5">
-                                    <p className="w-full text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                                        Dokumen Identitas
-                                    </p>
-                                    {/* KTP Button */}
-                                    <button
-                                        onClick={() =>
-                                            setSelectedImage({
-                                                url: provider.identity_card_url || "",
-                                                title: `KTP: ${provider.name}`,
-                                            })
-                                        }
-                                        disabled={!provider.identity_card_url}
-                                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                                            provider.identity_card_url
-                                                ? "bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
-                                                : "bg-gray-50 border-gray-200 text-gray-400"
-                                        }`}
-                                    >
-                                        <FileText className="w-4 h-4" />
-                                        {provider.identity_card_url ? "✅ Lihat KTP" : "❌ KTP Belum Upload"}
-                                    </button>
-
-                                    {/* Sertifikasi (hanya untuk instruktur) */}
+                                    <div className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <FileText className="w-4 h-4 text-[#023E8A] mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">NIB / Izin Usaha</p>
+                                            <p className="text-sm font-bold text-slate-800 mt-0.5">{provider.business_license_number || "-"}</p>
+                                        </div>
+                                    </div>
                                     {provider.primary_type === "instructor" && (
-                                        <button
-                                            onClick={() =>
-                                                setSelectedImage({
-                                                    url: provider.certification_url || "",
-                                                    title: `Sertifikasi: ${provider.name}`,
-                                                })
-                                            }
-                                            disabled={!provider.certification_url}
-                                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                                                provider.certification_url
-                                                    ? "bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100"
-                                                    : "bg-gray-50 border-gray-200 text-gray-400"
-                                            }`}
-                                        >
-                                            <Award className="w-4 h-4" />
-                                            {provider.certification_url
-                                                ? "✅ Lihat Sertifikasi"
-                                                : "❌ Sertifikasi Belum Upload"}
-                                        </button>
+                                        <div className="flex items-start gap-2.5 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                                            <GraduationCap className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+                                            <div>
+                                                <p className="text-[10px] text-emerald-700/70 font-bold uppercase tracking-wider">Cakupan</p>
+                                                <p className="text-sm font-bold text-emerald-900 mt-0.5">
+                                                    {getInstructorScopeLabel(provider.instructor_scope)}
+                                                </p>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* Action Buttons — hanya untuk pending providers */}
-                                {isActionable && (
-                                    <div className="flex gap-3 pt-4 border-t border-slate-100">
-                                        {/* Approve */}
-                                        <button
-                                            onClick={() => handleVerify(provider.id, "approve")}
-                                            disabled={isThisPending}
-                                            className="flex-1 flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-sm font-black shadow-md hover:shadow-lg transition-all active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed"
-                                            style={{ background: "linear-gradient(135deg, #047857, #059669)" }}
-                                        >
-                                            {isThisPending ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <ShieldCheck className="w-4 h-4" />
-                                            )}
-                                            {isThisPending ? "Memproses..." : "✓ SETUJUI"}
-                                        </button>
+                                {/* Document Review Row */}
+                                <div className="mb-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                            Checklist Dokumen Verifikasi
+                                        </p>
+                                        {canApprove ? (
+                                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                                                Lengkap
+                                            </span>
+                                        ) : (
+                                            <span className="rounded-full bg-red-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-red-700">
+                                                {missingDocuments.length} wajib kosong
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="grid gap-2">
+                                        {documentTypes.map((type) => {
+                                            const definition = getDocumentDefinition(type);
+                                            const documentUrl = getDocumentUrl(provider, type);
+                                            const isRequired = requiredDocumentTypes.includes(type);
 
-                                        {/* Reject */}
-                                        <button
-                                            onClick={() => handleVerify(provider.id, "reject")}
-                                            disabled={isThisPending}
-                                            className="flex-1 flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-red-700 bg-red-50 border-2 border-red-200 text-sm font-black hover:bg-red-100 hover:border-red-300 transition-all active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed"
-                                        >
-                                            {isThisPending ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <XCircle className="w-4 h-4" />
-                                            )}
-                                            {isThisPending ? "Memproses..." : "✕ TOLAK"}
-                                        </button>
+                                            return (
+                                                <div
+                                                    key={type}
+                                                    className="flex flex-col gap-3 rounded-xl border border-white bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+                                                >
+                                                    <div className="min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <p className="text-sm font-bold text-slate-900">{definition.label}</p>
+                                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                                                                isRequired ? "bg-red-50 text-red-600" : "bg-blue-50 text-[#023E8A]"
+                                                            }`}>
+                                                                {isRequired ? "Wajib" : "Opsional"}
+                                                            </span>
+                                                        </div>
+                                                        <p className="mt-1 text-xs leading-5 text-slate-500">{definition.helper}</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            documentUrl &&
+                                                            setSelectedImage({
+                                                                url: documentUrl,
+                                                                title: `${definition.label}: ${provider.name}`,
+                                                            })
+                                                        }
+                                                        disabled={!documentUrl}
+                                                        className={`shrink-0 rounded-xl border px-4 py-2 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                                            documentUrl
+                                                                ? "border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100"
+                                                                : "border-gray-200 bg-gray-50 text-gray-400"
+                                                        }`}
+                                                    >
+                                                        {documentUrl ? "Lihat Dokumen" : "Belum Upload"}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                {/* Action Buttons - hanya untuk pending providers */}
+                                {isActionable && (
+                                    <div className="space-y-3 pt-4 border-t border-slate-100">
+                                        {!canApprove && (
+                                            <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-xs font-bold leading-5 text-red-700">
+                                                Approve dinonaktifkan karena dokumen wajib belum lengkap: {missingDocuments.map((type) => getDocumentDefinition(type).label).join(", ")}.
+                                            </div>
+                                        )}
+                                        <textarea
+                                            value={rejectReasons[provider.id] ?? ""}
+                                            onChange={(event) =>
+                                                setRejectReasons((previous) => ({
+                                                    ...previous,
+                                                    [provider.id]: event.target.value,
+                                                }))
+                                            }
+                                            rows={3}
+                                            placeholder="Alasan penolakan wajib diisi jika dokumen tidak valid atau belum lengkap..."
+                                            className="w-full rounded-xl border-2 border-slate-200 bg-white p-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#023E8A] focus:ring-2 focus:ring-[#023E8A]/10"
+                                        />
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => handleVerify(provider.id, "approve")}
+                                                disabled={isThisPending || !canApprove}
+                                                className="flex-1 flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-sm font-black shadow-md hover:shadow-lg transition-all active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed"
+                                                style={{ background: "linear-gradient(135deg, #047857, #059669)" }}
+                                            >
+                                                {isThisPending ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <ShieldCheck className="w-4 h-4" />
+                                                )}
+                                                {isThisPending ? "Memproses..." : "SETUJUI"}
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleVerify(provider.id, "reject")}
+                                                disabled={isThisPending}
+                                                className="flex-1 flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-red-700 bg-red-50 border-2 border-red-200 text-sm font-black hover:bg-red-100 hover:border-red-300 transition-all active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed"
+                                            >
+                                                {isThisPending ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <XCircle className="w-4 h-4" />
+                                                )}
+                                                {isThisPending ? "Memproses..." : "TOLAK"}
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </div>

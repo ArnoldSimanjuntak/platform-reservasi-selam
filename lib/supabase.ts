@@ -6,7 +6,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Types for database schema (Multi-Layanan & Carrying Capacity)
-export type UserRole = "customer" | "provider";
+export type UserRole = "customer" | "provider" | "admin";
 export type ServiceType = "boat" | "instructor" | "gear";
 export type DiveSiteCategory = "Muck" | "Coral" | "Wreck";
 export type BookingStatus = "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
@@ -25,6 +25,7 @@ export interface User {
 
 export interface Provider {
     id: string;
+    owner_user_id?: string | null;
     name: string;
     location?: string;
     contact?: string;
@@ -32,9 +33,16 @@ export interface Provider {
     image_url?: string;
     is_active?: boolean;
     primary_type?: string;
-    identity_card_url?: string;
-    certification_url?: string;
+    business_license_number?: string | null;
+    instructor_scope?: string | null;
+    safety_checklist?: Record<string, boolean> | null;
+    rejection_reason?: string | null;
+    verification_submitted_at?: string | null;
+    verified_at?: string | null;
+    identity_card_url?: string | null;
+    certification_url?: string | null;
     verification_status?: 'pending' | 'verified' | 'rejected';
+    verification_documents?: import("@/lib/provider-verification").ProviderVerificationDocument[];
     created_at?: string;
     updated_at?: string;
 }
