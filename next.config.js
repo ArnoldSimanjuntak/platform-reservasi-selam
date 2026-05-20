@@ -168,6 +168,18 @@ const withPWA = require("next-pwa")({
             },
         },
         // ── 12. Internal API Routes (NetworkFirst) ───────────
+        // Auth state must never be served from the PWA cache. Stale auth JSON is
+        // the main cause of navbar role/menu drift after login, back, or resume.
+        {
+            urlPattern: /\/api\/auth\/navbar-state(?:\?.*)?$/i,
+            handler: "NetworkOnly",
+            options: {},
+        },
+        {
+            urlPattern: /\/api\/auth\/idle-signout(?:\?.*)?$/i,
+            handler: "NetworkOnly",
+            options: {},
+        },
         {
             urlPattern: /\/api\/.*$/i,
             handler: "NetworkFirst",

@@ -161,15 +161,37 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
         }
 
         try {
-            const response = await fetch("/api/auth/navbar-state", {
+            const response = await fetch(`/api/auth/navbar-state?t=${Date.now()}`, {
                 cache: "no-store",
                 credentials: "same-origin",
+                headers: {
+                    "Cache-Control": "no-cache",
+                },
             });
             if (!response.ok) throw new Error(`Navbar auth sync failed: ${response.status}`);
 
             const nextState = (await response.json()) as NavbarInitialAuthState;
             if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
-            setAuthState(nextState);
+            setAuthState((prev) => {
+                const isSameUser = !!prev.user && !!nextState.user && prev.user.id === nextState.user.id;
+
+                // Preserve the last known role if a transient API/RLS/cache issue returns
+                // a session without role. This prevents the navbar from disappearing while
+                // the next sync resolves the ground-truth role.
+                if (isSameUser && nextState.user && !nextState.role && prev.role) {
+                    return {
+                        ...nextState,
+                        role: prev.role,
+                        providerVerified: prev.providerVerified,
+                        isLoading: false,
+                    };
+                }
+
+                return {
+                    ...nextState,
+                    isLoading: false,
+                };
+            });
         } catch (error) {
             if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
             if (!isAbortError(error)) {
@@ -243,11 +265,9 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
 
                 if (event === "INITIAL_SESSION") {
                     applySessionSnapshot(session);
-                    if (!initialAuthState) {
-                        setTimeout(() => {
-                            void syncAuthStateFromServer(false);
-                        }, 0);
-                    }
+                    setTimeout(() => {
+                        void syncAuthStateFromServer(false);
+                    }, 0);
                     return;
                 }
 
@@ -276,6 +296,27 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
         setIsProfileMenuOpen(false);
         void syncAuthStateFromServer(false);
     }, [pathname, syncAuthStateFromServer]);
+
+    // PWA/browser resume can restore an old client tree without rerunning the
+    // server layout. Re-sync the navbar whenever the tab/app becomes active.
+    useEffect(() => {
+        const refresh = () => {
+            void syncAuthStateFromServer(false);
+        };
+        const refreshWhenVisible = () => {
+            if (document.visibilityState === "visible") refresh();
+        };
+
+        window.addEventListener("focus", refresh);
+        window.addEventListener("pageshow", refresh);
+        document.addEventListener("visibilitychange", refreshWhenVisible);
+
+        return () => {
+            window.removeEventListener("focus", refresh);
+            window.removeEventListener("pageshow", refresh);
+            document.removeEventListener("visibilitychange", refreshWhenVisible);
+        };
+    }, [syncAuthStateFromServer]);
 
     // ── Scroll listener ────────────────────────────────────────
     useEffect(() => {
@@ -326,8 +367,7 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
 
     // ── Derived state ──────────────────────────────────────────
     const { user, role, providerVerified, isLoading } = authState;
-    const isRoleResolving = !!user && role === null;
-    const isAuthResolving = isLoading || isRoleResolving;
+    const isAuthResolving = isLoading && !user;
     const isHomePage = pathname === "/";
     const isAuthPage = pathname.startsWith("/auth");
     const isDark = isScrolled || isMobileMenuOpen || !isHomePage;
