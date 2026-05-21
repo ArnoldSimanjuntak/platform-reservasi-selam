@@ -9,6 +9,8 @@ const withPWA = require("next-pwa")({
     fallbacks: {
         document: "/offline",
     },
+    navigateFallback: "/offline",
+    navigateFallbackDenylist: [/^\/api\//, /^\/_next\//],
     // ─── Runtime Caching Strategies ──────────────────────────
     // Setiap rule mendefinisikan:
     //   urlPattern  : regex URL yang cocok

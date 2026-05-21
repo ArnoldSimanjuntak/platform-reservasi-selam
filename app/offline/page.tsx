@@ -1,14 +1,14 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
-    WifiOff,
-    RefreshCcw,
-    Phone,
     AlertTriangle,
-    Compass,
     Anchor,
-    Shield,
-    MapPin,
     BookOpen,
+    Compass,
+    MapPin,
+    Phone,
+    Shield,
+    WifiOff,
 } from "lucide-react";
 import ReloadButton from "@/components/ReloadButton";
 
@@ -16,204 +16,175 @@ export const metadata = {
     title: "Offline - SulutDive",
 };
 
+const emergencyContacts = [
+    { label: "SAR Basarnas Bitung", value: "115" },
+    { label: "DAN Emergency Asia", value: "+61-8-8212-9242" },
+    { label: "RSUD Bitung", value: "(0438) 21527" },
+    { label: "Polres Bitung", value: "110" },
+];
+
+const handSignals = [
+    { code: "OK", title: "OK", text: "Kondisi baik atau siap naik." },
+    { code: "!", title: "Problem", text: "Ada masalah, beri tahu buddy." },
+    { code: "STOP", title: "Stop", text: "Berhenti dan perhatikan instruksi." },
+    { code: "AIR", title: "Low Air", text: "Udara menipis, mulai prosedur naik." },
+];
+
+const lembehInfo = [
+    { icon: MapPin, text: "Koordinat area: sekitar 1.44 N, 125.23 E." },
+    { icon: Shield, text: "Kedalaman umum: 5-35 meter." },
+    { icon: Compass, text: "Arus umumnya lemah sampai sedang." },
+    { icon: AlertTriangle, text: "Suhu air rata-rata: 26-29 C." },
+];
+
 export default function OfflinePage() {
     return (
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-[#023E8A] via-[#0077B6] to-[#00B4D8]">
-            {/* ─── Animated Ocean Waves SVG ──────────────────── */}
-            <div className="absolute bottom-0 left-0 right-0 z-0">
-                <svg
-                    viewBox="0 0 1440 320"
-                    className="w-full"
-                    preserveAspectRatio="none"
-                >
-                    <path
-                        fill="rgba(255,255,255,0.08)"
-                        d="M0,224L48,213.3C96,203,192,181,288,186.7C384,192,480,224,576,234.7C672,245,768,235,864,208C960,181,1056,139,1152,138.7C1248,139,1344,181,1392,202.7L1440,224L1440,320L0,320Z"
-                    >
-                        <animate
-                            attributeName="d"
-                            dur="8s"
-                            repeatCount="indefinite"
-                            values="
-                                M0,224L48,213.3C96,203,192,181,288,186.7C384,192,480,224,576,234.7C672,245,768,235,864,208C960,181,1056,139,1152,138.7C1248,139,1344,181,1392,202.7L1440,224L1440,320L0,320Z;
-                                M0,192L48,208C96,224,192,256,288,250.7C384,245,480,203,576,186.7C672,171,768,181,864,197.3C960,213,1056,235,1152,229.3C1248,224,1344,192,1392,176L1440,160L1440,320L0,320Z;
-                                M0,224L48,213.3C96,203,192,181,288,186.7C384,192,480,224,576,234.7C672,245,768,235,864,208C960,181,1056,139,1152,138.7C1248,139,1344,181,1392,202.7L1440,224L1440,320L0,320Z
-                            "
-                        />
-                    </path>
-                    <path
-                        fill="rgba(255,255,255,0.05)"
-                        d="M0,256L48,261.3C96,267,192,277,288,272C384,267,480,245,576,240C672,235,768,245,864,256C960,267,1056,277,1152,272C1248,267,1344,245,1392,234.7L1440,224L1440,320L0,320Z"
-                    >
-                        <animate
-                            attributeName="d"
-                            dur="6s"
-                            repeatCount="indefinite"
-                            values="
-                                M0,256L48,261.3C96,267,192,277,288,272C384,267,480,245,576,240C672,235,768,245,864,256C960,267,1056,277,1152,272C1248,267,1344,245,1392,234.7L1440,224L1440,320L0,320Z;
-                                M0,288L48,277.3C96,267,192,245,288,240C384,235,480,245,576,261.3C672,277,768,299,864,293.3C960,288,1056,256,1152,240C1248,224,1344,224,1392,224L1440,224L1440,320L0,320Z;
-                                M0,256L48,261.3C96,267,192,277,288,272C384,267,480,245,576,240C672,235,768,245,864,256C960,267,1056,277,1152,272C1248,267,1344,245,1392,234.7L1440,224L1440,320L0,320Z
-                            "
-                        />
-                    </path>
-                </svg>
-            </div>
-
-            {/* ─── Floating Bubbles ──────────────────────────── */}
-            <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-                {[...Array(6)].map((_, i) => (
+        <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#023E8A] via-[#0077B6] to-[#00B4D8]">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                {[...Array(7)].map((_, index) => (
                     <div
-                        key={i}
-                        className="absolute rounded-full bg-white/5 animate-pulse"
+                        key={index}
+                        className="absolute rounded-full bg-white/10"
                         style={{
-                            width: `${12 + i * 8}px`,
-                            height: `${12 + i * 8}px`,
-                            left: `${15 + i * 15}%`,
-                            bottom: `${10 + i * 12}%`,
-                            animationDelay: `${i * 0.5}s`,
-                            animationDuration: `${3 + i}s`,
+                            width: `${16 + index * 9}px`,
+                            height: `${16 + index * 9}px`,
+                            left: `${8 + index * 14}%`,
+                            bottom: `${8 + index * 11}%`,
+                            opacity: 0.16 + index * 0.03,
                         }}
                     />
                 ))}
             </div>
 
-            {/* ─── Main Content ──────────────────────────────── */}
-            <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-4 pt-24 pb-20">
-                {/* Offline Icon */}
-                <div className="w-24 h-24 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center mb-6 border border-white/20">
-                    <WifiOff className="w-12 h-12 text-white/80" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0">
+                <svg viewBox="0 0 1440 260" className="h-56 w-full" preserveAspectRatio="none">
+                    <path
+                        fill="rgba(255,255,255,0.10)"
+                        d="M0,144L60,154.7C120,165,240,187,360,176C480,165,600,123,720,122.7C840,123,960,165,1080,176C1200,187,1320,165,1380,154.7L1440,144L1440,260L0,260Z"
+                    />
+                    <path
+                        fill="rgba(255,255,255,0.07)"
+                        d="M0,192L80,181.3C160,171,320,149,480,160C640,171,800,213,960,213.3C1120,213,1280,171,1360,149.3L1440,128L1440,260L0,260Z"
+                    />
+                </svg>
+            </div>
+
+            <section className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center px-5 py-16 text-white">
+                <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-[2rem] border border-white/20 bg-white/12 shadow-2xl backdrop-blur">
+                    <WifiOff className="h-11 w-11 text-white" />
                 </div>
 
-                <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 text-center">
+                <p className="mb-3 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-blue-50">
+                    SulutDive Offline Mode
+                </p>
+                <h1 className="text-center text-3xl font-black tracking-tight md:text-5xl">
                     Anda Sedang Offline
                 </h1>
-                <p className="text-blue-200 text-center max-w-md mb-8 leading-relaxed">
-                    Tidak ada koneksi internet. Jangan khawatir — informasi penting
-                    untuk penyelaman Anda tersedia di bawah ini.
+                <p className="mt-4 max-w-2xl text-center text-base leading-7 text-blue-100 md:text-lg">
+                    Koneksi internet sedang tidak tersedia. Halaman ini disiapkan oleh service worker agar informasi penting tetap dapat dibuka saat sinyal hilang.
                 </p>
 
-                {/* ─── Action Buttons ────────────────────────── */}
-                <div className="flex gap-3 mb-10 w-full max-w-sm">
+                <div className="mt-8 grid w-full max-w-md grid-cols-2 gap-3">
                     <ReloadButton />
                     <Link
                         href="/services"
-                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white font-medium hover:bg-white/20 transition-all text-sm"
+                        className="flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/20"
                     >
-                        <BookOpen className="w-4 h-4" />
+                        <BookOpen className="h-4 w-4" />
                         Katalog
                     </Link>
                 </div>
 
-                {/* ─── Emergency & Dive Info Cards ───────────── */}
-                <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Kontak Darurat */}
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
-                                <Phone className="w-4 h-4 text-red-300" />
-                            </div>
-                            <h3 className="text-white font-bold">Kontak Darurat</h3>
-                        </div>
-                        <ul className="space-y-2.5 text-sm">
-                            <li className="flex justify-between items-center text-blue-100">
-                                <span>SAR Basarnas Bitung</span>
-                                <span className="font-mono font-bold text-white">115</span>
-                            </li>
-                            <li className="flex justify-between items-center text-blue-100">
-                                <span>DAN Emergency (Asia)</span>
-                                <span className="font-mono font-bold text-white">+61-8-8212-9242</span>
-                            </li>
-                            <li className="flex justify-between items-center text-blue-100">
-                                <span>RSUD Bitung</span>
-                                <span className="font-mono font-bold text-white">(0438) 21527</span>
-                            </li>
-                            <li className="flex justify-between items-center text-blue-100">
-                                <span>Polres Bitung</span>
-                                <span className="font-mono font-bold text-white">110</span>
-                            </li>
+                <div className="mt-10 grid w-full gap-4 md:grid-cols-2">
+                    <InfoCard
+                        icon={<Phone className="h-5 w-5 text-red-200" />}
+                        title="Kontak Darurat"
+                    >
+                        <ul className="space-y-3 text-sm">
+                            {emergencyContacts.map((contact) => (
+                                <li key={contact.label} className="flex items-center justify-between gap-4 text-blue-50">
+                                    <span>{contact.label}</span>
+                                    <span className="font-mono font-bold text-white">{contact.value}</span>
+                                </li>
+                            ))}
                         </ul>
-                    </div>
+                    </InfoCard>
 
-                    {/* Prosedur Darurat Penyelaman */}
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                                <AlertTriangle className="w-4 h-4 text-amber-300" />
-                            </div>
-                            <h3 className="text-white font-bold">Prosedur Darurat</h3>
-                        </div>
-                        <ol className="space-y-2 text-sm text-blue-100 list-decimal list-inside">
-                            <li>Hentikan dive, berikan sinyal ke buddy</li>
-                            <li>Naik perlahan (maks. 9m/menit)</li>
-                            <li>Safety stop 3 menit di 5 meter</li>
-                            <li>Di permukaan, kembangkan SMB</li>
-                            <li>Jangan terbang 24 jam setelah dive</li>
+                    <InfoCard
+                        icon={<AlertTriangle className="h-5 w-5 text-amber-200" />}
+                        title="Prosedur Darurat"
+                    >
+                        <ol className="list-inside list-decimal space-y-2 text-sm leading-6 text-blue-50">
+                            <li>Hentikan penyelaman dan beri sinyal ke buddy.</li>
+                            <li>Naik perlahan sesuai arahan guide atau instruktur.</li>
+                            <li>Lakukan safety stop bila kondisi memungkinkan.</li>
+                            <li>Di permukaan, kembangkan SMB dan panggil bantuan.</li>
+                            <li>Catat waktu, lokasi, dan gejala jika terjadi insiden.</li>
                         </ol>
-                    </div>
+                    </InfoCard>
 
-                    {/* Sinyal Tangan Penting */}
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                                <Compass className="w-4 h-4 text-green-300" />
-                            </div>
-                            <h3 className="text-white font-bold">Sinyal Tangan</h3>
-                        </div>
-                        <ul className="space-y-2 text-sm text-blue-100">
-                            <li className="flex items-start gap-2">
-                                <span className="text-lg leading-none">👍</span>
-                                <span><strong className="text-white">OK</strong> — Semua baik / naik ke atas</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <span className="text-lg leading-none">👎</span>
-                                <span><strong className="text-white">Problem</strong> — Ada masalah</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <span className="text-lg leading-none">✊</span>
-                                <span><strong className="text-white">Stop</strong> — Berhenti, perhatikan</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <span className="text-lg leading-none">🤙</span>
-                                <span><strong className="text-white">Low Air</strong> — Udara tinggal 50 bar</span>
-                            </li>
+                    <InfoCard
+                        icon={<Compass className="h-5 w-5 text-emerald-200" />}
+                        title="Sinyal Tangan"
+                    >
+                        <ul className="space-y-3 text-sm">
+                            {handSignals.map((signal) => (
+                                <li key={signal.code} className="flex gap-3 text-blue-50">
+                                    <span className="flex h-8 min-w-12 items-center justify-center rounded-lg bg-white/15 px-2 text-xs font-black text-white">
+                                        {signal.code}
+                                    </span>
+                                    <span>
+                                        <strong className="text-white">{signal.title}</strong> - {signal.text}
+                                    </span>
+                                </li>
+                            ))}
                         </ul>
-                    </div>
+                    </InfoCard>
 
-                    {/* Info Lembeh */}
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-8 h-8 rounded-lg bg-blue-400/20 flex items-center justify-center">
-                                <Anchor className="w-4 h-4 text-blue-300" />
-                            </div>
-                            <h3 className="text-white font-bold">Info Selat Lembeh</h3>
-                        </div>
-                        <ul className="space-y-2 text-sm text-blue-100">
-                            <li className="flex items-start gap-2">
-                                <MapPin className="w-3.5 h-3.5 text-blue-300 mt-0.5 shrink-0" />
-                                <span>Koordinat: 1.44°N, 125.23°E</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <Shield className="w-3.5 h-3.5 text-blue-300 mt-0.5 shrink-0" />
-                                <span>Kedalaman maks: 5–35 meter</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <Compass className="w-3.5 h-3.5 text-blue-300 mt-0.5 shrink-0" />
-                                <span>Arus: umumnya lemah–sedang</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <AlertTriangle className="w-3.5 h-3.5 text-blue-300 mt-0.5 shrink-0" />
-                                <span>Suhu air: 26–29°C sepanjang tahun</span>
-                            </li>
+                    <InfoCard
+                        icon={<Anchor className="h-5 w-5 text-sky-200" />}
+                        title="Info Selat Lembeh"
+                    >
+                        <ul className="space-y-3 text-sm">
+                            {lembehInfo.map((item) => {
+                                const Icon = item.icon;
+                                return (
+                                    <li key={item.text} className="flex gap-3 text-blue-50">
+                                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-blue-200" />
+                                        <span>{item.text}</span>
+                                    </li>
+                                );
+                            })}
                         </ul>
-                    </div>
+                    </InfoCard>
                 </div>
 
-                {/* Footer note */}
-                <p className="mt-8 text-blue-300/60 text-xs text-center max-w-md">
-                    Halaman ini tersedia secara offline melalui Service Worker.
-                    Data yang pernah Anda akses sebelumnya juga di-cache secara otomatis.
+                <p className="mt-8 max-w-xl text-center text-xs leading-6 text-blue-100/75">
+                    Catatan: data transaksi terbaru tetap membutuhkan koneksi internet. Gunakan halaman ini untuk akses dasar sampai jaringan kembali tersedia.
                 </p>
+            </section>
+        </main>
+    );
+}
+
+function InfoCard({
+    icon,
+    title,
+    children,
+}: {
+    icon: ReactNode;
+    title: string;
+    children: ReactNode;
+}) {
+    return (
+        <section className="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur-md">
+            <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12">
+                    {icon}
+                </div>
+                <h2 className="text-lg font-black text-white">{title}</h2>
             </div>
-        </div>
+            {children}
+        </section>
     );
 }

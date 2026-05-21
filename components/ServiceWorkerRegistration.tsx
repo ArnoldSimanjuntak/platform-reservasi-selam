@@ -2,12 +2,23 @@
 
 import { useEffect } from "react";
 
+const OFFLINE_URL = "/offline";
+const OFFLINE_CACHE = "sulutdive-offline-page";
+
+async function warmOfflinePageCache() {
+    if (!("caches" in window)) return;
+
+    try {
+        const cache = await caches.open(OFFLINE_CACHE);
+        await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
+    } catch (error) {
+        console.warn("[PWA] Failed to prepare offline page cache:", error);
+    }
+}
+
 /**
- * ServiceWorkerRegistration — Mendaftarkan service worker secara manual.
- *
- * next-pwa v5.6.0 menghasilkan file sw.js dengan benar saat build,
- * tetapi auto-registration-nya tidak kompatibel dengan Next.js 16 App Router.
- * Komponen ini menangani registrasi secara eksplisit.
+ * Registers the generated next-pwa service worker and keeps the offline page
+ * available in Cache Storage even when the generated precache is stale.
  */
 export default function ServiceWorkerRegistration() {
     useEffect(() => {
@@ -19,18 +30,26 @@ export default function ServiceWorkerRegistration() {
             navigator.serviceWorker
                 .register("/sw.js")
                 .then((registration) => {
-                    console.log(
-                        "✅ Service Worker registered:",
-                        registration.scope
-                    );
+                    console.log("[PWA] Service Worker registered:", registration.scope);
 
-                    // Cek update secara berkala (setiap 1 jam)
+                    void registration.update();
+                    void warmOfflinePageCache();
+
+                    navigator.serviceWorker.ready
+                        .then(() => {
+                            void warmOfflinePageCache();
+                        })
+                        .catch((error) => {
+                            console.warn("[PWA] Service Worker is not ready yet:", error);
+                        });
+
                     setInterval(() => {
-                        registration.update();
+                        void registration.update();
+                        void warmOfflinePageCache();
                     }, 60 * 60 * 1000);
                 })
                 .catch((error) => {
-                    console.error("❌ Service Worker registration failed:", error);
+                    console.error("[PWA] Service Worker registration failed:", error);
                 });
         }
     }, []);
