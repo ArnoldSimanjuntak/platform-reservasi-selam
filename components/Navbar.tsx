@@ -46,7 +46,7 @@ const customerNavLinks: NavLink[] = [
 
 const providerNavLinks: NavLink[] = [
     { name: "Dashboard", href: "/dashboard" },
-    { name: "Manajemen Kapal", href: "/dashboard/provider/services" },
+    { name: "Manajemen Layanan", href: "/dashboard/provider/services" },
     { name: "Dashboard Pesanan", href: "/dashboard/provider/orders" },
     { name: "Profil Bisnis", href: "/dashboard/provider/setup" },
 ];
@@ -595,7 +595,7 @@ function ProfileDropdown({
                         ) : isProvider ? (
                             <>
                                 <DropdownLink href="/dashboard" icon={User} label="Dashboard" onClose={onClose} />
-                                <DropdownLink href="/dashboard/provider/services" icon={Ship} label="Manajemen Kapal" onClose={onClose} />
+                                <DropdownLink href="/dashboard/provider/services" icon={Ship} label="Manajemen Layanan" onClose={onClose} />
                                 <DropdownLink href="/dashboard/provider/orders" icon={ClipboardList} label="Daftar Pesanan" onClose={onClose} />
                                 <DropdownLink href="/dashboard/provider/setup" icon={UserCog} label="Profil Bisnis" onClose={onClose} />
                             </>
@@ -725,7 +725,7 @@ function MobileMenu({
                     ) : isProvider ? (
                         <>
                             <MobileLink href="/dashboard" icon={User} label="Dashboard" onClose={onClose} />
-                            <MobileLink href="/dashboard/provider/services" icon={Ship} label="Manajemen Kapal" onClose={onClose} />
+                            <MobileLink href="/dashboard/provider/services" icon={Ship} label="Manajemen Layanan" onClose={onClose} />
                             <MobileLink href="/dashboard/provider/orders" icon={ClipboardList} label="Daftar Pesanan" onClose={onClose} />
                             <MobileLink href="/dashboard/provider/setup" icon={UserCog} label="Profil Bisnis" onClose={onClose} />
                         </>

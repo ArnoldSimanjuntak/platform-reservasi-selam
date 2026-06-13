@@ -31,6 +31,30 @@ interface BookingFormProps {
     isBoat?: boolean;
     isGear?: boolean;
     diveSites?: DiveSite[];
+    providerBase?: {
+        name: string;
+        latitude: number;
+        longitude: number;
+    } | null;
+}
+
+function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const earthRadiusKm = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLng / 2) ** 2;
+
+    return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getDistanceTier(distanceKm: number) {
+    if (distanceKm <= 5) return { label: "Dekat", className: "bg-emerald-50 border-emerald-200 text-emerald-800" };
+    if (distanceKm <= 10) return { label: "Sedang", className: "bg-amber-50 border-amber-200 text-amber-800" };
+    return { label: "Jauh", className: "bg-red-50 border-red-200 text-red-800" };
 }
 
 export default function BookingForm({
@@ -42,6 +66,7 @@ export default function BookingForm({
     isBoat = false,
     isGear = false,
     diveSites = [],
+    providerBase = null,
 }: BookingFormProps) {
     const router = useRouter();
     const [guests, setGuests] = useState(1);
@@ -52,10 +77,10 @@ export default function BookingForm({
     const [result, setResult] = useState<BookingResult | null>(null);
     const [remainingSlots, setRemainingSlots] = useState<number | null>(null);
     const [isCheckingSlots, setIsCheckingSlots] = useState(false);
-    // ── Auth state: dimulai dari nilai SSR, lalu disinkronkan via client ──
+    // â”€â”€ Auth state: dimulai dari nilai SSR, lalu disinkronkan via client â”€â”€
     const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(initialIsLoggedIn);
 
-    // ── Sinkronisasi Auth: selalu verifikasi via getUser() + pantau perubahan sesi ──
+    // â”€â”€ Sinkronisasi Auth: selalu verifikasi via getUser() + pantau perubahan sesi â”€â”€
     useEffect(() => {
         const supabase = createClient();
 
@@ -131,8 +156,21 @@ export default function BookingForm({
     };
 
     const selectedSite = isBoat ? diveSites.find(s => s.id === selectedDiveSiteId) : null;
+    const distanceKm =
+        isBoat &&
+        providerBase &&
+        selectedSite?.latitude != null &&
+        selectedSite?.longitude != null
+            ? haversineDistanceKm(
+                providerBase.latitude,
+                providerBase.longitude,
+                selectedSite.latitude,
+                selectedSite.longitude
+            )
+            : null;
+    const distanceTier = distanceKm !== null ? getDistanceTier(distanceKm) : null;
     const surcharge = selectedSite ? selectedSite.surcharge_fee : 0;
-    // Untuk gear: totalPrice = harga × durasi (hari); untuk boat/instructor: harga × peserta + surcharge
+    // Untuk gear: totalPrice = harga x durasi (hari); untuk boat/instructor: harga x peserta + biaya spot
     const totalPrice = isGear
         ? price * rentalDays * guests
         : (price * guests) + surcharge;
@@ -193,7 +231,7 @@ export default function BookingForm({
                 );
                 
                 // Jika server bilang user tidak login padahal client pikir sudah login
-                // (cookie stale) → paksa reload untuk sinkron dengan middleware
+                // (cookie stale) â†’ paksa reload untuk sinkron dengan middleware
                 if (!bookingResult.success && bookingResult.message.includes("log in") && isLoggedIn) {
                     window.location.reload();
                     return;
@@ -202,7 +240,7 @@ export default function BookingForm({
                 setResult(bookingResult);
 
                 if (bookingResult.success) {
-                    // Perbarui sisa slot setelah booking berhasil
+                    // Perbarui sisa slot setelah Booking berhasil
                     setRemainingSlots(bookingResult.remainingSlots ?? null);
 
                     // Redirect ke halaman bookings setelah delay singkat
@@ -246,19 +284,19 @@ export default function BookingForm({
 
     return (
         <div className="space-y-6">
-            {/* ─── Success Result ─────────────────────────────── */}
+            {/* â”€â”€â”€ Success Result â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {result?.success && (
                 <div className="p-4 rounded-xl bg-green-50 border border-green-200 animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-start gap-3">
                         <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
                         <div>
                             <p className="text-sm font-semibold text-green-800">
-                                Booking Successful! 🎉
+                                Booking berhasil
                             </p>
                             <p className="text-sm text-green-700 mt-1">{result.message}</p>
                             {result.remainingSlots !== undefined && (
                                 <p className="text-xs text-green-600 mt-2">
-                                    Remaining slots: {result.remainingSlots}
+                                    Sisa slot: {result.remainingSlots}
                                 </p>
                             )}
                         </div>
@@ -266,14 +304,14 @@ export default function BookingForm({
                 </div>
             )}
 
-            {/* ─── Error Result ──────────────────────────────── */}
+            {/* â”€â”€â”€ Error Result â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {result && !result.success && (
                 <div className="p-4 rounded-xl bg-red-50 border border-red-200 animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-start gap-3">
                         <XCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
                         <div>
                             <p className="text-sm font-semibold text-red-800">
-                                Booking Failed
+                                Booking gagal
                             </p>
                             <p className="text-sm text-red-700 mt-1">{result.message}</p>
                         </div>
@@ -281,11 +319,11 @@ export default function BookingForm({
                 </div>
             )}
 
-            {/* ─── Destination Picker (Khusus Boat) ───────────── */}
+            {/* â”€â”€â”€ Destination Picker (Khusus Boat) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {isBoat && (
                 <div className="space-y-2">
                     <label className="text-sm font-bold text-[#111827] block">
-                        📍 Pilih Destinasi
+                        Pilih Destinasi Selam
                     </label>
                     <div className="relative">
                         <MapPin className="absolute left-3.5 top-3 w-5 h-5 text-gray-400" />
@@ -298,19 +336,30 @@ export default function BookingForm({
                             <option value="" disabled>-- Pilih Spot Selam --</option>
                             {diveSites.map(site => (
                                 <option key={site.id} value={site.id} className="text-[#111827] font-medium">
-                                    {site.name} {site.surcharge_fee > 0 ? `(+ ${formatPrice(site.surcharge_fee)})` : '(Gratis Zona Dekat)'}
+                                    {site.name} {site.surcharge_fee > 0 ? `(+ ${formatPrice(site.surcharge_fee)})` : "(Tanpa biaya spot)"}
                                 </option>
                             ))}
                         </select>
                     </div>
+                    {selectedSite && providerBase && distanceKm !== null && distanceTier && (
+                        <div className={`rounded-xl border p-3 text-xs font-semibold ${distanceTier.className}`}>
+                            <div className="flex items-center justify-between gap-3">
+                                <span>Jarak dari pangkalan {providerBase.name}</span>
+                                <span>{distanceKm.toFixed(1)} km</span>
+                            </div>
+                            <p className="mt-1 font-medium opacity-80">
+                                Kategori: {distanceTier.label}. Patokan: dekat &lt;= 5 km, sedang 5-10 km, jauh &gt; 10 km.
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* ─── Durasi Sewa (Khusus Gear/Alat) ─────────────── */}
+            {/* Durasi Sewa (Khusus Gear/Alat) */}
             {isGear && (
                 <div className="space-y-2">
                     <label className="text-sm font-bold text-[#111827] block">
-                        ⏱️ Durasi Sewa (Hari)
+                        Durasi Sewa (Hari)
                     </label>
                     <div className="flex items-center justify-between p-1 rounded-lg border border-gray-200">
                         <button
@@ -336,15 +385,15 @@ export default function BookingForm({
                     </div>
                     <p className="text-xs text-slate-500 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        Harga per hari: {formatPrice(price)} × {rentalDays} hari × {guests} unit
+                        Harga per hari: {formatPrice(price)} x {rentalDays} hari x {guests} unit
                     </p>
                 </div>
             )}
 
-            {/* ─── Date Picker ───────────────────────────────── */}
+            {/* â”€â”€â”€ Date Picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="space-y-2">
                 <label className="text-sm font-bold text-[#111827] block">
-                    {isGear ? "📅 Tanggal Mulai Sewa" : "📅 Pilih Tanggal Selam"}
+                    {isGear ? "Tanggal Mulai Sewa" : "Pilih Tanggal Selam"}
                 </label>
                 <div className="relative">
                     <Calendar className="absolute left-3.5 top-3 w-5 h-5 text-gray-400" />
@@ -360,7 +409,7 @@ export default function BookingForm({
                 </div>
             </div>
 
-            {/* ─── Remaining Capacity Indicator ──────────────── */}
+            {/* â”€â”€â”€ Remaining Capacity Indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {date && (
                 <div
                     className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${getCapacityBg()}`}
@@ -398,10 +447,10 @@ export default function BookingForm({
                 </div>
             )}
 
-            {/* ─── Guest Counter ─────────────────────────────── */}
+            {/* â”€â”€â”€ Guest Counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="space-y-2">
                 <label className="text-sm font-bold text-[#111827] block">
-                    {isGear ? "📦 Jumlah Unit" : "🤿 Jumlah Penyelam"}
+                    {isGear ? "Jumlah Unit" : "Jumlah Penyelam"}
                 </label>
                 <div className="flex items-center justify-between p-1 rounded-lg border border-gray-200">
                     <button
@@ -428,12 +477,12 @@ export default function BookingForm({
                 </div>
             </div>
 
-            {/* ─── Total Summary ─────────────────────────────── */}
+            {/* â”€â”€â”€ Total Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="pt-4 border-t border-gray-100 flex flex-col gap-2">
                 {isGear ? (
                     <>
                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-600 font-medium">Harga/hari × {rentalDays} hari × {guests} unit</span>
+                            <span className="text-slate-600 font-medium">Harga/hari x {rentalDays} hari x {guests} unit</span>
                             <span className="text-[#111827] font-bold">{formatPrice(price * rentalDays * guests)}</span>
                         </div>
                     </>
@@ -445,7 +494,7 @@ export default function BookingForm({
                         </div>
                         {selectedSite && (
                             <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-600 font-medium">Surcharge Jarak</span>
+                                <span className="text-slate-600 font-medium">Biaya spot</span>
                                 <span className="text-[#111827] font-bold">{surcharge === 0 ? "Gratis" : formatPrice(surcharge)}</span>
                             </div>
                         )}
@@ -459,7 +508,7 @@ export default function BookingForm({
                 </div>
             </div>
 
-            {/* ─── CTA Buttons ──────────────────────────────── */}
+            {/* â”€â”€â”€ CTA Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <button
                 onClick={handleBooking}
                 disabled={
@@ -501,7 +550,7 @@ export default function BookingForm({
 
             <button className="w-full py-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-deepSea font-medium transition-colors text-sm flex items-center justify-center gap-2">
                 <Info className="w-4 h-4" />
-                Contact Support (WA)
+                Hubungi Support (WA)
             </button>
         </div>
     );

@@ -1,54 +1,35 @@
-import RoutePickerWrapper from "@/components/RoutePickerWrapper";
+﻿import RoutePickerWrapper from "@/components/RoutePickerWrapper";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Route Planner - SulutDive Lembeh",
-    description:
-        "Plan your dive trip route from provider bases to dive spots in Lembeh Strait. See estimated distance and travel time.",
+    title: "Route Planner Kapal - SulutDive Lembeh",
+    description: "Rencanakan estimasi jarak dari pangkalan kapal provider ke spot selam di Selat Lembeh.",
 };
 
 export default function RoutePlannerPage() {
     return (
         <main className="min-h-screen pt-24 pb-12 bg-gray-50">
             <div className="container mx-auto px-4 max-w-5xl">
-                {/* Header */}
                 <div className="mb-8 text-center">
                     <h1 className="text-3xl md:text-4xl font-bold text-deepSea mb-3">
-                        Route & Distance Planner
+                        Perencana Rute Kapal
                     </h1>
                     <p className="text-gray-600 max-w-2xl mx-auto">
-                        Select a provider base and dive destination to visualize the
-                        estimated boat route across Lembeh Strait.
+                        Pilih pangkalan kapal provider dan spot selam untuk melihat estimasi rute, jarak, dan waktu tempuh di Selat Lembeh.
                     </p>
                 </div>
 
-                {/* Route Picker */}
                 <RoutePickerWrapper />
 
-                {/* Zone Legend */}
-                <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-center">
-                    <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">
-                        <span className="font-bold text-green-600 block mb-1">
-                            Zone 1 (Nearby)
-                        </span>
-                        <span className="text-gray-500">0–3 km · No surcharge</span>
-                    </div>
-                    <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">
-                        <span className="font-bold text-amber-600 block mb-1">
-                            Zone 2 (Medium)
-                        </span>
-                        <span className="text-gray-500">3–7 km · + Rp 150,000/trip</span>
-                    </div>
-                    <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">
-                        <span className="font-bold text-red-600 block mb-1">
-                            Zone 3 (Far)
-                        </span>
-                        <span className="text-gray-500">7+ km · + Rp 300,000/trip</span>
-                    </div>
+                <div className="mt-10 rounded-2xl bg-white p-5 text-sm text-slate-600 shadow-sm border border-gray-100">
+                    <h2 className="font-bold text-[#023E8A] mb-2">Batasan Perhitungan</h2>
+                    <p>
+                        Route planner ini hanya berlaku untuk layanan kapal karena titik berangkatnya adalah pangkalan kapal provider. Layanan guide/instruktur dan penyewaan alat selam tidak memakai estimasi jarak kapal pada revisi ini.
+                    </p>
+                    <p className="mt-2">
+                        Kategori jarak pada proses booking kapal memakai patokan: dekat sampai 5 km, sedang 5-10 km, dan jauh di atas 10 km dari pangkalan kapal ke spot selam.
+                    </p>
                 </div>
-                <p className="mt-4 text-center text-xs text-slate-500">
-                    Route planner berlaku untuk layanan kapal dan instruktur yang berangkat dari pangkalan provider. Penyewaan alat selam tidak memakai estimasi rute karena dihitung berdasarkan jumlah unit dan durasi sewa.
-                </p>
             </div>
         </main>
     );

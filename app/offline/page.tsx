@@ -16,6 +16,8 @@ export const metadata = {
     title: "Offline - SulutDive",
 };
 
+export const dynamic = "force-static";
+
 const emergencyContacts = [
     { label: "SAR Basarnas Bitung", value: "115" },
     { label: "DAN Emergency Asia", value: "+61-8-8212-9242" },

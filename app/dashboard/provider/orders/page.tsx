@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeft, ClipboardList, Wifi } from "lucide-react";
 import ProviderOrderFeed from "@/components/ProviderOrderFeed";
+import { getServiceTypeLabel } from "@/lib/service-types";
 
 export default async function ProviderOrdersPage() {
     const supabase = await createClient();
@@ -17,7 +18,7 @@ export default async function ProviderOrdersPage() {
     // ─── Ambil provider milik user ini ────────────────────────
     const { data: provider } = await supabase
         .from("providers")
-        .select("id, name")
+        .select("id, name, primary_type")
         .eq("owner_user_id", user.id)
         .single();
 
@@ -42,7 +43,7 @@ export default async function ProviderOrdersPage() {
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900">Daftar Pesanan</h1>
                             <p className="text-sm text-slate-500 font-medium mt-0.5">
-                                {provider.name}
+                                {provider.name} - {getServiceTypeLabel(provider.primary_type)}
                             </p>
                         </div>
                     </div>

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { createService, updateService } from "@/app/actions/service";
 import type { CreateServiceResult } from "@/app/actions/service";
+import { getServiceTypeLabel, isServiceType } from "@/lib/service-types";
 
 export interface ServiceFormInitialValue {
     id: string;
@@ -40,6 +41,7 @@ export interface ServiceFormInitialValue {
 interface NewServiceFormProps {
     isAdmin: boolean;
     providerId: string | null;
+    providerPrimaryType?: string | null;
     mode?: "create" | "edit";
     initialService?: ServiceFormInitialValue | null;
 }
@@ -81,24 +83,30 @@ const serviceTypes = [
 ];
 
 const diveSiteCategories = [
-    { value: "", label: "â€” Tidak spesifik â€”" },
-    { value: "Muck", label: "ðŸœï¸ Muck Diving" },
-    { value: "Coral", label: "ðŸª¸ Coral Reef" },
-    { value: "Wreck", label: "ðŸš¢ Wreck Dive" },
+    { value: "", label: "Tidak spesifik" },
+    { value: "Muck", label: "Muck Diving" },
+    { value: "Coral", label: "Coral Reef" },
+    { value: "Wreck", label: "Wreck Dive" },
 ];
 
 export default function NewServiceForm({
     isAdmin,
     providerId,
+    providerPrimaryType = null,
     mode = "create",
     initialService = null,
 }: NewServiceFormProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<CreateServiceResult | null>(null);
-    const [selectedType, setSelectedType] = useState(initialService?.type || "");
+    const defaultType = initialService?.type || (isServiceType(providerPrimaryType) ? providerPrimaryType : "");
+    const [selectedType, setSelectedType] = useState(defaultType);
     const [imagePreview, setImagePreview] = useState<string | null>(initialService?.image_url || null);
     const isEdit = mode === "edit";
+    const allowedServiceTypes = isAdmin
+        ? serviceTypes
+        : serviceTypes.filter((serviceType) => serviceType.value === providerPrimaryType);
+    const providerTypeLabel = getServiceTypeLabel(providerPrimaryType);
 
     function handleSubmit(formData: FormData) {
         setResult(null);
@@ -145,14 +153,16 @@ export default function NewServiceForm({
                     <p className="text-sm text-slate-500 mt-2 leading-relaxed">
                         {isEdit
                             ? "Perbarui detail layanan yang tampil di marketplace SulutDive."
-                            : "Layanan yang Anda tambahkan akan muncul di marketplace SulutDive dan bisa dipesan oleh wisatawan."}
+                            : isAdmin
+                            ? "Layanan admin akan tampil di marketplace SulutDive sesuai tipe layanan yang dipilih."
+                            : `Kategori akun Anda adalah ${providerTypeLabel}. Anda hanya dapat membuat layanan pada kategori ini.`}
                     </p>
 
                     {/* Admin badge */}
                     {isAdmin && (
                         <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700">
                             <ShieldCheck className="w-3.5 h-3.5" />
-                            Mode Admin â€” layanan tidak terikat provider manapun
+                            Mode Admin - layanan tidak terikat provider manapun
                         </div>
                     )}
                 </div>
@@ -181,13 +191,22 @@ export default function NewServiceForm({
                             <input type="hidden" name="service_id" value={initialService.id} />
                         )}
 
-                        {/* â”€â”€ Tipe Layanan (Visual Selection) â”€â”€ */}
+                        {!isAdmin && (
+                            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
+                                <p className="font-bold">Kategori provider: {providerTypeLabel}</p>
+                                <p className="mt-1 text-xs leading-relaxed">
+                                    Tipe layanan dikunci sesuai hasil verifikasi agar kapal, guide/instruktur, dan penyewaan alat tidak bercampur.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Tipe Layanan */}
                         <div>
                             <label className="block text-sm font-bold text-slate-900 mb-3">
                                 Tipe Layanan <span className="text-red-500">*</span>
                             </label>
                             <div className="grid grid-cols-1 gap-3">
-                                {serviceTypes.map((st) => {
+                                {allowedServiceTypes.map((st) => {
                                     const Icon = st.icon;
                                     const isActive = selectedType === st.value;
                                     return (
@@ -235,9 +254,14 @@ export default function NewServiceForm({
                                     );
                                 })}
                             </div>
+                            {!isAdmin && allowedServiceTypes.length === 0 && (
+                                <p className="mt-2 text-sm font-semibold text-red-700">
+                                    Kategori provider belum valid. Silakan perbarui profil bisnis atau hubungi admin.
+                                </p>
+                            )}
                         </div>
 
-                        {/* â”€â”€ Nama Layanan â”€â”€ */}
+                        {/* Nama Layanan */}
                         <div>
                             <label htmlFor="name" className="block text-sm font-bold text-slate-900 mb-2">
                                 Nama Layanan <span className="text-red-500">*</span>
@@ -253,13 +277,19 @@ export default function NewServiceForm({
                                     required
                                     minLength={3}
                                     defaultValue={initialService?.name ?? ""}
-                                    placeholder="Contoh: Kapal Nelayan Pak Budi - 6 Orang"
+                                    placeholder={
+                                        selectedType === "gear"
+                                            ? "Contoh: Paket Sewa BCD dan Regulator"
+                                            : selectedType === "instructor"
+                                            ? "Contoh: Guide Selam Lembeh"
+                                            : "Contoh: Kapal Selam Pak Budi - 6 Orang"
+                                    }
                                     className="block w-full pl-11 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-slate-900 font-medium placeholder-slate-400 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-base transition-all"
                                 />
                             </div>
                         </div>
 
-                        {/* â”€â”€ Harga & Kapasitas (Side by Side) â”€â”€ */}
+                        {/* Harga & Kapasitas */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="price" className="block text-sm font-bold text-slate-900 mb-2">
@@ -388,7 +418,7 @@ export default function NewServiceForm({
                                     <div className="flex flex-col items-center gap-2 py-4">
                                         <ImagePlus className="w-8 h-8 text-slate-400" />
                                         <p className="text-sm text-slate-500 font-medium">Klik untuk unggah foto</p>
-                                        <p className="text-xs text-slate-400">JPEG, PNG, WebP â€¢ Maks 5MB</p>
+                                        <p className="text-xs text-slate-400">JPEG, PNG, WebP - Maks 5MB</p>
                                     </div>
                                 )}
                                 <input

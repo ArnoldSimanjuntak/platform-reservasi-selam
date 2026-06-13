@@ -60,7 +60,7 @@ export default function HeroBooking() {
             <div className="relative z-20 container mx-auto px-4 mt-[-10vh] pb-32 md:pb-48 text-center flex flex-col items-center">
                 <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/12 border border-white/25 text-white text-sm font-semibold mb-6 uppercase tracking-widest shadow-sm">
                     <MapPin className="w-4 h-4 text-accent" />
-                    <span>Lembeh Strait, North Sulawesi</span>
+                    <span>Selat Lembeh, Sulawesi Utara</span>
                 </div>
 
                 <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight leading-tight text-white drop-shadow-2xl">

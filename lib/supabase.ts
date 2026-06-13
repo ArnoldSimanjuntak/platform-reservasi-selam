@@ -33,6 +33,8 @@ export interface Provider {
     image_url?: string;
     is_active?: boolean;
     primary_type?: string;
+    latitude?: number | null;
+    longitude?: number | null;
     business_license_number?: string | null;
     instructor_scope?: string | null;
     safety_checklist?: Record<string, boolean> | null;
@@ -52,7 +54,7 @@ export interface Service {
     name: string;
     type: ServiceType;
     price: number;
-    dive_site_category: DiveSiteCategory;
+    dive_site_category: DiveSiteCategory | null;
     description?: string;
     image_url: string;
     provider_id?: string;
@@ -156,7 +158,7 @@ export async function getServices() {
 export async function getServiceById(id: string) {
     return supabase
         .from("services")
-        .select("*, provider:providers(id, name, location, contact, description)")
+        .select("*, provider:providers(id, name, location, contact, description, latitude, longitude, primary_type)")
         .eq("id", id)
         .single();
 }
@@ -318,9 +320,8 @@ export async function getRemainingCapacity(
 }
 
 /**
- * Fetch verified providers yang memiliki koordinat pangkalan (latitude & longitude).
- * Digunakan untuk marker "Pangkalan Keberangkatan" di Dive Map dan Route Planner.
- * Filter: is_active=true, verification_status='verified', lat/lng tidak null.
+ * Fetch verified boat providers that have base coordinates.
+ * Route distance is only meaningful for boat services in this version.
  */
 export async function getMapProviders() {
     return supabase
@@ -328,6 +329,7 @@ export async function getMapProviders() {
         .select("id, name, location, contact, latitude, longitude, primary_type")
         .eq("is_active", true)
         .eq("verification_status", "verified")
+        .eq("primary_type", "boat")
         .not("latitude", "is", null)
         .not("longitude", "is", null)
         .order("name", { ascending: true });

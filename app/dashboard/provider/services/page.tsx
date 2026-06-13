@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Ship, Wrench, Users, Package, Plus, ArrowLeft, CheckCircle2, XCircle, DollarSign, Pencil } from "lucide-react";
 import DeleteServiceButton from "@/components/DeleteServiceButton";
+import { getServiceTypeLabel } from "@/lib/service-types";
 
 export default async function ProviderServicesPage({
     searchParams,
@@ -39,7 +40,7 @@ export default async function ProviderServicesPage({
 
     const { data: provider } = await supabase
         .from("providers")
-        .select("id, name, verification_status, is_active")
+        .select("id, name, primary_type, verification_status, is_active")
         .eq("owner_user_id", user.id)
         .single();
 
@@ -57,11 +58,12 @@ export default async function ProviderServicesPage({
         .eq("provider_id", provider.id)
         .order("created_at", { ascending: false });
 
+    const providerTypeLabel = getServiceTypeLabel(provider.primary_type);
+
     const typeConfig: Record<string, { label: string; icon: React.ElementType; bg: string; text: string }> = {
         boat: { label: "Kapal", icon: Ship, bg: "bg-blue-50", text: "text-blue-700" },
-        diving: { label: "Paket Selam", icon: Ship, bg: "bg-blue-50", text: "text-blue-700" },
-        instructor: { label: "Instruktur", icon: Users, bg: "bg-emerald-50", text: "text-emerald-700" },
-        gear: { label: "Peralatan", icon: Wrench, bg: "bg-amber-50", text: "text-amber-700" },
+        instructor: { label: "Guide / Instruktur Selam", icon: Users, bg: "bg-emerald-50", text: "text-emerald-700" },
+        gear: { label: "Penyewaan Alat Selam", icon: Wrench, bg: "bg-amber-50", text: "text-amber-700" },
     };
 
     return (
@@ -80,7 +82,7 @@ export default async function ProviderServicesPage({
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900">Manajemen Layanan</h1>
                             <p className="text-sm text-slate-500 mt-1 font-medium">
-                                {provider.name} - {services?.length || 0} layanan terdaftar
+                                {provider.name} - kategori {providerTypeLabel} - {services?.length || 0} layanan terdaftar
                             </p>
                         </div>
                         <Link
@@ -89,7 +91,7 @@ export default async function ProviderServicesPage({
                             style={{ background: "linear-gradient(135deg, #023E8A, #0077B6)" }}
                         >
                             <Plus className="w-4 h-4" />
-                            Tambah Layanan
+                            Tambah {providerTypeLabel}
                         </Link>
                     </div>
                 </div>
@@ -124,7 +126,7 @@ export default async function ProviderServicesPage({
                         </div>
                         <h3 className="text-xl font-bold text-slate-900 mb-2">Belum Ada Layanan</h3>
                         <p className="text-sm text-slate-500 max-w-xs mx-auto mb-6 leading-relaxed">
-                            Tambahkan kapal, jasa instruktur, atau peralatan selam Anda agar wisatawan dapat menemukan dan memesan layanan Anda.
+                            Tambahkan layanan sesuai kategori verifikasi Anda agar wisatawan dapat menemukan dan memesan layanan dengan jelas.
                         </p>
                         <Link
                             href="/dashboard/provider/services/new"

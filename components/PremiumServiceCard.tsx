@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Ship, Anchor, Camera, ArrowRight, Loader2, Star } from "lucide-react";
+import { Ship, Anchor, Camera, ArrowRight, Loader2 } from "lucide-react";
 import type { Service } from "@/lib/supabase";
 import { useState } from "react";
+import { getServiceTypeLabel } from "@/lib/service-types";
 
 interface PremiumServiceCardProps {
     service: Service;
@@ -54,7 +55,7 @@ export default function PremiumServiceCard({ service }: PremiumServiceCardProps)
                 {/* Top Badge: Type Category */}
                 <div className="absolute top-4 left-4 z-10 flex flex-col items-start gap-2">
                     <span className="inline-block bg-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-white/30">
-                        {service.type}
+                        {getServiceTypeLabel(service.type)}
                     </span>
                     {service.dive_site_category && (
                         <span className="inline-block bg-accent/90 text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-md">
@@ -78,13 +79,6 @@ export default function PremiumServiceCard({ service }: PremiumServiceCardProps)
                                 {service.description}
                             </p>
                         )}
-                        <div className="flex items-center gap-1 text-accent mb-4">
-                            <Star className="w-4 h-4 fill-current" />
-                            <Star className="w-4 h-4 fill-current" />
-                            <Star className="w-4 h-4 fill-current" />
-                            <Star className="w-4 h-4 fill-current" />
-                            <Star className="w-4 h-4 fill-current" />
-                        </div>
                     </div>
                 </div>
             </div>

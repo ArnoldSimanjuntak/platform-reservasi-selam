@@ -15,9 +15,7 @@ const fallbackPositions: Record<string, { top: string; left: string }> = {
 };
 
 function getZoneLabel(zone: number) {
-    if (zone === 1) return "Zona 1 - Dekat Pelabuhan";
-    if (zone === 2) return "Zona 2 - Menengah";
-    return "Zona 3 - Ujung Selat";
+    return `Area Spot ${zone}`;
 }
 
 export default function InteractiveDiveMap() {
@@ -165,7 +163,7 @@ export default function InteractiveDiveMap() {
                                                     </div>
                                                     <div>
                                                         <h3 className="font-bold text-slate-900 text-sm">{boat.name}</h3>
-                                                        <p className="text-xs text-slate-600 font-medium mt-0.5">Maks. {boat.max_capacity} pax · {boat.provider?.name}</p>
+                                                        <p className="text-xs text-slate-600 font-medium mt-0.5">Maks. {boat.max_capacity} pax - {boat.provider?.name}</p>
                                                     </div>
                                                 </div>
                                                 <span className="font-bold text-primary text-sm whitespace-nowrap">

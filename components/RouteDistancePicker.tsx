@@ -142,7 +142,7 @@ export default function RouteDistancePicker() {
                     lat:   p.latitude,
                     lng:   p.longitude,
                     type:  "provider_base" as const,
-                    label: p.location || "Pangkalan Provider",
+                    label: p.location || "Pangkalan Kapal",
                 }));
                 setProviderBases(mapped);
             }
@@ -184,7 +184,7 @@ export default function RouteDistancePicker() {
                 {/* Departure */}
                 <div className="space-y-2">
                     <label className="text-sm font-semibold text-deepSea block">
-                        Departure Point
+                        Pangkalan Kapal
                     </label>
                     <div className="relative">
                         <Anchor className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#0077B6]" />
@@ -193,9 +193,9 @@ export default function RouteDistancePicker() {
                             onChange={(e) => setDepartureId(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-700 font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none cursor-pointer text-sm"
                         >
-                            <option value="">Select provider base...</option>
+                            <option value="">Pilih pangkalan kapal...</option>
                             {providerBases.length > 0 && (
-                                <optgroup label="Pangkalan Provider">
+                                <optgroup label="Pangkalan Kapal Provider">
                                     {providerBases.map((p) => (
                                         <option key={p.id} value={p.id}>
                                             {p.name}
@@ -213,12 +213,12 @@ export default function RouteDistancePicker() {
                     </div>
                     {departure && (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#023E8A]/10 text-[#023E8A]">
-                            Pangkalan Provider
+                            Pangkalan Kapal
                         </span>
                     )}
                     {providerBases.length === 0 && !customStart && (
                         <p className="text-xs text-slate-500">
-                            Belum ada pangkalan provider terverifikasi dengan koordinat.
+                            Belum ada pangkalan kapal provider terverifikasi dengan koordinat.
                         </p>
                     )}
                 </div>
@@ -226,7 +226,7 @@ export default function RouteDistancePicker() {
                 {/* Destination */}
                 <div className="space-y-2">
                     <label className="text-sm font-semibold text-deepSea block">
-                        Dive Destination
+                        Tujuan Selam
                     </label>
                     <div className="relative">
                         <Waves className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#E63946]" />
@@ -235,7 +235,7 @@ export default function RouteDistancePicker() {
                             onChange={(e) => setDestinationId(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-700 font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none cursor-pointer text-sm"
                         >
-                            <option value="">Select dive spot...</option>
+                            <option value="">Pilih spot selam...</option>
                             {DIVE_SPOTS.map((s) => (
                                 <option key={s.id} value={s.id}>
                                     {s.name}
@@ -329,7 +329,7 @@ export default function RouteDistancePicker() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
                     {/* Header gradient */}
                     <div className="bg-gradient-to-r from-primary to-secondary px-6 py-4 text-white">
-                        <h3 className="font-bold text-lg">Route Summary</h3>
+                        <h3 className="font-bold text-lg">Ringkasan Rute Kapal</h3>
                         <p className="text-sm opacity-80">
                             {departure.name} {"->"} {destination.name}
                         </p>
@@ -340,32 +340,32 @@ export default function RouteDistancePicker() {
                             {/* Distance */}
                             <div className="text-center p-4 rounded-xl bg-blue-50">
                                 <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
-                                    Distance
+                                    Jarak
                                 </p>
                                 <p className="text-2xl font-bold text-primary">
                                     {distance.toFixed(1)}
                                 </p>
-                                <p className="text-xs text-gray-500">km (straight line)</p>
+                                <p className="text-xs text-gray-500">km (garis lurus)</p>
                             </div>
 
                             {/* Estimated Time */}
                             <div className="text-center p-4 rounded-xl bg-green-50">
                                 <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
-                                    Est. Time
+                                    Estimasi Waktu
                                 </p>
                                 <p className="text-2xl font-bold text-green-600">
                                     ~{estimatedTime}
                                 </p>
-                                <p className="text-xs text-gray-500">minutes by boat</p>
+                                <p className="text-xs text-gray-500">menit dengan kapal</p>
                             </div>
 
                             {/* Departure Type */}
                             <div className="text-center p-4 rounded-xl bg-amber-50">
                                 <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
-                                    Departure
+                                    Berangkat
                                 </p>
                                 <p className="text-lg font-bold text-amber-700">
-                                    Provider
+                                    Kapal
                                 </p>
                                 <p className="text-xs text-gray-500">{departure.label}</p>
                             </div>
@@ -373,9 +373,9 @@ export default function RouteDistancePicker() {
                             {/* Coordinates */}
                             <div className="text-center p-4 rounded-xl bg-gray-50">
                                 <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
-                                    Destination
+                                    Tujuan
                                 </p>
-                                <p className="text-lg font-bold text-gray-700">Dive Spot</p>
+                                <p className="text-lg font-bold text-gray-700">Spot Selam</p>
                                 <p className="text-xs text-gray-500">
                                     {destination.lat.toFixed(4)} deg N
                                 </p>
@@ -386,9 +386,9 @@ export default function RouteDistancePicker() {
                         <div className="mt-4 p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-xs text-blue-800 flex items-start gap-2">
                             <Info className="mt-0.5 h-4 w-4 shrink-0" />
                             <p>
-                                Distance shown is a straight-line estimate (Haversine formula).
-                                Actual boat route may vary due to weather conditions, currents,
-                                and navigational requirements. Estimated time assumes ~25 km/h boat speed.
+                                Jarak yang ditampilkan adalah estimasi garis lurus menggunakan rumus Haversine.
+                                Rute kapal sebenarnya dapat berbeda karena cuaca, arus, dan kebutuhan navigasi.
+                                Estimasi waktu memakai asumsi kecepatan kapal sekitar 25 km/jam.
                             </p>
                         </div>
                     </div>
@@ -399,7 +399,7 @@ export default function RouteDistancePicker() {
             {(!departure || !destination) && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
                     <p className="text-gray-400 text-sm">
-                        Select both a departure point and dive destination to see the route and estimated distance.
+                        Pilih pangkalan kapal dan spot selam untuk melihat rute serta estimasi jarak.
                     </p>
                 </div>
             )}

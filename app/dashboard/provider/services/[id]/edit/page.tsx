@@ -38,7 +38,7 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
 
     const { data: provider } = await supabase
         .from("providers")
-        .select("id, verification_status, is_active")
+        .select("id, primary_type, verification_status, is_active")
         .eq("owner_user_id", user.id)
         .maybeSingle();
 
@@ -77,6 +77,7 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
         <NewServiceForm
             isAdmin={false}
             providerId={provider.id}
+            providerPrimaryType={provider.primary_type}
             mode="edit"
             initialService={initialService}
         />

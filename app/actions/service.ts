@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getServiceTypeLabel, isServiceType } from "@/lib/service-types";
 
 export interface CreateServiceResult {
     success: boolean;
@@ -55,7 +56,7 @@ export async function createService(
 
     const { data: provider } = await supabase
         .from("providers")
-        .select("id, verification_status, is_active")
+        .select("id, primary_type, verification_status, is_active")
         .eq("owner_user_id", user.id)
         .single();
 
@@ -81,7 +82,7 @@ export async function createService(
     const priceStr = formData.get("price") as string;
     const maxCapacityStr = formData.get("max_capacity") as string;
     const description = (formData.get("description") as string)?.trim();
-    const diveSiteCategory = (formData.get("dive_site_category") as string)?.trim() || null;
+    const rawDiveSiteCategory = (formData.get("dive_site_category") as string)?.trim() || null;
     const imageFile = formData.get("image") as File | null;
 
     if (!name || name.length < 3) {
@@ -91,11 +92,17 @@ export async function createService(
         };
     }
 
-    const validTypes = ["boat", "instructor", "gear"];
-    if (!type || !validTypes.includes(type)) {
+    if (!isServiceType(type)) {
         return {
             success: false,
-            message: "Tipe layanan harus dipilih (boat, instructor, atau gear).",
+            message: "Tipe layanan harus dipilih.",
+        };
+    }
+
+    if (!isServiceType(provider.primary_type) || type !== provider.primary_type) {
+        return {
+            success: false,
+            message: `Provider dengan kategori ${getServiceTypeLabel(provider.primary_type)} hanya dapat membuat layanan ${getServiceTypeLabel(provider.primary_type)}.`,
         };
     }
 
@@ -111,7 +118,9 @@ export async function createService(
     if (isNaN(maxCapacity) || maxCapacity < 1) {
         return {
             success: false,
-            message: "Kapasitas maksimal harus minimal 1 orang.",
+            message: type === "gear"
+                ? "Stok unit alat harus minimal 1."
+                : "Kapasitas maksimal harus minimal 1 orang.",
         };
     }
 
@@ -172,7 +181,7 @@ export async function createService(
         price,
         max_capacity: maxCapacity,
         description: description || null,
-        dive_site_category: diveSiteCategory,
+        dive_site_category: type === "gear" ? null : rawDiveSiteCategory,
         image_url: imageUrl,
         is_available: true,
     });
@@ -215,7 +224,7 @@ export async function updateService(
     const priceStr = formData.get("price") as string;
     const maxCapacityStr = formData.get("max_capacity") as string;
     const description = (formData.get("description") as string)?.trim();
-    const diveSiteCategory = (formData.get("dive_site_category") as string)?.trim() || null;
+    const rawDiveSiteCategory = (formData.get("dive_site_category") as string)?.trim() || null;
     const imageFile = formData.get("image") as File | null;
     const isAvailable = formData.get("is_available") === "true";
 
@@ -233,11 +242,10 @@ export async function updateService(
         };
     }
 
-    const validTypes = ["boat", "instructor", "gear"];
-    if (!type || !validTypes.includes(type)) {
+    if (!isServiceType(type)) {
         return {
             success: false,
-            message: "Tipe layanan harus dipilih (boat, instructor, atau gear).",
+            message: "Tipe layanan harus dipilih.",
         };
     }
 
@@ -253,7 +261,9 @@ export async function updateService(
     if (isNaN(maxCapacity) || maxCapacity < 1) {
         return {
             success: false,
-            message: "Kapasitas maksimal harus minimal 1 orang.",
+            message: type === "gear"
+                ? "Stok unit alat harus minimal 1."
+                : "Kapasitas maksimal harus minimal 1 orang.",
         };
     }
 
@@ -274,7 +284,7 @@ export async function updateService(
 
     const { data: provider } = await supabase
         .from("providers")
-        .select("id, verification_status, is_active")
+        .select("id, primary_type, verification_status, is_active")
         .eq("owner_user_id", user.id)
         .maybeSingle();
 
@@ -293,6 +303,13 @@ export async function updateService(
     }
 
     const providerId = provider.id;
+
+    if (!isServiceType(provider.primary_type) || type !== provider.primary_type) {
+        return {
+            success: false,
+            message: `Provider dengan kategori ${getServiceTypeLabel(provider.primary_type)} hanya dapat mengelola layanan ${getServiceTypeLabel(provider.primary_type)}.`,
+        };
+    }
 
     let imageUrl: string | undefined;
 
@@ -344,7 +361,7 @@ export async function updateService(
         price,
         max_capacity: maxCapacity,
         description: description || null,
-        dive_site_category: diveSiteCategory,
+        dive_site_category: type === "gear" ? null : rawDiveSiteCategory,
         is_available: isAvailable,
     };
 

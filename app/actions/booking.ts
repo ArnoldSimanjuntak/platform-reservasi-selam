@@ -162,7 +162,7 @@ export async function createBooking(
     }
 
     // ─── 4. Ambil Surcharge dari Dive Site (jika ada) ───────────
-    const normalizedDiveSiteId = service.type === "gear" ? undefined : diveSiteId;
+    const normalizedDiveSiteId = service.type === "boat" ? diveSiteId : undefined;
 
     if (service.type === "boat" && !normalizedDiveSiteId) {
         return {
@@ -481,7 +481,7 @@ export async function updateBookingStatus(
                 payload: {
                     bookingId,
                     serviceName,
-                    message: `Aktivitas selam Anda (${serviceName}) telah dimulai! 🤿`,
+                    message: `Aktivitas selam Anda (${serviceName}) telah dimulai.`,
                     startedAt: new Date().toISOString(),
                 },
             });

@@ -40,7 +40,7 @@ export default async function NewServicePage() {
     // (force-dynamic memastikan baris ini selalu berjalan, tidak terpakai cache)
     const { data: provider } = await supabase
         .from("providers")
-        .select("id, verification_status, is_active")
+        .select("id, primary_type, verification_status, is_active")
         .eq("owner_user_id", user.id)
         .single();
 
@@ -63,5 +63,5 @@ export default async function NewServicePage() {
     }
 
     // â”€â”€â”€ 7. Semua validasi lulus â†’ render form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    return <NewServiceForm isAdmin={false} providerId={provider.id} />;
+    return <NewServiceForm isAdmin={false} providerId={provider.id} providerPrimaryType={provider.primary_type} />;
 }

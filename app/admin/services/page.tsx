@@ -13,6 +13,7 @@ import {
     ArrowLeft,
     Eye,
 } from "lucide-react";
+import { getServiceTypeLabel } from "@/lib/service-types";
 
 export const dynamic = "force-dynamic";
 
@@ -189,7 +190,7 @@ export default async function AdminServicesPage({
                                                         ? "bg-amber-100 text-amber-800"
                                                         : "bg-emerald-100 text-emerald-800"
                                                 }`}>
-                                                    {service.type === "boat" ? "⛵ Kapal" : service.type === "gear" ? "🤿 Alat" : "🎓 Instruktur"}
+                                                    {getServiceTypeLabel(service.type)}
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4 font-bold text-slate-700">
@@ -201,7 +202,7 @@ export default async function AdminServicesPage({
                                                         ? "bg-emerald-100 text-emerald-700"
                                                         : "bg-slate-100 text-slate-500"
                                                 }`}>
-                                                    {service.is_available ? "✅ Aktif" : "⏸ Nonaktif"}
+                                                    {service.is_available ? "Aktif" : "Nonaktif"}
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4 text-xs text-slate-400">

@@ -440,7 +440,7 @@ function ProviderDashboardView({
                                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-800 bg-blue-50 hover:bg-blue-100 transition-colors"
                                     >
                                         <Ship className="w-4 h-4 text-primary" />
-                                        Manajemen Kapal
+                                        Manajemen Layanan
                                     </Link>
                                     <Link
                                         href="/dashboard/provider/orders"

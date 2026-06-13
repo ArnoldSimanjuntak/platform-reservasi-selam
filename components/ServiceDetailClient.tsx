@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import {
     MapPin,
-    Star,
     Anchor,
     Ship,
     Clock,
@@ -19,6 +18,7 @@ import BookingForm from "@/components/BookingForm";
 import AddToTripButton from "@/components/AddToTripButton";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { getServiceTypeLabel } from "@/lib/service-types";
 
 interface ServiceDetailClientProps {
     service: Service;
@@ -63,18 +63,23 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
     const isGear = service.type === "gear";
     const isBoat = service.type === "boat";
     const heroImage = service.image_url || "/images/lembeh-map.png";
-
-    const serviceTypeLabel: Record<string, string> = {
-        boat: "Kapal",
-        instructor: "Instruktur / Guide",
-        gear: "Peralatan Selam",
-    };
+    const serviceTypeLabel = getServiceTypeLabel(service.type);
+    const providerBase =
+        service.provider &&
+        typeof service.provider.latitude === "number" &&
+        typeof service.provider.longitude === "number"
+            ? {
+                name: service.provider.name,
+                latitude: service.provider.latitude,
+                longitude: service.provider.longitude,
+            }
+            : null;
 
     const serviceFacts = [
         {
             icon: Tag,
             label: "Tipe Layanan",
-            description: serviceTypeLabel[service.type] ?? service.type,
+            description: serviceTypeLabel,
         },
         {
             icon: Users,
@@ -152,15 +157,15 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                     <div className="max-w-4xl animate-fade-in-up">
                         <div className="flex flex-wrap items-center gap-3 mb-4">
                             <span className="bg-accent/20 backdrop-blur-md border border-accent/30 text-accent px-3 py-1 rounded-full text-sm font-semibold uppercase tracking-wider">
-                                {service.type}
+                                {serviceTypeLabel}
                             </span>
                             <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1.5">
                                 <MapPin className="w-3.5 h-3.5" />
-                                Bitung, North Sulawesi
+                                Bitung, Sulawesi Utara
                             </span>
                             {service.dive_site_category && (
                                 <span className="bg-yellow-500/20 backdrop-blur-md border border-yellow-500/30 text-yellow-200 px-3 py-1 rounded-full text-sm font-medium">
-                                    {service.dive_site_category} Specialist
+                                    Kategori {service.dive_site_category}
                                 </span>
                             )}
                         </div>
@@ -169,12 +174,9 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                             {service.name}
                         </h1>
 
-                        <div className="flex items-center gap-2 text-yellow-400">
-                            {[1, 2, 3, 4, 5].map((i) => (
-                                <Star key={i} className="w-5 h-5 fill-current" />
-                            ))}
-                            <span className="text-white ml-2 text-sm font-medium">(24 Reviews)</span>
-                        </div>
+                        <p className="text-sm font-semibold text-blue-100">
+                            Detail layanan mengikuti data yang diisi oleh penyedia.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -187,7 +189,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
 
                         {/* About Section */}
                         <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100">
-                            <h2 className="text-2xl font-bold text-deepSea mb-4">About This Service</h2>
+                            <h2 className="text-2xl font-bold text-deepSea mb-4">Tentang Layanan Ini</h2>
                             <p className="text-gray-600 leading-relaxed text-lg">
                                 {service.description || "Provider belum menambahkan deskripsi layanan. Detail fasilitas dan ketentuan sebaiknya dikonfirmasi sebelum memesan."}
                             </p>
@@ -270,6 +272,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                                                 isBoat={isBoat}
                                                 isGear={isGear}
                                                 diveSites={diveSites}
+                                                providerBase={providerBase}
                                             />
 
                                             <AddToTripButton
@@ -277,7 +280,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                                                 serviceName={service.name}
                                                 price={service.price}
                                                 imageUrl={service.image_url || ""}
-                                                diveSiteCategory={service.dive_site_category}
+                                                diveSiteCategory={service.dive_site_category ?? undefined}
                                                 initialIsLoggedIn={initialIsLoggedIn}
                                             />
                                         </>
