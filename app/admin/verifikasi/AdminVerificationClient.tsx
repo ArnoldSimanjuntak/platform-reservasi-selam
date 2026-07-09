@@ -170,7 +170,7 @@ export default function AdminVerificationClient({
                 </div>
             )}
 
-            {/* ─── Tab Switcher ────────────────────────────────── */}
+            {/* â”€â”€â”€ Tab Switcher â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
                 {tabs.map((tab) => (
                     <button
@@ -214,7 +214,7 @@ export default function AdminVerificationClient({
                     </div>
                     <h3 className="text-xl font-black text-slate-900">
                         {activeTab === "pending"
-                            ? "Semua Bersih! ✅"
+                            ? "Semua Bersih! âœ…"
                             : activeTab === "verified"
                                 ? "Belum Ada yang Terverifikasi"
                                 : "Belum Ada yang Ditolak"}
@@ -257,7 +257,7 @@ export default function AdminVerificationClient({
                                     : "opacity-100 scale-100 border-[#023E8A]/10 hover:border-[#0077B6]/30 hover:shadow-lg"
                             }`}
                         >
-                            {/* Card Header — Deep Sea Blue Gradient */}
+                            {/* Card Header â€” Deep Sea Blue Gradient */}
                             <div
                                 className="px-5 py-4 flex items-center justify-between"
                                 style={{ background: "linear-gradient(135deg, #03045E, #023E8A)" }}
@@ -359,7 +359,7 @@ export default function AdminVerificationClient({
                                     )}
                                 </div>
 
-                                {/* Document Review Row */}
+                                {/* Document Check Row */}
                                 <div className="mb-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
                                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">

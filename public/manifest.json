@@ -1,7 +1,7 @@
 {
-  "name": "SulutDive — Reservasi Selam Lembeh",
+  "name": "SulutDive - Aplikasi Booking Wisata Selam Lembeh",
   "short_name": "SulutDive",
-  "description": "Platform reservasi wisata selam dengan carrying capacity di Selat Lembeh, Bitung, Sulawesi Utara. Mendukung konservasi ekosistem laut.",
+  "description": "Aplikasi booking wisata selam berbasis PWA untuk katalog layanan, pemesanan, provider, dan admin di kawasan Lembeh, Sulawesi Utara.",
   "id": "/",
   "start_url": "/",
   "display": "standalone",
@@ -11,85 +11,38 @@
   "scope": "/",
   "lang": "id",
   "dir": "ltr",
-  "categories": [
-    "travel",
-    "sports",
-    "lifestyle"
-  ],
+  "categories": ["travel", "sports", "lifestyle"],
   "icons": [
-    {
-      "src": "/icons/icon-72x72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-96x96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-128x128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-144x144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable any"
-    }
+    { "src": "/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-128x128.png", "sizes": "128x128", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-144x144.png", "sizes": "144x144", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable any" }
   ],
   "shortcuts": [
-    {
-      "name": "Peta Dive Site",
-      "short_name": "Lokasi",
-      "url": "/lokasi",
-      "description": "Jelajahi spot selam Selat Lembeh",
-      "icons": [
-        {
-          "src": "/icons/icon-96x96.png",
-          "sizes": "96x96"
-        }
-      ]
-    },
     {
       "name": "Katalog Layanan",
       "short_name": "Layanan",
       "url": "/services",
-      "description": "Lihat paket selam tersedia"
+      "description": "Lihat layanan kapal, guide atau instruktur, dan penyewaan alat selam",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Peta Spot Selam",
+      "short_name": "Peta",
+      "url": "/lokasi",
+      "description": "Jelajahi spot selam dan pangkalan kapal di kawasan Lembeh",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Dashboard Saya",
       "short_name": "Dashboard",
       "url": "/dashboard",
-      "description": "Cek status reservasi"
+      "description": "Lihat booking dan aktivitas akun",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ],
   "prefer_related_applications": false

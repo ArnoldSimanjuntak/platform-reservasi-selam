@@ -1,6 +1,8 @@
 const withPWA = require("next-pwa")({
     dest: "public",
-    register: true,
+    // Registration is handled by components/ServiceWorkerRegistration.tsx so we
+    // can force updateViaCache="none" and avoid stale service worker installs.
+    register: false,
     skipWaiting: true,
     disable: process.env.NODE_ENV === "development",
     // ─── Offline Fallback ────────────────────────────────────

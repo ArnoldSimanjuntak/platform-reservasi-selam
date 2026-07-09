@@ -29,9 +29,9 @@ const supabaseOrigin = (() => {
 })();
 
 export const metadata: Metadata = {
-  title: "SulutDive — Reservasi Selam Lembeh",
+  title: "SulutDive - Aplikasi Booking Wisata Selam Lembeh",
   description:
-    "Platform reservasi selam Selat Lembeh dengan carrying capacity. Temukan guide spesialis makro, sewa kapal, dan perlengkapan selam terbaik di Bitung, Sulawesi Utara.",
+    "Aplikasi booking wisata selam berbasis PWA untuk layanan kapal, guide atau instruktur, penyewaan alat selam, provider, dan admin di kawasan Lembeh.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -137,7 +137,7 @@ export default async function RootLayout({
           </>
         ) : null}
         {/* Script kritis: Tangkap beforeinstallprompt SEBELUM React hydration.
-            Browser memicu event ini sangat awal — jika React belum mount,
+            Browser memicu event ini sangat awal. Jika React belum mount,
             event akan hilang selamanya. Script ini menyimpannya ke global. */}
         <script
           dangerouslySetInnerHTML={{

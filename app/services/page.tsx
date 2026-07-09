@@ -2,6 +2,7 @@ import { getServices } from "@/lib/supabase";
 import ServiceCard from "@/components/ServiceCard";
 import type { Service } from "@/lib/supabase";
 import { Compass } from "lucide-react";
+import { getServiceTypeLabel } from "@/lib/service-types";
 
 export const revalidate = 60; // Revalidate data every 60 seconds
 
@@ -11,12 +12,6 @@ type ServicesPageProps = {
         date?: string;
         pax?: string;
     };
-};
-
-const serviceTypeLabels: Record<string, string> = {
-    boat: "Kapal",
-    instructor: "Guide / Instruktur",
-    gear: "Peralatan Selam",
 };
 
 export default async function ServicesPage({ searchParams }: ServicesPageProps) {
@@ -51,7 +46,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
                 <div className="relative z-20 container mx-auto px-4 text-center">
                     <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-bold mb-6 uppercase tracking-widest shadow-lg">
                         <Compass className="w-4 h-4 text-accent" />
-                        <span>Premium Experiences</span>
+                        <span>Katalog Layanan Selam</span>
                     </div>
 
                     <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-tight text-white drop-shadow-2xl mb-6">
@@ -59,7 +54,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
                     </h1>
 
                     <p className="text-lg md:text-xl text-gray-200 max-w-3xl mx-auto font-light drop-shadow-md leading-relaxed">
-                        Pilih paket selam terbaik di "The Critter Capital of The World". Dari perkenalan scuba (Discover Scuba), paket sertifikasi PADI, hingga sewa kapal privat khusus makro.
+                        Temukan layanan kapal, guide atau instruktur selam, dan penyewaan alat selam yang tersedia di kawasan Lembeh.
                     </p>
                 </div>
             </section>
@@ -70,11 +65,11 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
                     <div className="mb-6 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
                         <p className="text-sm font-semibold text-slate-900">
                             Hasil pencarian
-                            {selectedType ? ` untuk ${serviceTypeLabels[selectedType]}` : ""}
+                            {selectedType ? ` untuk ${getServiceTypeLabel(selectedType)}` : ""}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
                             {selectedDate ? `Tanggal: ${selectedDate}` : "Tanggal belum dipilih"}
-                            {" · "}
+                            {" - "}
                             {selectedPax ? `${selectedPax} penyelam` : "Jumlah penyelam belum dipilih"}
                         </p>
                     </div>
@@ -90,7 +85,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
                     <div className="text-center py-24 bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-gray-100 max-w-3xl mx-auto">
                         <Compass className="w-16 h-16 text-gray-300 mx-auto mb-6" />
                         <h2 className="text-2xl font-extrabold text-deepSea mb-2">
-                            {selectedType ? `Belum ada ${serviceTypeLabels[selectedType]} tersedia` : "Belum ada layanan tersedia"}
+                            {selectedType ? `Belum ada ${getServiceTypeLabel(selectedType)} tersedia` : "Belum ada layanan tersedia"}
                         </h2>
                         <p className="text-gray-500 font-medium">
                             {selectedType

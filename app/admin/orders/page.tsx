@@ -15,6 +15,7 @@ import {
     TrendingUp,
     AlertCircle,
 } from "lucide-react";
+import { getServiceTypeLabel } from "@/lib/service-types";
 
 export const dynamic = "force-dynamic";
 
@@ -190,7 +191,7 @@ export default async function AdminOrdersPage() {
                                         return (
                                             <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-5 py-4 font-bold text-slate-900 max-w-[200px] truncate">
-                                                    {service?.name ?? "—"}
+                                                    {service?.name ?? "-"}
                                                 </td>
                                                 <td className="px-5 py-4">
                                                     {service?.type && (
@@ -199,7 +200,7 @@ export default async function AdminOrdersPage() {
                                                             : service.type === "gear" ? "bg-amber-100 text-amber-800"
                                                             : "bg-emerald-100 text-emerald-800"
                                                         }`}>
-                                                            {service.type === "boat" ? "⛵ Kapal" : service.type === "gear" ? "🤿 Alat" : "🎓 Instruktur"}
+                                                            {getServiceTypeLabel(service.type)}
                                                         </span>
                                                     )}
                                                 </td>

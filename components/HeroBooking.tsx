@@ -27,7 +27,7 @@ export default function HeroBooking() {
         {
             value: "gear",
             label: "Peralatan",
-            description: "Sewa gear penyelaman",
+            description: "Sewa alat selam",
             icon: Wrench,
         },
     ];

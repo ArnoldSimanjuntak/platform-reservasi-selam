@@ -282,7 +282,7 @@ function StatusBanner({
                 <div>
                     <p className="text-sm text-emerald-900 font-extrabold">Pengajuan verifikasi berhasil dikirim</p>
                     <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
-                        Dokumen dan profil bisnis Anda sudah masuk antrean review admin. Selama proses ini, akun belum bisa menerima pesanan sampai status disetujui.
+                        Dokumen dan profil bisnis Anda sudah masuk antrean Ditinjau admin. Selama proses ini, akun belum bisa menerima pesanan sampai status disetujui.
                     </p>
                 </div>
             </div>
@@ -430,7 +430,7 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
                                     Data yang tampil di halaman ini hanya milik akun Anda. Admin akan memeriksa identitas, kontak, dan kelayakan profil sebelum mengaktifkan akses operasional provider.
                                 </p>
                                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                                    {["Dokumen terkirim", "Review admin", "Akses provider aktif"].map((step, index) => (
+                                    {["Dokumen terkirim", "Ditinjau admin", "Akses provider aktif"].map((step, index) => (
                                         <div
                                             key={step}
                                             className={`rounded-2xl border p-3 text-xs font-bold ${
@@ -482,7 +482,7 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
                                 </div>
                                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                                     <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Status Dokumen</p>
-                                    <p className="mt-1 text-sm font-bold text-amber-700">Menunggu review admin</p>
+                                    <p className="mt-1 text-sm font-bold text-amber-700">Menunggu Ditinjau admin</p>
                                 </div>
                             </div>
                             <div className="grid gap-4 sm:grid-cols-2">
