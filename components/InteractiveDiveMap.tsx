@@ -6,6 +6,7 @@ import Image from "next/image";
 import { getDiveSites, getBoatServices } from "@/lib/supabase";
 import type { DiveSite, Service } from "@/lib/supabase";
 import { MapPin, X, Navigation, Loader2, Ship, Anchor } from "lucide-react";
+import { formatRupiah } from "@/lib/formatters";
 
 // Fallback positions jika data dari DB belum ada latitude/longitude
 const fallbackPositions: Record<string, { top: string; left: string }> = {
@@ -42,9 +43,6 @@ export default function InteractiveDiveMap() {
         // Spread evenly if no fallback match
         return { top: `${20 + idx * 25}%`, left: `${30 + idx * 20}%` };
     };
-
-    const formatPrice = (amount: number) =>
-        new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(amount);
 
     return (
         <div className="relative w-full h-[70vh] min-h-[500px] overflow-hidden rounded-3xl bg-blue-50 border-4 border-white shadow-xl group/map">
@@ -136,7 +134,7 @@ export default function InteractiveDiveMap() {
                         <div className="mb-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100 flex justify-between items-center">
                             <span className="text-slate-800 font-bold">Biaya Tambahan Jarak</span>
                             <span className="font-extrabold text-lg text-[#023E8A]">
-                                {selectedSite.surcharge_fee === 0 ? "Gratis" : `+ Rp ${selectedSite.surcharge_fee.toLocaleString('id-ID')}`}
+                                {selectedSite.surcharge_fee === 0 ? "Gratis" : `+ ${formatRupiah(selectedSite.surcharge_fee)}`}
                             </span>
                         </div>
 
@@ -153,7 +151,7 @@ export default function InteractiveDiveMap() {
                                     {boats.slice(0, 3).map((boat) => (
                                         <button
                                             key={boat.id}
-                                            onClick={() => router.push(`/booking?dive_site=${selectedSite.id}`)}
+                                            onClick={() => router.push(`/services?type=boat&dive_site=${selectedSite.id}`)}
                                             className="w-full p-4 rounded-xl border border-gray-200 text-left hover:border-primary hover:bg-blue-50/50 transition-all group/boat"
                                         >
                                             <div className="flex justify-between items-start">
@@ -167,7 +165,7 @@ export default function InteractiveDiveMap() {
                                                     </div>
                                                 </div>
                                                 <span className="font-bold text-primary text-sm whitespace-nowrap">
-                                                    {formatPrice(boat.price)}
+                                                    {formatRupiah(boat.price)}
                                                     <span className="text-xs text-slate-500 font-normal block text-right">/pax</span>
                                                 </span>
                                             </div>
@@ -184,7 +182,7 @@ export default function InteractiveDiveMap() {
 
                         {/* Main CTA */}
                         <button
-                            onClick={() => router.push(`/booking?dive_site=${selectedSite.id}`)}
+                            onClick={() => router.push(`/services?type=boat&dive_site=${selectedSite.id}`)}
                             className="w-full bg-[#023E8A] hover:bg-[#03045E] text-white font-bold py-4 rounded-xl shadow-[0_8px_20px_rgba(2,62,138,0.25)] hover:shadow-[0_4px_10px_rgba(2,62,138,0.2)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-lg"
                         >
                             <MapPin className="w-5 h-5" />

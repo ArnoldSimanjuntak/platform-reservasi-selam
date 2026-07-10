@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { NavbarInitialAuthState } from "@/components/Navbar";
+import type { NavbarAuthState } from "@/lib/auth/navbar-state";
 
 const LAST_ACTIVITY_KEY = "sulutdive-last-activity";
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
@@ -45,7 +45,7 @@ export default function SessionTimeout() {
                     cache: "no-store",
                     credentials: "same-origin",
                 });
-                const state = (await stateResponse.json()) as NavbarInitialAuthState;
+                const state = (await stateResponse.json()) as NavbarAuthState;
                 if (!state.user) {
                     signingOutRef.current = false;
                     writeLastActivity();

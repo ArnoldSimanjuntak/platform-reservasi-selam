@@ -19,6 +19,7 @@ import AddToTripButton from "@/components/AddToTripButton";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { getServiceTypeLabel } from "@/lib/service-types";
+import { formatRupiah } from "@/lib/formatters";
 
 interface ServiceDetailClientProps {
     service: Service;
@@ -131,15 +132,6 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
             : "Kontak provider belum dicantumkan.",
     ];
 
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat("id-ID", {
-            style: "currency",
-            currency: "IDR",
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(price);
-    };
-
     return (
         <div className="min-h-screen bg-gray-50 pb-20">
             {/* 1. Hero Header */}
@@ -236,7 +228,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                                     <p className="text-sm font-medium opacity-90 mb-1">
                                         {isGear ? "Harga Sewa" : "Mulai Dari"}
                                     </p>
-                                    <h3 className="text-3xl font-bold">{formatPrice(service.price)}</h3>
+                                    <h3 className="text-3xl font-bold">{formatRupiah(service.price)}</h3>
                                     <p className="text-xs opacity-75">
                                         {isGear ? "per unit / hari" : "per pax / hari"}
                                     </p>

@@ -8,20 +8,11 @@ import { createClient } from "@/lib/supabase/client";
 import { signOut as serverSignOut } from "@/app/auth/actions";
 import { useCartStore } from "@/lib/cart-store";
 import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
+import type { NavbarAuthState, NavbarUser } from "@/lib/auth/navbar-state";
 
 // ─── Types ─────────────────────────────────────────────────────
-export interface NavbarUser {
-    id: string;
-    email: string | null;
-    name: string | null;
-}
-
-export interface NavbarInitialAuthState {
-    user: NavbarUser | null;
-    role: string | null;
-    providerVerified: boolean;
-    isLoading: boolean;
-}
+export type { NavbarUser };
+export type NavbarInitialAuthState = NavbarAuthState;
 
 type NavLink = { name: string; href: string; isButton?: boolean };
 

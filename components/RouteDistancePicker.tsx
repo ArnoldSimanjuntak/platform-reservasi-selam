@@ -15,6 +15,7 @@ import "leaflet/dist/leaflet.css";
 import { Anchor, ChevronDown, Info, Waves } from "lucide-react";
 import { getMapProviders } from "@/lib/supabase";
 import type { ProviderMapPin } from "@/lib/supabase";
+import { haversineDistanceKm } from "@/lib/geo";
 
 // â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface LocationPoint {
@@ -73,21 +74,6 @@ const createIcon = (color: string, label: string) =>
 
 const providerIcon  = createIcon("#0077B6", "PB"); // Pangkalan provider dari DB
 const diveIcon      = createIcon("#E63946", "DS");
-
-// â”€â”€â”€ Haversine Distance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371; // km
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-            Math.cos((lat2 * Math.PI) / 180) *
-            Math.sin(dLng / 2) *
-            Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
 
 // â”€â”€â”€ Map Bounds Fitter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FitBounds({ start, end }: { start: [number, number]; end: [number, number] }) {
@@ -169,7 +155,7 @@ export default function RouteDistancePicker() {
 
     const distance = useMemo(() => {
         if (!departure || !destination) return null;
-        return haversineDistance(departure.lat, departure.lng, destination.lat, destination.lng);
+        return haversineDistanceKm(departure.lat, departure.lng, destination.lat, destination.lng);
     }, [departure, destination]);
 
     // Estimated boat speed ~25km/h for Lembeh waters

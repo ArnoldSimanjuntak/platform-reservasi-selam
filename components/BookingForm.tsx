@@ -21,6 +21,14 @@ import { createClient } from "@/lib/supabase/client";
 import type { BookingResult } from "@/app/actions/booking";
 import type { DiveSite } from "@/lib/supabase";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { formatRupiah, getLocalDateString } from "@/lib/formatters";
+import {
+    getDistanceTier,
+    getDistanceTierDescription,
+    getDistanceTierLabel,
+    haversineDistanceKm,
+    type DistanceTier,
+} from "@/lib/geo";
 
 interface BookingFormProps {
     serviceId: string;
@@ -38,24 +46,11 @@ interface BookingFormProps {
     } | null;
 }
 
-function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const earthRadiusKm = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos((lat1 * Math.PI) / 180) *
-            Math.cos((lat2 * Math.PI) / 180) *
-            Math.sin(dLng / 2) ** 2;
-
-    return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function getDistanceTier(distanceKm: number) {
-    if (distanceKm <= 5) return { label: "Dekat", className: "bg-emerald-50 border-emerald-200 text-emerald-800" };
-    if (distanceKm <= 10) return { label: "Sedang", className: "bg-amber-50 border-amber-200 text-amber-800" };
-    return { label: "Jauh", className: "bg-red-50 border-red-200 text-red-800" };
-}
+const distanceTierClasses: Record<DistanceTier, string> = {
+    near: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    medium: "bg-amber-50 border-amber-200 text-amber-800",
+    far: "bg-red-50 border-red-200 text-red-800",
+};
 
 export default function BookingForm({
     serviceId,
@@ -146,15 +141,6 @@ export default function BookingForm({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [date, serviceId, rentalDays, isGear]);
 
-    const formatPrice = (amount: number) => {
-        return new Intl.NumberFormat("id-ID", {
-            style: "currency",
-            currency: "IDR",
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(amount);
-    };
-
     const selectedSite = isBoat ? diveSites.find(s => s.id === selectedDiveSiteId) : null;
     const distanceKm =
         isBoat &&
@@ -177,11 +163,7 @@ export default function BookingForm({
 
     // Minimum date = today (in local timezone, safe for WITA UTC+8)
     // Using manual local date construction to avoid UTC conversion issues
-    const now = new Date();
-    const localYear = now.getFullYear();
-    const localMonth = String(now.getMonth() + 1).padStart(2, '0');
-    const localDay = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${localYear}-${localMonth}-${localDay}`;
+    const todayStr = getLocalDateString();
 
     // Allow booking from today onwards
     const minDate = todayStr;
@@ -336,19 +318,19 @@ export default function BookingForm({
                             <option value="" disabled>-- Pilih Spot Selam --</option>
                             {diveSites.map(site => (
                                 <option key={site.id} value={site.id} className="text-[#111827] font-medium">
-                                    {site.name} {site.surcharge_fee > 0 ? `(+ ${formatPrice(site.surcharge_fee)})` : "(Tanpa biaya spot)"}
+                                    {site.name} {site.surcharge_fee > 0 ? `(+ ${formatRupiah(site.surcharge_fee)})` : "(Tanpa biaya spot)"}
                                 </option>
                             ))}
                         </select>
                     </div>
                     {selectedSite && providerBase && distanceKm !== null && distanceTier && (
-                        <div className={`rounded-xl border p-3 text-xs font-semibold ${distanceTier.className}`}>
+                        <div className={`rounded-xl border p-3 text-xs font-semibold ${distanceTierClasses[distanceTier]}`}>
                             <div className="flex items-center justify-between gap-3">
                                 <span>Jarak dari pangkalan {providerBase.name}</span>
                                 <span>{distanceKm.toFixed(1)} km</span>
                             </div>
                             <p className="mt-1 font-medium opacity-80">
-                                Kategori: {distanceTier.label}. Patokan: dekat &lt;= 5 km, sedang 5-10 km, jauh &gt; 10 km.
+                                Kategori: {getDistanceTierLabel(distanceTier)}. {getDistanceTierDescription()}
                             </p>
                         </div>
                     )}
@@ -385,7 +367,7 @@ export default function BookingForm({
                     </div>
                     <p className="text-xs text-slate-500 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        Harga per hari: {formatPrice(price)} x {rentalDays} hari x {guests} unit
+                        Harga per hari: {formatRupiah(price)} x {rentalDays} hari x {guests} unit
                     </p>
                 </div>
             )}
@@ -483,19 +465,19 @@ export default function BookingForm({
                     <>
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-600 font-medium">Harga/hari x {rentalDays} hari x {guests} unit</span>
-                            <span className="text-[#111827] font-bold">{formatPrice(price * rentalDays * guests)}</span>
+                            <span className="text-[#111827] font-bold">{formatRupiah(price * rentalDays * guests)}</span>
                         </div>
                     </>
                 ) : (
                     <>
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-600 font-medium">Subtotal ({guests} pax)</span>
-                            <span className="text-[#111827] font-bold">{formatPrice(price * guests)}</span>
+                            <span className="text-[#111827] font-bold">{formatRupiah(price * guests)}</span>
                         </div>
                         {selectedSite && (
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-slate-600 font-medium">Biaya spot</span>
-                                <span className="text-[#111827] font-bold">{surcharge === 0 ? "Gratis" : formatPrice(surcharge)}</span>
+                                <span className="text-[#111827] font-bold">{surcharge === 0 ? "Gratis" : formatRupiah(surcharge)}</span>
                             </div>
                         )}
                     </>
@@ -503,7 +485,7 @@ export default function BookingForm({
                 <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-50">
                     <span className="text-[#111827] font-bold">Estimasi Total</span>
                     <span className="text-xl font-extrabold text-primary">
-                        {formatPrice(totalPrice)}
+                        {formatRupiah(totalPrice)}
                     </span>
                 </div>
             </div>

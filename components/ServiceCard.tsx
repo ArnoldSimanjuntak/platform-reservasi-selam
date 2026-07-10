@@ -6,6 +6,7 @@ import { Ship, Anchor, Camera, ArrowRight, Loader2 } from "lucide-react";
 import type { Service } from "@/lib/supabase";
 import { useState } from "react";
 import { getServiceTypeLabel } from "@/lib/service-types";
+import { formatRupiah } from "@/lib/formatters";
 
 interface ServiceCardProps {
     service: Service;
@@ -22,15 +23,6 @@ export default function ServiceCard({ service }: ServiceCardProps) {
             case "gear": return <Camera className="w-5 h-5 mb-2 text-white/90" />;
             default: return <Ship className="w-5 h-5 mb-2 text-white/90" />;
         }
-    };
-
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat("id-ID", {
-            style: "currency",
-            currency: "IDR",
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(price);
     };
 
     const handleNavigate = () => {
@@ -88,7 +80,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
                 <div className="flex flex-col">
                     <span className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Mulai Dari</span>
                     <span className="text-xl font-bold text-deepSea">
-                        {formatPrice(service.price)}
+                        {formatRupiah(service.price)}
                     </span>
                 </div>
 

@@ -14,6 +14,7 @@ import {
     Eye,
 } from "lucide-react";
 import { getServiceTypeLabel } from "@/lib/service-types";
+import { formatDateId, formatRupiah } from "@/lib/formatters";
 
 export const dynamic = "force-dynamic";
 
@@ -194,7 +195,7 @@ export default async function AdminServicesPage({
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4 font-bold text-slate-700">
-                                                Rp {Number(service.price).toLocaleString("id-ID")}
+                                                {formatRupiah(service.price)}
                                             </td>
                                             <td className="px-5 py-4">
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black ${
@@ -206,11 +207,7 @@ export default async function AdminServicesPage({
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4 text-xs text-slate-400">
-                                                {new Date(service.created_at).toLocaleDateString("id-ID", {
-                                                    day: "numeric",
-                                                    month: "short",
-                                                    year: "numeric",
-                                                })}
+                                                {formatDateId(service.created_at)}
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div className="flex justify-end">

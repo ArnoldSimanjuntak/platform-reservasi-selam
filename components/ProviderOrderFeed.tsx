@@ -26,6 +26,8 @@ import {
     Receipt,
     Eye
 } from "lucide-react";
+import { bookingStatusLabels } from "@/lib/booking-status";
+import { formatRupiah, getLocalDateString } from "@/lib/formatters";
 
 interface OrderService {
     id: string;
@@ -58,19 +60,13 @@ interface ProviderOrderFeedProps {
 
 type BookingRealtimeRow = Partial<Order> & { id: string };
 
-// â”€â”€â”€ Helper: Get today's date as YYYY-MM-DD (WITA-safe) â”€â”€â”€â”€â”€â”€â”€â”€
-function getTodayStr(): string {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
-
 // â”€â”€â”€ Status Config (updated: upcoming â†’ confirmed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const statusConfig: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
-    pending:     { label: "Menunggu",    bg: "bg-amber-50 border-amber-200",  text: "text-amber-800",   icon: Clock },
-    confirmed:   { label: "Dikonfirmasi", bg: "bg-blue-50 border-blue-200",   text: "text-blue-800",    icon: CalendarCheck },
-    in_progress: { label: "Berlangsung",  bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-800", icon: Waves },
-    completed:   { label: "Selesai",      bg: "bg-gray-100 border-gray-200",  text: "text-gray-600",    icon: CheckCircle2 },
-    cancelled:   { label: "Dibatalkan",   bg: "bg-red-50 border-red-200",     text: "text-red-700",     icon: XCircle },
+    pending:     { label: bookingStatusLabels.pending, bg: "bg-amber-50 border-amber-200", text: "text-amber-800", icon: Clock },
+    confirmed:   { label: bookingStatusLabels.confirmed, bg: "bg-blue-50 border-blue-200", text: "text-blue-800", icon: CalendarCheck },
+    in_progress: { label: bookingStatusLabels.in_progress, bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-800", icon: Waves },
+    completed:   { label: bookingStatusLabels.completed, bg: "bg-gray-100 border-gray-200", text: "text-gray-600", icon: CheckCircle2 },
+    cancelled:   { label: bookingStatusLabels.cancelled, bg: "bg-red-50 border-red-200", text: "text-red-700", icon: XCircle },
 };
 
 const serviceTypeIcon: Record<string, React.ElementType> = {
@@ -88,7 +84,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
     const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
     const [loadingProofId, setLoadingProofId] = useState<string | null>(null);
 
-    const todayStr = getTodayStr();
+    const todayStr = getLocalDateString();
 
     useEffect(() => {
         const supabase = createClient();
@@ -252,13 +248,6 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
             year: "numeric",
         });
 
-    const formatPrice = (amount: number) =>
-        new Intl.NumberFormat("id-ID", {
-            style: "currency",
-            currency: "IDR",
-            minimumFractionDigits: 0,
-        }).format(amount);
-
     // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (isLoading) {
         return (
@@ -413,7 +402,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                                     </span>
                                                 </div>
                                                 <p className="text-sm font-extrabold text-primary mt-1.5">
-                                                    {formatPrice(order.total_price)}
+                                                    {formatRupiah(order.total_price)}
                                                 </p>
                                             </div>
                                         </div>

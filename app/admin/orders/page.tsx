@@ -16,6 +16,8 @@ import {
     AlertCircle,
 } from "lucide-react";
 import { getServiceTypeLabel } from "@/lib/service-types";
+import { bookingStatusLabels } from "@/lib/booking-status";
+import { formatDateId, formatRupiah } from "@/lib/formatters";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +33,11 @@ function createAdminDbClient() {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-    pending:     { label: "Menunggu",    bg: "bg-amber-100",   text: "text-amber-700" },
-    confirmed:   { label: "Dikonfirmasi", bg: "bg-blue-100",   text: "text-blue-700" },
-    in_progress: { label: "Berjalan",    bg: "bg-indigo-100",  text: "text-indigo-700" },
-    completed:   { label: "Selesai",     bg: "bg-emerald-100", text: "text-emerald-700" },
-    cancelled:   { label: "Dibatalkan",  bg: "bg-red-100",     text: "text-red-700" },
+    pending:     { label: bookingStatusLabels.pending, bg: "bg-amber-100", text: "text-amber-700" },
+    confirmed:   { label: bookingStatusLabels.confirmed, bg: "bg-blue-100", text: "text-blue-700" },
+    in_progress: { label: bookingStatusLabels.in_progress, bg: "bg-indigo-100", text: "text-indigo-700" },
+    completed:   { label: bookingStatusLabels.completed, bg: "bg-emerald-100", text: "text-emerald-700" },
+    cancelled:   { label: bookingStatusLabels.cancelled, bg: "bg-red-100", text: "text-red-700" },
 };
 
 export default async function AdminOrdersPage() {
@@ -140,7 +142,7 @@ export default async function AdminOrdersPage() {
                         { label: "Total Transaksi", value: allBookings.length, icon: TrendingUp, color: "text-[#023E8A]", bg: "bg-blue-50" },
                         {
                             label: "Total Revenue",
-                            value: `Rp ${totalRevenue.toLocaleString("id-ID")}`,
+                            value: formatRupiah(totalRevenue),
                             icon: AlertCircle,
                             color: "text-rose-600",
                             bg: "bg-rose-50",
@@ -205,17 +207,13 @@ export default async function AdminOrdersPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-5 py-4 text-slate-600">
-                                                    {new Date(booking.booking_date).toLocaleDateString("id-ID", {
-                                                        day: "numeric",
-                                                        month: "short",
-                                                        year: "numeric",
-                                                    })}
+                                                    {formatDateId(booking.booking_date)}
                                                 </td>
                                                 <td className="px-5 py-4 text-slate-600 text-center">
                                                     {booking.total_participants}
                                                 </td>
                                                 <td className="px-5 py-4 font-bold text-slate-700">
-                                                    Rp {Number(booking.total_price || 0).toLocaleString("id-ID")}
+                                                    {formatRupiah(booking.total_price)}
                                                 </td>
                                                 <td className="px-5 py-4">
                                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-black ${statusCfg.bg} ${statusCfg.text}`}>

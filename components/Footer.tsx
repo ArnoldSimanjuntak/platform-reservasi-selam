@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { Anchor, Mail, Phone, MapPin, Facebook, Instagram, Twitter } from "lucide-react";
-import type { NavbarInitialAuthState } from "@/components/Navbar";
+import type { NavbarAuthState } from "@/lib/auth/navbar-state";
 
 interface FooterProps {
-    initialAuthState?: NavbarInitialAuthState;
+    initialAuthState?: NavbarAuthState;
 }
 
 export default function Footer({ initialAuthState }: FooterProps) {

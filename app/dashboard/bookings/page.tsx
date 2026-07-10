@@ -5,16 +5,18 @@ import Link from "next/link";
 import Image from "next/image";
 import type { BookingStatus } from "@/lib/supabase";
 import PaymentUploaderCard from "@/components/PaymentUploaderCard";
+import { bookingStatusLabels } from "@/lib/booking-status";
+import { formatRupiah } from "@/lib/formatters";
 
 export const revalidate = 0;
 
 function getStatusBadge(status: BookingStatus) {
     const badges: Record<string, { label: string; bg: string; text: string }> = {
-        completed: { label: "Selesai", bg: "bg-green-50 border-green-200", text: "text-green-700" },
-        confirmed: { label: "Dikonfirmasi", bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
-        in_progress: { label: "Berlangsung", bg: "bg-amber-50 border-amber-200", text: "text-amber-700" },
-        pending: { label: "Menunggu", bg: "bg-gray-100 border-gray-200", text: "text-gray-700" },
-        cancelled: { label: "Dibatalkan", bg: "bg-red-50 border-red-200", text: "text-red-600" },
+        completed: { label: bookingStatusLabels.completed, bg: "bg-green-50 border-green-200", text: "text-green-700" },
+        confirmed: { label: bookingStatusLabels.confirmed, bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
+        in_progress: { label: bookingStatusLabels.in_progress, bg: "bg-amber-50 border-amber-200", text: "text-amber-700" },
+        pending: { label: bookingStatusLabels.pending, bg: "bg-gray-100 border-gray-200", text: "text-gray-700" },
+        cancelled: { label: bookingStatusLabels.cancelled, bg: "bg-red-50 border-red-200", text: "text-red-600" },
     };
     const b = badges[status] || { label: status, bg: "bg-gray-100 border-gray-200", text: "text-gray-600" };
     return (
@@ -54,14 +56,6 @@ export default async function BookingsHistoryPage() {
         `)
         .eq("user_id", user.id)
         .order("booking_date", { ascending: false });
-
-    const formatCurrency = (amount: number) =>
-        new Intl.NumberFormat("id-ID", {
-            style: "currency",
-            currency: "IDR",
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(amount);
 
     const formatDate = (dateString: string) =>
         new Date(dateString).toLocaleDateString("id-ID", {
@@ -133,7 +127,7 @@ export default async function BookingsHistoryPage() {
                                         <div className="text-left sm:text-right">
                                             <p className="text-xs text-slate-400 font-semibold mb-0.5">Total</p>
                                             <p className="text-lg font-bold text-primary">
-                                                {formatCurrency(booking.total_price)}
+                                                {formatRupiah(booking.total_price)}
                                             </p>
                                         </div>
                                     </div>

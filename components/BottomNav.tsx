@@ -5,11 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BriefcaseBusiness, ClipboardList, Home, Map, User, UserCog } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { NavbarInitialAuthState } from "@/components/Navbar";
+import type { NavbarAuthState } from "@/lib/auth/navbar-state";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 interface BottomNavProps {
-    initialAuthState?: NavbarInitialAuthState;
+    initialAuthState?: NavbarAuthState;
 }
 
 type BottomNavItem = {
@@ -25,7 +25,7 @@ function isAbortError(error: unknown): boolean {
     return String(error).toLowerCase().includes("aborted");
 }
 
-function getNavItems(authState: NavbarInitialAuthState): BottomNavItem[] {
+function getNavItems(authState: NavbarAuthState): BottomNavItem[] {
     const { user, role, providerVerified } = authState;
     const isAuthenticated = !!user;
     const bookingHref = isAuthenticated ? "/dashboard/bookings" : "/auth/login";
@@ -106,7 +106,7 @@ function getNavItems(authState: NavbarInitialAuthState): BottomNavItem[] {
 }
 
 export default function BottomNav({ initialAuthState }: BottomNavProps) {
-    const [authState, setAuthState] = useState<NavbarInitialAuthState>(
+    const [authState, setAuthState] = useState<NavbarAuthState>(
         initialAuthState ?? {
             user: null,
             role: null,
@@ -131,7 +131,7 @@ export default function BottomNav({ initialAuthState }: BottomNavProps) {
             });
             if (!response.ok) throw new Error(`Bottom nav auth sync failed: ${response.status}`);
 
-            const nextState = (await response.json()) as NavbarInitialAuthState;
+            const nextState = (await response.json()) as NavbarAuthState;
             if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
             setAuthState(nextState);
         } catch (error) {

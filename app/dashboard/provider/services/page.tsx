@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Ship, Wrench, Users, Package, Plus, ArrowLeft, CheckCircle2, XCircle, DollarSign, Pencil } from "lucide-react";
 import DeleteServiceButton from "@/components/DeleteServiceButton";
 import { getServiceTypeLabel } from "@/lib/service-types";
+import { formatRupiah } from "@/lib/formatters";
 
 export default async function ProviderServicesPage({
     searchParams,
@@ -60,10 +61,10 @@ export default async function ProviderServicesPage({
 
     const providerTypeLabel = getServiceTypeLabel(provider.primary_type);
 
-    const typeConfig: Record<string, { label: string; icon: React.ElementType; bg: string; text: string }> = {
-        boat: { label: "Kapal", icon: Ship, bg: "bg-blue-50", text: "text-blue-700" },
-        instructor: { label: "Guide / Instruktur Selam", icon: Users, bg: "bg-emerald-50", text: "text-emerald-700" },
-        gear: { label: "Penyewaan Alat Selam", icon: Wrench, bg: "bg-amber-50", text: "text-amber-700" },
+    const typeConfig: Record<string, { icon: React.ElementType; bg: string; text: string }> = {
+        boat: { icon: Ship, bg: "bg-blue-50", text: "text-blue-700" },
+        instructor: { icon: Users, bg: "bg-emerald-50", text: "text-emerald-700" },
+        gear: { icon: Wrench, bg: "bg-amber-50", text: "text-amber-700" },
     };
 
     return (
@@ -161,7 +162,7 @@ export default async function ProviderServicesPage({
                                             <div className="min-w-0">
                                                 <h3 className="text-base font-bold text-slate-900 truncate">{service.name}</h3>
                                                 <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${config.bg} ${config.text}`}>
-                                                    {config.label}
+                                                    {getServiceTypeLabel(service.type)}
                                                 </span>
                                             </div>
                                         </div>
@@ -188,7 +189,7 @@ export default async function ProviderServicesPage({
                                         <div className="flex items-center gap-4">
                                             <span className="flex items-center gap-1 text-sm font-bold text-slate-900">
                                                 <DollarSign className="w-4 h-4 text-slate-400" />
-                                                Rp {Number(service.price).toLocaleString("id-ID")}
+                                                {formatRupiah(service.price)}
                                             </span>
                                             <span className="flex items-center gap-1 text-xs text-slate-500 font-medium">
                                                 <Users className="w-3.5 h-3.5" />

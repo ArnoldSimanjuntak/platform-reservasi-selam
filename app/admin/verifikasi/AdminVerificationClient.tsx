@@ -26,6 +26,7 @@ import {
     getRequiredDocumentTypes,
     type VerificationDocumentType,
 } from "@/lib/provider-verification";
+import { getServiceTypeLabel } from "@/lib/service-types";
 
 interface AdminVerificationClientProps {
     initialProviders: Provider[];
@@ -33,25 +34,22 @@ interface AdminVerificationClientProps {
     rejectedProviders?: Provider[];
 }
 
-// Mapping tipe provider ke ikon dan label yang sesuai
-const TYPE_CONFIG: Record<string, { icon: ElementType; label: string; bg: string; text: string; border: string }> = {
+// Mapping tipe provider ke ikon dan warna UI. Label berasal dari service-types.
+const TYPE_CONFIG: Record<string, { icon: ElementType; bg: string; text: string; border: string }> = {
     boat: {
         icon: Ship,
-        label: "Operator Kapal",
         bg: "bg-blue-100",
         text: "text-blue-800",
         border: "border-blue-200",
     },
     gear: {
         icon: Glasses,
-        label: "Rental Alat",
         bg: "bg-amber-100",
         text: "text-amber-800",
         border: "border-amber-200",
     },
     instructor: {
         icon: GraduationCap,
-        label: "Instruktur / Guide",
         bg: "bg-emerald-100",
         text: "text-emerald-800",
         border: "border-emerald-200",
@@ -272,7 +270,7 @@ export default function AdminVerificationClient({
                                         </h3>
                                         <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded mt-0.5 ${typeConfig.bg} ${typeConfig.text}`}>
                                             <TypeIcon className="w-3 h-3" />
-                                            {typeConfig.label}
+                                            {getServiceTypeLabel(provider.primary_type)}
                                         </span>
                                     </div>
                                 </div>

@@ -8,6 +8,7 @@ import "leaflet/dist/leaflet.css";
 import { Anchor, Clock, ExternalLink, Navigation, Ship, Waves } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DiveSite, ProviderMapPin } from "@/lib/supabase";
+import { formatRupiah } from "@/lib/formatters";
 
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -233,7 +234,7 @@ export default function MapLeaflet() {
                                 <span className="font-bold text-[#023E8A]">
                                     {site.surcharge_fee === 0
                                         ? "Gratis"
-                                        : `+ Rp ${site.surcharge_fee.toLocaleString("id-ID")}`}
+                                        : `+ ${formatRupiah(site.surcharge_fee)}`}
                                 </span>
                             </div>
 

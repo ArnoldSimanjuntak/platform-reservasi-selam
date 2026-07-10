@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
-import Navbar, { type NavbarInitialAuthState } from "@/components/Navbar";
+import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import InstallPrompt from "@/components/InstallPrompt";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import BottomNav from "@/components/BottomNav";
 import SessionTimeout from "@/components/SessionTimeout";
-import { createClient } from "@/lib/supabase/server";
+import { getServerNavbarAuthState } from "@/lib/auth/navbar-state";
 import "./globals.css";
 
 export const dynamic = 'force-dynamic';
@@ -62,68 +62,12 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-async function getInitialNavbarAuthState(): Promise<NavbarInitialAuthState> {
-  const fallback: NavbarInitialAuthState = {
-    user: null,
-    role: null,
-    providerVerified: false,
-    isLoading: false,
-  };
-
-  try {
-    const supabase = await createClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return fallback;
-
-    const navbarUser = {
-      id: user.id,
-      email: user.email ?? null,
-      name: (user.user_metadata?.name as string | undefined) ?? null,
-    };
-
-    const { data: userRecord } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const role = userRecord?.role ?? null;
-    if (!role) {
-      return {
-        user: navbarUser,
-        role: null,
-        providerVerified: false,
-        isLoading: true,
-      };
-    }
-
-    let providerVerified = false;
-    if (role === "provider") {
-      const { data: provider } = await supabase
-        .from("providers")
-        .select("verification_status, is_active")
-        .eq("owner_user_id", user.id)
-        .maybeSingle();
-      providerVerified = provider?.verification_status === "verified" && !!provider?.is_active;
-    }
-
-    return {
-      user: navbarUser,
-      role,
-      providerVerified,
-      isLoading: false,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const initialNavbarAuthState = await getInitialNavbarAuthState();
+  const initialNavbarAuthState = await getServerNavbarAuthState();
 
   return (
     <html lang="id">
