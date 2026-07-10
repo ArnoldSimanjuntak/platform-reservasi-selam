@@ -5,34 +5,18 @@ const withPWA = require("next-pwa")({
     register: false,
     skipWaiting: true,
     disable: process.env.NODE_ENV === "development",
-    // ─── Offline Fallback ────────────────────────────────────
-    // Saat user offline dan halaman belum di-cache,
-    // service worker akan menampilkan /offline secara otomatis.
+    // Offline fallback: only show /offline when a document request fails.
+    // Next.js routes must not be replaced by the offline page while online.
     fallbacks: {
         document: "/offline",
     },
-    navigateFallback: "/offline",
-    navigateFallbackDenylist: [/^\/api\//, /^\/_next\//],
-    // ─── Runtime Caching Strategies ──────────────────────────
-    // Setiap rule mendefinisikan:
-    //   urlPattern  : regex URL yang cocok
-    //   handler     : strategi caching Workbox
-    //   options     : konfigurasi cache (nama, TTL, max entries)
     runtimeCaching: [
-        // Auth/Dashboard routes should not serve stale shell from cache.
+        // Auth and dashboard pages contain user-specific data. Never serve them from cache.
         {
             urlPattern: /\/(auth|dashboard)(\/.*)?$/i,
-            handler: "NetworkFirst",
-            options: {
-                cacheName: "auth-dashboard-pages",
-                networkTimeoutSeconds: 5,
-                expiration: {
-                    maxEntries: 16,
-                    maxAgeSeconds: 60 * 30,
-                },
-            },
+            handler: "NetworkOnly",
+            options: {},
         },
-        // ── 1. Google Fonts (CacheFirst — jarang berubah) ────
         {
             urlPattern: /^https:\/\/fonts\.(?:gstatic|googleapis)\.com\/.*/i,
             handler: "CacheFirst",
@@ -40,26 +24,21 @@ const withPWA = require("next-pwa")({
                 cacheName: "google-fonts",
                 expiration: {
                     maxEntries: 10,
-                    maxAgeSeconds: 365 * 24 * 60 * 60, // 1 tahun
+                    maxAgeSeconds: 365 * 24 * 60 * 60,
                 },
             },
         },
-        // ── 2. Leaflet Map Tiles (CacheFirst — aset statis) ──
-        // Tile peta OpenStreetMap yang digunakan oleh react-leaflet.
-        // CacheFirst: tile di-cache permanen setelah pertama kali diunduh.
-        // Ini krusial agar peta tetap terlihat saat offline di Lembeh.
         {
             urlPattern: /^https:\/\/[abc]\.tile\.openstreetmap\.org\/.*/i,
             handler: "CacheFirst",
             options: {
                 cacheName: "leaflet-map-tiles",
                 expiration: {
-                    maxEntries: 200,                     // ±200 tile area Lembeh
-                    maxAgeSeconds: 30 * 24 * 60 * 60,   // 30 hari
+                    maxEntries: 200,
+                    maxAgeSeconds: 30 * 24 * 60 * 60,
                 },
             },
         },
-        // ── 3. Leaflet Library Assets (CacheFirst) ───────────
         {
             urlPattern: /^https:\/\/unpkg\.com\/leaflet@.*/i,
             handler: "CacheFirst",
@@ -71,23 +50,18 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        // ── 4. Supabase REST API (NetworkFirst) ──────────────
-        // Data dari Supabase (services, dive_sites, bookings).
-        // NetworkFirst: selalu coba ambil data segar, tapi fallback
-        // ke cache jika offline (timeout 10 detik).
         {
             urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
             handler: "NetworkFirst",
             options: {
                 cacheName: "supabase-api",
-                networkTimeoutSeconds: 10,
+                networkTimeoutSeconds: 4,
                 expiration: {
                     maxEntries: 50,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 jam
+                    maxAgeSeconds: 24 * 60 * 60,
                 },
             },
         },
-        // ── 5. External Images — Unsplash / Picsum (SWR) ─────
         {
             urlPattern: /^https:\/\/(images\.unsplash\.com|picsum\.photos)\/.*/i,
             handler: "StaleWhileRevalidate",
@@ -99,7 +73,6 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        // ── 6. Next.js Image Optimization (SWR) ─────────────
         {
             urlPattern: /\/_next\/image\?url=.+$/i,
             handler: "StaleWhileRevalidate",
@@ -111,7 +84,6 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        // ── 7. Static Font Assets (SWR) ──────────────────────
         {
             urlPattern: /\.(?:eot|otf|ttc|ttf|woff|woff2|font\.css)$/i,
             handler: "StaleWhileRevalidate",
@@ -123,7 +95,6 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        // ── 8. Static Image Assets (SWR) ─────────────────────
         {
             urlPattern: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
             handler: "StaleWhileRevalidate",
@@ -135,7 +106,6 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        // ── 9. JS Bundles (SWR) ──────────────────────────────
         {
             urlPattern: /\.(?:js)$/i,
             handler: "StaleWhileRevalidate",
@@ -147,7 +117,6 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        // ── 10. CSS Stylesheets (SWR) ────────────────────────
         {
             urlPattern: /\.(?:css|less)$/i,
             handler: "StaleWhileRevalidate",
@@ -159,7 +128,6 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        // ── 11. Next.js Data (SWR) ───────────────────────────
         {
             urlPattern: /\/_next\/data\/.+\/.+\.json$/i,
             handler: "StaleWhileRevalidate",
@@ -171,9 +139,7 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        // ── 12. Internal API Routes (NetworkFirst) ───────────
-        // Auth state must never be served from the PWA cache. Stale auth JSON is
-        // the main cause of navbar role/menu drift after login, back, or resume.
+        // Auth state must never be served from the PWA cache.
         {
             urlPattern: /\/api\/auth\/navbar-state(?:\?.*)?$/i,
             handler: "NetworkOnly",
@@ -189,16 +155,13 @@ const withPWA = require("next-pwa")({
             handler: "NetworkFirst",
             options: {
                 cacheName: "api-routes",
-                networkTimeoutSeconds: 10,
+                networkTimeoutSeconds: 4,
                 expiration: {
                     maxEntries: 16,
                     maxAgeSeconds: 24 * 60 * 60,
                 },
             },
         },
-        // ── 13. Halaman Navigasi — /services, /lokasi (SWR) ──
-        // Halaman yang sering dikunjungi di-cache agar bisa
-        // diakses offline oleh penyelam di area tanpa sinyal.
         {
             urlPattern: /\/(services|lokasi)(\/.*)?$/i,
             handler: "StaleWhileRevalidate",
@@ -210,13 +173,12 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        // ── 14. Catch-all (NetworkFirst) ─────────────────────
         {
             urlPattern: /.*/i,
             handler: "NetworkFirst",
             options: {
                 cacheName: "others",
-                networkTimeoutSeconds: 10,
+                networkTimeoutSeconds: 4,
                 expiration: {
                     maxEntries: 32,
                     maxAgeSeconds: 24 * 60 * 60,
@@ -248,22 +210,22 @@ const nextConfig = {
     },
     experimental: {
         serverActions: {
-            bodySizeLimit: '5mb',
+            bodySizeLimit: "5mb",
         },
     },
     images: {
         remotePatterns: [
             {
-                protocol: 'https',
-                hostname: 'images.unsplash.com',
+                protocol: "https",
+                hostname: "images.unsplash.com",
             },
             {
-                protocol: 'https',
-                hostname: 'picsum.photos',
+                protocol: "https",
+                hostname: "picsum.photos",
             },
             {
-                protocol: 'https',
-                hostname: '*.supabase.co',
+                protocol: "https",
+                hostname: "*.supabase.co",
             },
         ],
     },

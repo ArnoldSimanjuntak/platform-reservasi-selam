@@ -48,8 +48,10 @@ export default function InstallPrompt() {
             return;
         }
 
-        setIsIOS(/iPad|iPhone|iPod/.test(window.navigator.userAgent) && !(window as any).MSStream);
-        setIsBrave((window.navigator as any).brave?.isBrave ? true : false);
+        const detectedIOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent) && !(window as any).MSStream;
+        const detectedBrave = !!(window.navigator as any).brave?.isBrave;
+        setIsIOS(detectedIOS);
+        setIsBrave(detectedBrave);
 
         const maybeShowBanner = () => {
             const dismissed = getDismissedAt();
@@ -65,7 +67,7 @@ export default function InstallPrompt() {
             if (window.__deferredInstallPrompt) {
                 setDeferredPrompt(window.__deferredInstallPrompt);
                 maybeShowBanner();
-            } else if (isIOS) {
+            } else if (detectedIOS || detectedBrave) {
                 maybeShowBanner();
             }
         };
@@ -98,7 +100,7 @@ export default function InstallPrompt() {
             clearTimeout(t1);
             clearTimeout(t2);
         };
-    }, [isIOS]);
+    }, []);
 
     const handleInstall = async () => {
         if (!deferredPrompt) return;
@@ -126,7 +128,7 @@ export default function InstallPrompt() {
 
     return (
         <>
-            {showBanner && (deferredPrompt || isIOS) && (
+            {showBanner && (deferredPrompt || isIOS || isBrave) && (
                 <>
                     <div
                         className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[120] transition-opacity duration-300"
