@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ElementType } from "react";
+import { useRouter } from "next/navigation";
 import {
     CheckCircle2,
     XCircle,
@@ -63,6 +64,7 @@ export default function AdminVerificationClient({
     verifiedProviders = [],
     rejectedProviders = [],
 }: AdminVerificationClientProps) {
+    const router = useRouter();
     const [providers, setProviders] = useState<Provider[]>(initialProviders);
     const [isPending, startTransition] = useTransition();
     const [pendingId, setPendingId] = useState<string | null>(null);
@@ -89,6 +91,7 @@ export default function AdminVerificationClient({
                         setProviders((prev) => prev.filter((p) => p.id !== providerId));
                         setRemovingId(null);
                         setActionResult(null);
+                        router.refresh();
                     }, 600);
                 }
             } catch {

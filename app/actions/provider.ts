@@ -247,6 +247,73 @@ async function ensureUserRowExistsFromAuth(ownerUserId: string) {
     return { ok: true } as const;
 }
 
+async function reviewProviderWithCompensation(
+    adminClient: NonNullable<ReturnType<typeof createAdminClient>>,
+    providerId: string,
+    ownerUserId: string,
+    action: "approve" | "reject",
+    rejectionReason: string
+) {
+    const providerPayload = action === "approve"
+        ? {
+            verification_status: "verified",
+            is_active: true,
+            rejection_reason: null,
+            verified_at: new Date().toISOString(),
+        }
+        : {
+            verification_status: "rejected",
+            is_active: false,
+            rejection_reason: rejectionReason,
+            verified_at: null,
+        };
+
+    if (action === "reject") {
+        return adminClient.from("providers").update(providerPayload).eq("id", providerId);
+    }
+
+    const { data: previousUser, error: previousUserError } = await adminClient
+        .from("users")
+        .select("role")
+        .eq("id", ownerUserId)
+        .maybeSingle();
+    if (previousUserError || !previousUser) {
+        return { error: previousUserError ?? new Error("Profil user provider tidak ditemukan.") };
+    }
+
+    let { error: userUpdateError } = await adminClient
+        .from("users")
+        .update({ role: "provider", wants_provider: false })
+        .eq("id", ownerUserId);
+    if (userUpdateError?.message.toLowerCase().includes("wants_provider")) {
+        userUpdateError = (
+            await adminClient.from("users").update({ role: "provider" }).eq("id", ownerUserId)
+        ).error;
+    }
+    if (userUpdateError) return { error: userUpdateError };
+
+    const { error: providerUpdateError } = await adminClient
+        .from("providers")
+        .update(providerPayload)
+        .eq("id", providerId);
+
+    if (providerUpdateError) {
+        const { error: rollbackError } = await adminClient
+            .from("users")
+            .update({ role: previousUser.role })
+            .eq("id", ownerUserId);
+        return {
+            error: new Error(
+                rollbackError
+                    ? `${providerUpdateError.message}; rollback role juga gagal: ${rollbackError.message}`
+                    : providerUpdateError.message
+            ),
+        };
+    }
+
+    return { error: null };
+}
+
 /**
  * Server Action: Melengkapi profil bisnis provider.
  *
@@ -635,118 +702,66 @@ export async function verifyProviderIdentity(
         }
     }
 
-    // 3. Update status verifikasi + is_active (approve juga mengaktifkan provider)
-    const updatePayload =
-        action === "approve"
-            ? {
-                verification_status: "verified",
-                is_active: true,
-                rejection_reason: null,
-                verified_at: new Date().toISOString(),
-            }
-            : {
-                verification_status: "rejected",
-                is_active: false,
-                rejection_reason: cleanedRejectionReason,
-                verified_at: null,
+    // Pastikan row user tersedia sebelum transaksi lintas tabel dijalankan.
+    if (action === "approve") {
+        if (!adminClient) {
+            return {
+                success: false,
+                message: "SUPABASE_SERVICE_ROLE_KEY belum terpasang, approve provider tidak dapat diproses.",
             };
+        }
 
-    try {
-        const { error: providerUpdateError } = await supabase
-            .from("providers")
-            .update(updatePayload)
-            .eq("id", providerId);
-
-        if (providerUpdateError) throw new Error(getErrorMessage(providerUpdateError));
-
-        if (action === "approve") {
-            if (!adminClient) {
-                throw new Error("SUPABASE_SERVICE_ROLE_KEY belum terpasang, approve provider lintas-user tidak dapat diproses.");
-            }
-
-            let { error: userUpdateError } = await adminClient
-                .from("users")
-                .update({ role: "provider", wants_provider: false })
-                .eq("id", providerRecord.owner_user_id);
-
-            // Backward compatibility jika kolom wants_provider belum ada.
-            if (userUpdateError?.message?.toLowerCase().includes("wants_provider")) {
-                const retry = await supabase
-                    .from("users")
-                    .update({ role: "provider" })
-                    .eq("id", providerRecord.owner_user_id);
-                userUpdateError = retry.error;
-            }
-
-            // Jika masih gagal karena RLS/client session, paksa retry via service role.
-            if (userUpdateError) {
-                const retryByAdmin = await adminClient
-                    .from("users")
-                    .update({ role: "provider" })
-                    .eq("id", providerRecord.owner_user_id);
-                userUpdateError = retryByAdmin.error;
-            }
-
-            if (userUpdateError) throw new Error(getErrorMessage(userUpdateError));
-
-            // Verifikasi pasca update: jika role belum berubah, biasanya karena RLS/policy.
-            const { data: verifyUser, error: verifyError } = await adminClient
-                .from("users")
-                .select("role")
-                .eq("id", providerRecord.owner_user_id)
-                .maybeSingle();
-
-            if (verifyError) {
-                throw new Error(`Role check gagal: ${getErrorMessage(verifyError)}`);
-            }
-            if (!verifyUser) {
-                const repair = await ensureUserRowExistsFromAuth(providerRecord.owner_user_id);
-                if (!repair.ok) {
-                    throw new Error(
-                        `Profil user provider tidak ditemukan di tabel users. ${repair.reason}`
-                    );
-                }
-
-                const { data: repairedUser, error: repairedReadErr } = await adminClient
-                    .from("users")
-                    .select("role")
-                    .eq("id", providerRecord.owner_user_id)
-                    .maybeSingle();
-
-                if (repairedReadErr || !repairedUser) {
-                    throw new Error(
-                        `Auto-repair users row gagal diverifikasi: ${getErrorMessage(repairedReadErr)}`
-                    );
-                }
-            }
-            const effectiveRole = verifyUser?.role;
-            if (effectiveRole !== "provider") {
-                const { error: promoteRetryErr } = await adminClient
-                    .from("users")
-                    .update({ role: "provider", wants_provider: false })
-                    .eq("id", providerRecord.owner_user_id);
-                if (promoteRetryErr) {
-                    throw new Error(`Gagal promote role provider: ${getErrorMessage(promoteRetryErr)}`);
-                }
-
-                const { data: promotedUser, error: promotedReadErr } = await adminClient
-                    .from("users")
-                    .select("role")
-                    .eq("id", providerRecord.owner_user_id)
-                    .maybeSingle();
-                if (promotedReadErr || promotedUser?.role !== "provider") {
-                    throw new Error(
-                        "Role user belum berubah menjadi provider. Kemungkinan policy RLS update users belum mengizinkan admin."
-                    );
-                }
+        const { data: ownerUser, error: ownerUserError } = await adminClient
+            .from("users")
+            .select("id")
+            .eq("id", providerRecord.owner_user_id)
+            .maybeSingle();
+        if (ownerUserError) {
+            return { success: false, message: `Gagal membaca pemilik provider: ${ownerUserError.message}` };
+        }
+        if (!ownerUser) {
+            const repair = await ensureUserRowExistsFromAuth(providerRecord.owner_user_id);
+            if (!repair.ok) {
+                return { success: false, message: `Profil user provider tidak ditemukan. ${repair.reason}` };
             }
         }
-    } catch (err: unknown) {
-        console.error("[verifyProviderIdentity] DB update error:", err);
-        return {
-            success: false,
-            message: `Gagal menyimpan ke database: ${getErrorMessage(err)}`,
-        };
+    }
+
+    const { error: rpcError } = await supabase.rpc("review_provider_verification", {
+        p_provider_id: providerId,
+        p_action: action,
+        p_rejection_reason: cleanedRejectionReason || null,
+    });
+
+    if (rpcError) {
+        const rpcUnavailable =
+            rpcError.code === "PGRST202" ||
+            rpcError.code === "42883" ||
+            rpcError.message.toLowerCase().includes("review_provider_verification");
+
+        if (!rpcUnavailable || !adminClient) {
+            console.error("[verifyProviderIdentity] Atomic review error:", rpcError);
+            return {
+                success: false,
+                message: `Gagal menyimpan verifikasi: ${rpcError.message}`,
+            };
+        }
+
+        // Kompatibilitas sementara sebelum migration_atomic_provider_verification.sql dijalankan.
+        const { error: fallbackError } = await reviewProviderWithCompensation(
+            adminClient,
+            providerId,
+            providerRecord.owner_user_id,
+            action,
+            cleanedRejectionReason
+        );
+        if (fallbackError) {
+            console.error("[verifyProviderIdentity] Safe fallback error:", fallbackError);
+            return {
+                success: false,
+                message: `Gagal menyimpan verifikasi: ${getErrorMessage(fallbackError)}`,
+            };
+        }
     }
 
     // 4. Revalidasi root layout agar role baru terbaca di seluruh App Router tree.

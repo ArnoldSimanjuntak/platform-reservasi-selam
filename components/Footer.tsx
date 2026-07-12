@@ -1,13 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { Anchor, Mail, Phone, MapPin, Facebook, Instagram, Twitter } from "lucide-react";
-import type { NavbarAuthState } from "@/lib/auth/navbar-state";
+import { useAuthNavigation } from "@/components/AuthNavigationProvider";
 
-interface FooterProps {
-    initialAuthState?: NavbarAuthState;
-}
-
-export default function Footer({ initialAuthState }: FooterProps) {
-    const role = initialAuthState?.role;
+export default function Footer() {
+    const { authState } = useAuthNavigation();
+    const role = authState.role;
 
     if (role === "admin" || role === "provider") {
         return null;

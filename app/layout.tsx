@@ -6,6 +6,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import BottomNav from "@/components/BottomNav";
 import SessionTimeout from "@/components/SessionTimeout";
+import AuthNavigationProvider from "@/components/AuthNavigationProvider";
 import { getServerNavbarAuthState } from "@/lib/auth/navbar-state";
 import "./globals.css";
 
@@ -98,13 +99,15 @@ export default async function RootLayout({
       <body
         className={`${jakarta.variable} font-sans antialiased bg-neutral text-deepSea max-md:pb-16`}
       >
-        <Navbar initialAuthState={initialNavbarAuthState} />
-        {children}
-        <Footer initialAuthState={initialNavbarAuthState} />
-        <BottomNav initialAuthState={initialNavbarAuthState} />
-        <InstallPrompt />
-        <SessionTimeout />
-        <ServiceWorkerRegistration />
+        <AuthNavigationProvider initialAuthState={initialNavbarAuthState}>
+          <Navbar />
+          {children}
+          <Footer />
+          <BottomNav />
+          <InstallPrompt />
+          <SessionTimeout />
+          <ServiceWorkerRegistration />
+        </AuthNavigationProvider>
       </body>
     </html>
   );

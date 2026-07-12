@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { NavbarAuthState } from "@/lib/auth/navbar-state";
+import { useAuthNavigation } from "@/components/AuthNavigationProvider";
+import { clearPrivateCachesOnSignOut } from "@/lib/pwa/cache";
 
 const LAST_ACTIVITY_KEY = "sulutdive-last-activity";
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
@@ -30,6 +31,7 @@ function writeLastActivity() {
 }
 
 export default function SessionTimeout() {
+    const { authState, markSignedOut } = useAuthNavigation();
     const signingOutRef = useRef(false);
 
     useEffect(() => {
@@ -41,12 +43,7 @@ export default function SessionTimeout() {
             let shouldRedirect = false;
 
             try {
-                const stateResponse = await fetch("/api/auth/navbar-state", {
-                    cache: "no-store",
-                    credentials: "same-origin",
-                });
-                const state = (await stateResponse.json()) as NavbarAuthState;
-                if (!state.user) {
+                if (!authState.user) {
                     signingOutRef.current = false;
                     writeLastActivity();
                     return;
@@ -55,6 +52,8 @@ export default function SessionTimeout() {
 
                 const supabase = createClient();
                 await supabase.auth.signOut({ scope: "global" });
+                markSignedOut();
+                await clearPrivateCachesOnSignOut();
                 await fetch("/api/auth/idle-signout", {
                     method: "POST",
                     cache: "no-store",
@@ -105,7 +104,7 @@ export default function SessionTimeout() {
             document.removeEventListener("visibilitychange", checkIdle);
             window.clearInterval(interval);
         };
-    }, []);
+    }, [authState.user, markSignedOut]);
 
     return null;
 }

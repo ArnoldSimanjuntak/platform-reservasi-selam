@@ -1,24 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Menu, X, Anchor, User, LogOut, ChevronDown, Calendar, Ship, ClipboardList, UserCog } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { signOut as serverSignOut } from "@/app/auth/actions";
 import { useCartStore } from "@/lib/cart-store";
-import type { AuthChangeEvent, Session, User as SupabaseUser } from "@supabase/supabase-js";
-import type { NavbarAuthState, NavbarUser } from "@/lib/auth/navbar-state";
+import { useAuthNavigation } from "@/components/AuthNavigationProvider";
+import { clearPrivateCachesOnSignOut } from "@/lib/pwa/cache";
+import type { NavbarUser } from "@/lib/auth/navbar-state";
 
 // ─── Types ─────────────────────────────────────────────────────
-export type { NavbarUser };
-export type NavbarInitialAuthState = NavbarAuthState;
-
 type NavLink = { name: string; href: string; isButton?: boolean };
-
-interface NavbarProps {
-    initialAuthState?: NavbarInitialAuthState;
-}
 
 function isAbortError(error: unknown): boolean {
     if (error instanceof DOMException && error.name === "AbortError") return true;
@@ -48,86 +42,9 @@ const adminNavLinks: NavLink[] = [
     { name: "Panel Admin", href: "/admin", isButton: true },
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────
-async function fetchUserWithRole(supabase: ReturnType<typeof createClient>): Promise<{
-    user: NavbarUser | null;
-    role: string | null;
-    providerVerified: boolean;
-}> {
-    // getUser() melakukan verifikasi kriptografis ke server — lebih andal dari getSession()
-    let user: SupabaseUser | null = null;
-    try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user) {
-            return { user: null, role: null, providerVerified: false };
-        }
-        user = data.user;
-    } catch (error) {
-        if (!isAbortError(error)) {
-            console.warn("[Navbar] getUser error:", error);
-        }
-        return { user: null, role: null, providerVerified: false };
-    }
-    if (!user) {
-        return { user: null, role: null, providerVerified: false };
-    }
-    const currentUser = user;
-    const navbarUser: NavbarUser = {
-        id: currentUser.id,
-        email: currentUser.email ?? null,
-        name: (currentUser.user_metadata?.name as string | undefined) ?? null,
-    };
-
-    // Ambil role dari DB (ground truth) agar tidak memakai metadata/cookie yang bisa stale.
-    try {
-        const { data, error: roleError } = await supabase
-            .from("users")
-            .select("role")
-            .eq("id", currentUser.id)
-            .maybeSingle();
-
-        if (roleError) throw roleError;
-
-        return {
-            user: navbarUser,
-            role: data?.role ?? null,
-            providerVerified: false,
-        };
-    } catch (error) {
-        if (!isAbortError(error)) {
-            console.warn("[Navbar] role fetch error:", error);
-        }
-        return {
-            user: navbarUser,
-            role: null,
-            providerVerified: false,
-        };
-    }
-}
-
-async function fetchProviderVerificationStatus(
-    supabase: ReturnType<typeof createClient>,
-    userId: string
-): Promise<boolean> {
-    const { data } = await supabase
-        .from("providers")
-        .select("verification_status, is_active")
-        .eq("owner_user_id", userId)
-        .maybeSingle();
-
-    return data?.verification_status === "verified" && !!data?.is_active;
-}
-
 // ─── Main Component ─────────────────────────────────────────────
-export default function Navbar({ initialAuthState }: NavbarProps) {
-    const [authState, setAuthState] = useState<NavbarInitialAuthState>(
-        initialAuthState ?? {
-            user: null,
-            role: null,
-            providerVerified: false,
-            isLoading: true,
-        }
-    );
+export default function Navbar() {
+    const { authState, markSignedOut } = useAuthNavigation();
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -135,179 +52,11 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
 
     const pathname = usePathname();
 
-    // Ref untuk mencegah state update setelah unmount
-    const mountedRef = useRef(true);
-    const authRequestIdRef = useRef(0);
-
-    // Sinkronkan state saat payload auth awal dari server berubah (mis. setelah login redirect).
-    useEffect(() => {
-        if (!initialAuthState) return;
-        setAuthState(initialAuthState);
-    }, [initialAuthState]);
-
-    const syncAuthStateFromServer = useCallback(async (showLoading: boolean) => {
-        const requestId = ++authRequestIdRef.current;
-        if (showLoading) {
-            setAuthState((prev) => ({ ...prev, isLoading: true }));
-        }
-
-        try {
-            const response = await fetch(`/api/auth/navbar-state?t=${Date.now()}`, {
-                cache: "no-store",
-                credentials: "same-origin",
-                headers: {
-                    "Cache-Control": "no-cache",
-                },
-            });
-            if (!response.ok) throw new Error(`Navbar auth sync failed: ${response.status}`);
-
-            const nextState = (await response.json()) as NavbarInitialAuthState;
-            if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
-            setAuthState((prev) => {
-                const isSameUser = !!prev.user && !!nextState.user && prev.user.id === nextState.user.id;
-
-                // Preserve the last known role if a transient API/RLS/cache issue returns
-                // a session without role. This prevents the navbar from disappearing while
-                // the next sync resolves the ground-truth role.
-                if (isSameUser && nextState.user && !nextState.role && prev.role) {
-                    return {
-                        ...nextState,
-                        role: prev.role,
-                        providerVerified: prev.providerVerified,
-                        isLoading: false,
-                    };
-                }
-
-                return {
-                    ...nextState,
-                    isLoading: false,
-                };
-            });
-        } catch (error) {
-            if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
-            if (!isAbortError(error)) {
-                console.warn("[Navbar] server auth sync error:", error);
-            }
-            setAuthState((prev) => ({ ...prev, isLoading: false }));
-        }
-    }, []);
-
-    // ── Inisialisasi auth sekali saat mount ────────────────────
-    useEffect(() => {
-        mountedRef.current = true;
-
-        const supabase = createClient();
-        const applySessionSnapshot = (session: Session | null) => {
-            if (!session?.user || !mountedRef.current) return;
-            const sessionUser: NavbarUser = {
-                id: session.user.id,
-                email: session.user.email ?? null,
-                name: (session.user.user_metadata?.name as string | undefined) ?? null,
-            };
-            setAuthState((prev) => ({
-                user: sessionUser,
-                // Hindari kebocoran role dari sesi lama saat user berganti / sesi baru.
-                role: prev.user?.id === sessionUser.id ? prev.role : null,
-                providerVerified: prev.user?.id === sessionUser.id ? prev.providerVerified : false,
-                isLoading: true,
-            }));
-        };
-
-        const refreshAuthState = async (showLoading: boolean) => {
-            const requestId = ++authRequestIdRef.current;
-            if (showLoading) {
-                setAuthState((prev) => ({ ...prev, isLoading: true }));
-            }
-
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                applySessionSnapshot(session);
-
-                const { user, role } = await fetchUserWithRole(supabase);
-
-                let providerVerified = false;
-                if (user && role === "provider") {
-                    providerVerified = await fetchProviderVerificationStatus(supabase, user.id);
-                }
-
-                if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
-
-                setAuthState({ user, role, providerVerified, isLoading: false });
-
-                return;
-            } catch (error) {
-                if (!mountedRef.current || requestId !== authRequestIdRef.current) return;
-                if (!isAbortError(error)) {
-                    console.warn("[Navbar] refreshAuthState error:", error);
-                }
-                setAuthState({ user: null, role: null, providerVerified: false, isLoading: false });
-            }
-        };
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event: AuthChangeEvent, session: Session | null) => {
-                if (!mountedRef.current) return;
-
-                if (event === "SIGNED_OUT" || !session?.user) {
-                    authRequestIdRef.current++;
-                    setAuthState({ user: null, role: null, providerVerified: false, isLoading: false });
-                    return;
-                }
-
-                if (event === "INITIAL_SESSION") {
-                    applySessionSnapshot(session);
-                    setTimeout(() => {
-                        void syncAuthStateFromServer(false);
-                    }, 0);
-                    return;
-                }
-
-                if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
-                    applySessionSnapshot(session);
-                    setTimeout(() => {
-                        void syncAuthStateFromServer(false);
-                    }, 0);
-                }
-            }
-        );
-
-        if (!initialAuthState) {
-            void syncAuthStateFromServer(true);
-        }
-
-        return () => {
-            mountedRef.current = false;
-            subscription.unsubscribe();
-        };
-    }, [initialAuthState, syncAuthStateFromServer]);
-
     // ── Tutup mobile menu saat pindah halaman ─────────────────
     useEffect(() => {
         setIsMobileMenuOpen(false);
         setIsProfileMenuOpen(false);
-        void syncAuthStateFromServer(false);
-    }, [pathname, syncAuthStateFromServer]);
-
-    // PWA/browser resume can restore an old client tree without rerunning the
-    // server layout. Re-sync the navbar whenever the tab/app becomes active.
-    useEffect(() => {
-        const refresh = () => {
-            void syncAuthStateFromServer(false);
-        };
-        const refreshWhenVisible = () => {
-            if (document.visibilityState === "visible") refresh();
-        };
-
-        window.addEventListener("focus", refresh);
-        window.addEventListener("pageshow", refresh);
-        document.addEventListener("visibilitychange", refreshWhenVisible);
-
-        return () => {
-            window.removeEventListener("focus", refresh);
-            window.removeEventListener("pageshow", refresh);
-            document.removeEventListener("visibilitychange", refreshWhenVisible);
-        };
-    }, [syncAuthStateFromServer]);
+    }, [pathname]);
 
     // ── Scroll listener ────────────────────────────────────────
     useEffect(() => {
@@ -339,13 +88,13 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
         setIsLoggingOut(true);
         setIsProfileMenuOpen(false);
         setIsMobileMenuOpen(false);
-        authRequestIdRef.current++;
-        setAuthState({ user: null, role: null, providerVerified: false, isLoading: false });
+        markSignedOut();
         useCartStore.getState().resetCart();
 
         try {
             const supabase = createClient();
             await supabase.auth.signOut({ scope: "global" });
+            await clearPrivateCachesOnSignOut();
             await serverSignOut();
         } catch (error) {
             if (!isAbortError(error)) {
@@ -354,13 +103,14 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
         } finally {
             window.location.href = "/auth/login?message=Berhasil+keluar";
         }
-    }, [isLoggingOut]);
+    }, [isLoggingOut, markSignedOut]);
 
     // ── Derived state ──────────────────────────────────────────
     const { user, role, providerVerified, isLoading } = authState;
     const isAuthResolving = isLoading && !user;
     const isHomePage = pathname === "/";
     const isAuthPage = pathname.startsWith("/auth");
+    const isAdminPage = pathname.startsWith("/admin");
     const isDark = isScrolled || isMobileMenuOpen || !isHomePage;
     const isProvider = role === "provider" && providerVerified;
     const isProviderPending = role === "provider" && !providerVerified;
@@ -373,7 +123,7 @@ export default function Navbar({ initialAuthState }: NavbarProps) {
 
     const userName = user?.name || user?.email?.split("@")[0] || "User";
 
-    if (isAuthPage) return null;
+    if (isAuthPage || isAdminPage) return null;
 
     // ─── Render ────────────────────────────────────────────────
     return (

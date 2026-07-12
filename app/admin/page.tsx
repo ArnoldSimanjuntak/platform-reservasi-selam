@@ -1,13 +1,9 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { signOut } from "@/app/auth/actions";
 import {
     ShieldCheck,
     Ship,
     ClipboardList,
     UserCog,
-    LogOut,
     Anchor,
     Clock,
     TrendingUp,
@@ -15,30 +11,14 @@ import {
     CheckCircle2,
     ShieldAlert,
 } from "lucide-react";
+import { getAdminContext } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminHubPage() {
-    const supabase = await createClient();
+    const { adminDb, adminName } = await getAdminContext();
 
     // ─── Auth & Role Check ────────────────────────────────────────
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) redirect("/auth/login");
-
-    const { data: userRecord } = await supabase
-        .from("users")
-        .select("role, name")
-        .eq("id", user.id)
-        .single();
-
-    if (userRecord?.role !== "admin" && user.user_metadata?.role !== "admin") {
-        redirect("/dashboard");
-    }
-
-    const adminName = userRecord?.name || user.user_metadata?.name || user.email?.split("@")[0] || "Admin";
-
     // ─── Global Stats ─────────────────────────────────────────────
     const [
         { count: pendingProviders },
@@ -48,12 +28,12 @@ export default async function AdminHubPage() {
         { count: totalOrders },
         { count: totalServices },
     ] = await Promise.all([
-        supabase.from("providers").select("id", { count: "exact", head: true }).eq("verification_status", "pending"),
-        supabase.from("providers").select("id", { count: "exact", head: true }).eq("verification_status", "verified"),
-        supabase.from("providers").select("id", { count: "exact", head: true }).eq("verification_status", "rejected"),
-        supabase.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("bookings").select("id", { count: "exact", head: true }),
-        supabase.from("services").select("id", { count: "exact", head: true }),
+        adminDb.from("providers").select("id", { count: "exact", head: true }).eq("verification_status", "pending"),
+        adminDb.from("providers").select("id", { count: "exact", head: true }).eq("verification_status", "verified"),
+        adminDb.from("providers").select("id", { count: "exact", head: true }).eq("verification_status", "rejected"),
+        adminDb.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        adminDb.from("bookings").select("id", { count: "exact", head: true }),
+        adminDb.from("services").select("id", { count: "exact", head: true }),
     ]);
 
     const navItems = [
@@ -93,56 +73,7 @@ export default async function AdminHubPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
-            {/* Admin Top Bar */}
-            <header className="bg-[#023E8A] border-b border-[#0077B6] sticky top-0 z-40">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 justify-between items-center text-white">
-                        <div className="flex items-center gap-3">
-                            <Link href="/admin" className="flex items-center gap-2 font-black text-xl italic tracking-tighter hover:opacity-80 transition-opacity">
-                                <Anchor className="w-5 h-5 text-cyan-400" />
-                                SULUT<span className="text-cyan-400">DIVE</span>
-                            </Link>
-                            <span className="text-sm font-bold opacity-60 not-italic border-l border-white/20 pl-3">
-                                Panel Admin
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            {/* Sub-nav */}
-                            <nav className="hidden md:flex items-center gap-1">
-                                {[
-                                    { href: "/admin/verifikasi", label: "Verifikasi" },
-                                    { href: "/admin/services", label: "Layanan" },
-                                    { href: "/admin/orders", label: "Pesanan" },
-                                ].map((item) => (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-                                    >
-                                        {item.label}
-                                    </Link>
-                                ))}
-                            </nav>
-                            <div className="flex items-center gap-2 text-sm font-bold border-l border-white/20 pl-4">
-                                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                                {adminName}
-                            </div>
-                            <form action={signOut}>
-                                <button
-                                    type="submit"
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-                                >
-                                    <LogOut className="w-3.5 h-3.5" />
-                                    Keluar
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
+        <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
                 {/* Page Title */}
                 <div>
                     <h1 className="text-3xl font-black text-[#023E8A] flex items-center gap-3">
@@ -203,7 +134,6 @@ export default async function AdminHubPage() {
                         </Link>
                     ))}
                 </div>
-            </main>
-        </div>
+        </main>
     );
 }

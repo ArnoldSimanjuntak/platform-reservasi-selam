@@ -4,6 +4,7 @@ const withPWA = require("next-pwa")({
     // can force updateViaCache="none" and avoid stale service worker installs.
     register: false,
     skipWaiting: true,
+    cleanupOutdatedCaches: true,
     disable: process.env.NODE_ENV === "development",
     // Offline fallback: only show /offline when a document request fails.
     // Next.js routes must not be replaced by the offline page while online.
@@ -11,9 +12,9 @@ const withPWA = require("next-pwa")({
         document: "/offline",
     },
     runtimeCaching: [
-        // Auth and dashboard pages contain user-specific data. Never serve them from cache.
+        // Private pages contain user-specific data. Never serve them from cache.
         {
-            urlPattern: /\/(auth|dashboard)(\/.*)?$/i,
+            urlPattern: /\/(auth|dashboard|admin)(\/.*)?$/i,
             handler: "NetworkOnly",
             options: {},
         },
@@ -52,15 +53,8 @@ const withPWA = require("next-pwa")({
         },
         {
             urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-                cacheName: "supabase-api",
-                networkTimeoutSeconds: 4,
-                expiration: {
-                    maxEntries: 50,
-                    maxAgeSeconds: 24 * 60 * 60,
-                },
-            },
+            handler: "NetworkOnly",
+            options: {},
         },
         {
             urlPattern: /^https:\/\/(images\.unsplash\.com|picsum\.photos)\/.*/i,
@@ -128,62 +122,18 @@ const withPWA = require("next-pwa")({
                 },
             },
         },
-        {
-            urlPattern: /\/_next\/data\/.+\/.+\.json$/i,
-            handler: "StaleWhileRevalidate",
-            options: {
-                cacheName: "next-data",
-                expiration: {
-                    maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60,
-                },
-            },
-        },
-        // Auth state must never be served from the PWA cache.
-        {
-            urlPattern: /\/api\/auth\/navbar-state(?:\?.*)?$/i,
-            handler: "NetworkOnly",
-            options: {},
-        },
-        {
-            urlPattern: /\/api\/auth\/idle-signout(?:\?.*)?$/i,
-            handler: "NetworkOnly",
-            options: {},
-        },
+        // API responses can contain session-specific data and are never cached.
         {
             urlPattern: /\/api\/.*$/i,
-            handler: "NetworkFirst",
-            options: {
-                cacheName: "api-routes",
-                networkTimeoutSeconds: 4,
-                expiration: {
-                    maxEntries: 16,
-                    maxAgeSeconds: 24 * 60 * 60,
-                },
-            },
+            handler: "NetworkOnly",
+            options: {},
         },
-        {
-            urlPattern: /\/(services|lokasi)(\/.*)?$/i,
-            handler: "StaleWhileRevalidate",
-            options: {
-                cacheName: "app-pages",
-                expiration: {
-                    maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60,
-                },
-            },
-        },
+        // Navigation documents are fetched from the network. If they fail,
+        // next-pwa serves the precached /offline document fallback.
         {
             urlPattern: /.*/i,
-            handler: "NetworkFirst",
-            options: {
-                cacheName: "others",
-                networkTimeoutSeconds: 4,
-                expiration: {
-                    maxEntries: 32,
-                    maxAgeSeconds: 24 * 60 * 60,
-                },
-            },
+            handler: "NetworkOnly",
+            options: {},
         },
     ],
 });
