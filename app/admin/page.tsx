@@ -50,8 +50,8 @@ export default async function AdminHubPage() {
         },
         {
             href: "/admin/services",
-            label: "Master Layanan",
-            desc: "Kelola seluruh paket & layanan platform",
+            label: "Monitor Layanan",
+            desc: "Pantau seluruh layanan milik provider",
             icon: Ship,
             badge: totalServices ?? 0,
             badgeColor: "bg-blue-100 text-blue-700",

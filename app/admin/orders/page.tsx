@@ -63,7 +63,7 @@ export default async function AdminOrdersPage() {
                     { label: "Menunggu Konfirmasi", value: pendingCount, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
                     { label: "Selesai", value: completedCount, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
                     { label: "Total Transaksi", value: allBookings.length, icon: TrendingUp, color: "text-[#023E8A]", bg: "bg-blue-50" },
-                    { label: "Revenue Terbayar", value: formatRupiah(paidRevenue), icon: AlertCircle, color: "text-rose-600", bg: "bg-rose-50" },
+                    { label: "Pendapatan Terbayar", value: formatRupiah(paidRevenue), icon: AlertCircle, color: "text-rose-600", bg: "bg-rose-50" },
                 ].map((stat) => (
                     <div key={stat.label} className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                         <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${stat.bg}`}>

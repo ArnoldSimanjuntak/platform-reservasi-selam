@@ -9,7 +9,6 @@ import {
     useState,
     type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import type { NavbarAuthState, NavbarUser } from "@/lib/auth/navbar-state";
@@ -57,11 +56,10 @@ export default function AuthNavigationProvider({
     children: ReactNode;
 }) {
     const [authState, setAuthState] = useState(initialAuthState);
-    const pathname = usePathname();
     const mountedRef = useRef(true);
     const requestIdRef = useRef(0);
     const inFlightRef = useRef<Promise<void> | null>(null);
-    const lastRefreshAtRef = useRef(0);
+    const lastRefreshAtRef = useRef(Date.now());
 
     const markSignedOut = useCallback(() => {
         requestIdRef.current += 1;
@@ -76,7 +74,7 @@ export default function AuthNavigationProvider({
 
         const request = (async () => {
             try {
-                const response = await fetch(`/api/auth/navbar-state?t=${Date.now()}`, {
+                const response = await fetch("/api/auth/navbar-state", {
                     cache: "no-store",
                     credentials: "same-origin",
                     headers: { "Cache-Control": "no-cache" },
@@ -144,8 +142,9 @@ export default function AuthNavigationProvider({
                 isLoading: true,
             }));
 
+            const sessionChanged = initialAuthState.user?.id !== user.id;
             if (
-                event === "INITIAL_SESSION" ||
+                (event === "INITIAL_SESSION" && (sessionChanged || initialAuthState.isLoading)) ||
                 event === "SIGNED_IN" ||
                 event === "TOKEN_REFRESHED" ||
                 event === "USER_UPDATED"
@@ -158,15 +157,11 @@ export default function AuthNavigationProvider({
             mountedRef.current = false;
             subscription.unsubscribe();
         };
-    }, [markSignedOut, refreshAuthState]);
-
-    useEffect(() => {
-        void refreshAuthState(false);
-    }, [pathname, refreshAuthState]);
+    }, [initialAuthState.isLoading, initialAuthState.user?.id, markSignedOut, refreshAuthState]);
 
     useEffect(() => {
         const refreshWhenActive = () => {
-            if (Date.now() - lastRefreshAtRef.current < 1500) return;
+            if (Date.now() - lastRefreshAtRef.current < 5_000) return;
             void refreshAuthState(false);
         };
         const refreshWhenVisible = () => {

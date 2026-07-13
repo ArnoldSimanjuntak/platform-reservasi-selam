@@ -8,7 +8,7 @@ export default function Footer() {
     const { authState } = useAuthNavigation();
     const role = authState.role;
 
-    if (role === "admin" || role === "provider") {
+    if (authState.isLoading || role === "admin" || role === "provider") {
         return null;
     }
 
@@ -27,8 +27,8 @@ export default function Footer() {
                             </span>
                         </Link>
                         <p className="text-blue-100/80 leading-relaxed text-sm">
-                            Platform reservasi eksklusif untuk penyelam makro di Selat Lembeh.
-                            Temukan guide terbaik, spot rahasia, dan akomodasi nyaman di Bitung.
+                            Aplikasi booking layanan wisata selam di Selat Lembeh.
+                            Temukan kapal, guide atau instruktur, dan penyewaan alat dari provider lokal.
                         </p>
                     </div>
 
@@ -74,13 +74,13 @@ export default function Footer() {
                     <div>
                         <h3 className="text-lg font-bold mb-6 text-cyan-400">Ikuti Kami</h3>
                         <div className="flex gap-4 mb-6">
-                            <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-cyan-500 hover:text-deepSea transition-all">
+                            <a href="#" aria-label="Instagram SulutDive" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-cyan-500 hover:text-deepSea transition-all">
                                 <Instagram className="w-5 h-5" />
                             </a>
-                            <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-cyan-500 hover:text-deepSea transition-all">
+                            <a href="#" aria-label="Facebook SulutDive" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-cyan-500 hover:text-deepSea transition-all">
                                 <Facebook className="w-5 h-5" />
                             </a>
-                            <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-cyan-500 hover:text-deepSea transition-all">
+                            <a href="#" aria-label="X SulutDive" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-cyan-500 hover:text-deepSea transition-all">
                                 <Twitter className="w-5 h-5" />
                             </a>
                         </div>
@@ -91,10 +91,10 @@ export default function Footer() {
                 </div>
 
                 <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-blue-200/50">
-                    <p>&copy; {new Date().getFullYear()} SulutDive Lembeh. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} SulutDive Lembeh. Hak cipta dilindungi.</p>
                     <div className="flex gap-6">
-                        <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-                        <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+                        <a href="#" className="hover:text-white transition-colors">Kebijakan Privasi</a>
+                        <a href="#" className="hover:text-white transition-colors">Ketentuan Layanan</a>
                     </div>
                 </div>
             </div>

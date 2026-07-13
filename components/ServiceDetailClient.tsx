@@ -63,7 +63,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
 
     const isGear = service.type === "gear";
     const isBoat = service.type === "boat";
-    const heroImage = service.image_url || "/images/lembeh-map.png";
+    const heroImage = service.image_url || "/images/lembeh-map.jpg";
     const serviceTypeLabel = getServiceTypeLabel(service.type);
     const providerBase =
         service.provider &&
@@ -294,4 +294,3 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
         </div>
     );
 }
-

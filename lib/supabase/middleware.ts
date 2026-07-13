@@ -121,12 +121,12 @@ export async function updateSession(request: NextRequest) {
 
     // ─── 2. DATABASE-FIRST ROLE (tanpa fallback ke metadata/cookie) ───
     const role = await getRoleFromDB(supabase, user.id);
-    const wantsProvider = role === "customer"
-        ? await getOnboardingFlagFromDB(supabase, user.id)
-        : false;
-    const hasPendingProviderProfile = role === "customer"
-        ? await getPendingProviderProfileFromDB(supabase, user.id)
-        : false;
+    const [wantsProvider, hasPendingProviderProfile] = role === "customer"
+        ? await Promise.all([
+            getOnboardingFlagFromDB(supabase, user.id),
+            getPendingProviderProfileFromDB(supabase, user.id),
+        ])
+        : [false, false];
 
     // ─── 3. LOGIKA ROUTING & PROTEKSI ROLE ───
     if (pathname.startsWith("/admin") && role !== "admin") {

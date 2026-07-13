@@ -35,8 +35,8 @@ function getNavItems(authState: NavbarAuthState): BottomNavItem[] {
     }
 
     return [
-        { href: "/", label: "Home", icon: Home, active: (path) => path === "/" },
-        { href: "/lokasi", label: "Dive Map", icon: Map, active: (path) => path.startsWith("/lokasi") },
+        { href: "/", label: "Beranda", icon: Home, active: (path) => path === "/" },
+        { href: "/lokasi", label: "Peta Selam", icon: Map, active: (path) => path.startsWith("/lokasi") },
         { href: bookingHref, label: "Pesanan", icon: ClipboardList, active: (path) => path.startsWith("/dashboard/bookings") },
         { href: profileHref, label: "Profil", icon: User, active: (path) => path === "/dashboard" },
     ];

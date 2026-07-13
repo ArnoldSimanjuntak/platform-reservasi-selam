@@ -7,10 +7,8 @@ import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import BottomNav from "@/components/BottomNav";
 import SessionTimeout from "@/components/SessionTimeout";
 import AuthNavigationProvider from "@/components/AuthNavigationProvider";
-import { getServerNavbarAuthState } from "@/lib/auth/navbar-state";
+import type { NavbarAuthState } from "@/lib/auth/navbar-state";
 import "./globals.css";
-
-export const dynamic = 'force-dynamic';
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -28,6 +26,13 @@ const supabaseOrigin = (() => {
     return null;
   }
 })();
+
+const initialAuthState: NavbarAuthState = {
+  user: null,
+  role: null,
+  providerVerified: false,
+  isLoading: true,
+};
 
 export const metadata: Metadata = {
   title: "SulutDive - Aplikasi Booking Wisata Selam Lembeh",
@@ -63,13 +68,11 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const initialNavbarAuthState = await getServerNavbarAuthState();
-
   return (
     <html lang="id">
       <head>
@@ -97,9 +100,9 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className={`${jakarta.variable} font-sans antialiased bg-neutral text-deepSea max-md:pb-16`}
+        className={`${jakarta.variable} font-sans antialiased text-deepSea max-md:pb-16`}
       >
-        <AuthNavigationProvider initialAuthState={initialNavbarAuthState}>
+        <AuthNavigationProvider initialAuthState={initialAuthState}>
           <Navbar />
           {children}
           <Footer />

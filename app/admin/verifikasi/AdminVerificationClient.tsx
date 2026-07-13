@@ -215,14 +215,14 @@ export default function AdminVerificationClient({
                     </div>
                     <h3 className="text-xl font-black text-slate-900">
                         {activeTab === "pending"
-                            ? "Semua Bersih! âœ…"
+                            ? "Semua pengajuan telah ditinjau"
                             : activeTab === "verified"
                                 ? "Belum Ada yang Terverifikasi"
                                 : "Belum Ada yang Ditolak"}
                     </h3>
                     <p className="text-sm text-slate-500 mt-2 max-w-xs">
                         {activeTab === "pending"
-                            ? "Tidak ada Provider yang menunggu verifikasi saat ini. Radar laut bersih, Kapten!"
+                            ? "Tidak ada provider yang menunggu verifikasi saat ini."
                             : activeTab === "verified"
                                 ? "Provider yang telah disetujui akan muncul di sini."
                                 : "Provider yang ditolak akan muncul di sini."}

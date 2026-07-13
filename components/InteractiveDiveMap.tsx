@@ -49,7 +49,7 @@ export default function InteractiveDiveMap() {
             {/* Background Map Image */}
             <div className="absolute inset-0">
                 <Image
-                    src="/images/lembeh-map.png"
+                    src="/images/lembeh-map.jpg"
                     alt="Peta Spot Selam Selat Lembeh"
                     fill
                     className="object-contain md:object-cover bg-[#89B9C9]"

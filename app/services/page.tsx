@@ -3,6 +3,7 @@ import ServiceCard from "@/components/ServiceCard";
 import type { Service } from "@/lib/supabase";
 import { Compass } from "lucide-react";
 import { getServiceTypeLabel } from "@/lib/service-types";
+import Image from "next/image";
 
 export const revalidate = 60; // Revalidate data every 60 seconds
 
@@ -40,7 +41,14 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
         <main className="min-h-screen bg-neutral-50 font-sans pb-32">
             {/* Elegant Premium Header Section */}
             <section className="relative w-full py-32 md:py-40 flex items-center justify-center overflow-hidden bg-deepSea">
-                <div className="absolute inset-0 bg-[url('/images/lembeh-map.png')] bg-cover bg-center opacity-30" />
+                <Image
+                    src="/images/lembeh-map.jpg"
+                    alt=""
+                    fill
+                    priority
+                    sizes="100vw"
+                    className="object-cover opacity-30"
+                />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-deepSea/80 to-neutral-50 z-10" />
 
                 <div className="relative z-20 container mx-auto px-4 text-center">
@@ -90,7 +98,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
                         <p className="text-gray-500 font-medium">
                             {selectedType
                                 ? "Coba pilih tipe layanan lain atau kembali tanpa filter."
-                                : "Paket selam premium akan segera hadir di katalog kami."}
+                                : "Layanan baru akan ditampilkan setelah tersedia."}
                         </p>
                     </div>
                 )}

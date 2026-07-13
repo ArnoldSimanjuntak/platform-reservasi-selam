@@ -3,43 +3,12 @@ import PremiumServiceCard from "@/components/PremiumServiceCard";
 import MapWrapper from "@/components/MapWrapper";
 import Link from "next/link";
 import { getServices } from "@/lib/supabase";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import type { Service } from "@/lib/supabase";
 import { Camera, UserCheck, Waves } from "lucide-react";
 
-// Force-dynamic: halaman ini mengecek session, jangan cache.
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function Home() {
-    // ─── Auth check: redirect provider & admin ──────────────────────
-    // Middleware sudah menangani ini, tapi kita tambahkan guard di level page
-    // sebagai lapisan keamanan kedua (defense in depth).
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (user) {
-        const { data: userRecord } = await supabase
-            .from("users")
-            .select("role")
-            .eq("id", user.id)
-            .single();
-
-        // STRICT: Ambil role dari DB saja. Jangan fallback ke user_metadata
-        // karena bisa stale. Middleware sudah menjadi garis pertahanan pertama;
-        // ini hanya lapisan kedua (defense in depth).
-        const role = userRecord?.role ?? null;
-
-        // Provider diredirect ke halaman operasional mereka.
-        // Admin DIIZINKAN melihat landing page sebagai superadmin marketplace.
-        // Jika role null (DB error), middleware sudah menangani \u2014 biarkan render.
-        if (role === "provider") {
-            redirect("/dashboard");
-        }
-    }
-
-
-    // Customer / Guest: lanjutkan render landing page
     const { data: services, error } = await getServices();
 
     return (
@@ -47,7 +16,7 @@ export default async function Home() {
             <HeroBooking />
 
             {/* Map Section: Discover The Critter Capital */}
-            <section className="bg-white py-20 md:py-28 border-b border-gray-100">
+            <section id="locations" className="bg-white py-20 md:py-28 border-b border-gray-100">
                 <div className="container mx-auto px-4 max-w-6xl text-center">
                     <span className="text-secondary font-bold uppercase tracking-widest text-xs mb-3 block">Peta Interaktif</span>
                     <h2 className="text-3xl md:text-5xl font-extrabold text-deepSea mb-5 tracking-tight">
@@ -67,7 +36,7 @@ export default async function Home() {
             </section>
 
             {/* Featured Services Section */}
-            <section className="container mx-auto px-4 py-24 md:py-32 max-w-7xl">
+            <section id="services" className="container mx-auto px-4 py-24 md:py-32 max-w-7xl">
                 <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
                     <div>
                         <span className="text-secondary font-bold uppercase tracking-widest text-xs mb-3 block">Layanan Tersedia</span>
@@ -80,7 +49,7 @@ export default async function Home() {
                         href="/services"
                         className="group flex items-center gap-3 text-sm font-bold text-primary hover:text-deepSea transition-colors uppercase tracking-wider mb-2"
                     >
-                        Explore All Packages
+                        Lihat Semua Layanan
                         <span className="w-10 h-[2px] bg-primary group-hover:w-16 transition-all duration-300" />
                     </Link>
                 </div>
@@ -99,7 +68,7 @@ export default async function Home() {
                 ) : (
                     <div className="text-center py-24 bg-white rounded-3xl shadow-sm border border-gray-100">
                         <p className="text-gray-500 text-xl font-medium">Belum ada layanan tersedia saat ini.</p>
-                        <p className="text-gray-400 mt-2">Premium dive packages will be added soon.</p>
+                        <p className="text-gray-400 mt-2">Layanan baru akan ditampilkan setelah tersedia.</p>
                     </div>
                 )}
             </section>

@@ -37,7 +37,7 @@ export default async function AdminServicesPage() {
                 <div>
                     <h1 className="flex items-center gap-2 text-2xl font-black text-[#023E8A]">
                         <Ship className="h-6 w-6 text-[#0077B6]" />
-                        Master Layanan Platform
+                        Monitor Layanan Platform
                     </h1>
                     <p className="mt-0.5 text-sm text-slate-500">
                         {allServices.length} layanan terdaftar &bull; {activeCount} aktif

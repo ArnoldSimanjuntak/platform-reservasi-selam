@@ -1,10 +1,7 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
-import { Ship, Anchor, Camera, ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, MapPin, Ship, UserCheck, Wrench } from "lucide-react";
 import type { Service } from "@/lib/supabase";
-import { useState } from "react";
 import { getServiceTypeLabel } from "@/lib/service-types";
 import { formatRupiah } from "@/lib/formatters";
 
@@ -12,92 +9,74 @@ interface ServiceCardProps {
     service: Service;
 }
 
+function getServiceIcon(type: Service["type"]) {
+    if (type === "instructor") return UserCheck;
+    if (type === "gear") return Wrench;
+    return Ship;
+}
+
 export default function ServiceCard({ service }: ServiceCardProps) {
-    const [isBooking, setIsBooking] = useState(false);
-    const previewImage = service.image_url || "/images/lembeh-map.png";
-
-    const getIcon = (type: string) => {
-        switch (type) {
-            case "boat": return <Ship className="w-5 h-5 mb-2 text-white/90" />;
-            case "instructor": return <Anchor className="w-5 h-5 mb-2 text-white/90" />;
-            case "gear": return <Camera className="w-5 h-5 mb-2 text-white/90" />;
-            default: return <Ship className="w-5 h-5 mb-2 text-white/90" />;
-        }
-    };
-
-    const handleNavigate = () => {
-        setIsBooking(true);
-    };
+    const previewImage = service.image_url || "/images/lembeh-map.jpg";
+    const ServiceIcon = getServiceIcon(service.type);
 
     return (
-        <div className="group relative flex flex-col bg-white overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-500 rounded-2xl w-full h-full">
-            {/* Image Container with Tall Aspect Ratio */}
-            <div className="relative w-full aspect-[4/5] overflow-hidden bg-neutral-900">
+        <article className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg">
+            <Link
+                href={`/services/${service.id}`}
+                className="relative block aspect-[4/3] overflow-hidden bg-slate-100"
+                aria-label={`Lihat detail ${service.name}`}
+            >
                 <Image
                     src={previewImage}
                     alt={service.name}
                     fill
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-110 opacity-90 group-hover:opacity-100"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                 />
-                
-                {/* Overlay Gradient for Text Readability */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-opacity duration-500" />
-
-                {/* Top Badge: Type Category */}
-                <div className="absolute top-4 left-4 z-10 flex flex-col items-start gap-2">
-                    <span className="inline-block bg-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-white/30">
-                        {getServiceTypeLabel(service.type)}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-transparent to-transparent" />
+                <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-slate-950/55 px-3 py-1.5 text-[11px] font-bold text-white backdrop-blur-md">
+                    <ServiceIcon className="h-3.5 w-3.5" />
+                    {getServiceTypeLabel(service.type)}
+                </span>
+                {service.dive_site_category ? (
+                    <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-slate-700 shadow-sm">
+                        <MapPin className="h-3 w-3 text-secondary" />
+                        {service.dive_site_category}
                     </span>
-                    {service.dive_site_category && (
-                        <span className="inline-block bg-accent/90 text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-md">
-                            {service.dive_site_category}
-                        </span>
-                    )}
-                </div>
+                ) : null}
+            </Link>
 
-                {/* Bottom Content Area Overlapping Image */}
-                <div className="absolute bottom-0 inset-x-0 p-6 z-10 flex flex-col justify-end text-white transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-                    {getIcon(service.type)}
-                    
-                    <h3 className="text-2xl font-bold mb-1 leading-tight line-clamp-2 drop-shadow-md">
-                        {service.name}
+            <div className="flex flex-1 flex-col p-5">
+                <div className="min-w-0">
+                    <h3 className="line-clamp-2 text-lg font-extrabold leading-snug text-slate-900">
+                        <Link href={`/services/${service.id}`} className="hover:text-primary">
+                            {service.name}
+                        </Link>
                     </h3>
+                    {service.provider?.name ? (
+                        <p className="mt-1 truncate text-xs font-semibold text-slate-500">
+                            Oleh {service.provider.name}
+                        </p>
+                    ) : null}
+                    <p className="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-slate-600">
+                        {service.description || "Informasi lengkap layanan tersedia pada halaman detail."}
+                    </p>
+                </div>
 
-                    {/* Hidden on default, appears on hover */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 mt-2 h-0 group-hover:h-auto overflow-hidden">
-                        {service.description && (
-                            <p className="text-gray-200 text-sm line-clamp-2 mb-4 font-light">
-                                {service.description}
-                            </p>
-                        )}
+                <div className="mt-5 flex items-end justify-between gap-3 border-t border-slate-100 pt-4">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mulai dari</p>
+                        <p className="truncate text-lg font-extrabold text-deepSea">{formatRupiah(service.price)}</p>
                     </div>
+                    <Link
+                        href={`/services/${service.id}`}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-primary transition-colors hover:bg-primary hover:text-white"
+                        aria-label={`Buka ${service.name}`}
+                    >
+                        <ArrowRight className="h-4 w-4" />
+                    </Link>
                 </div>
             </div>
-
-            {/* Bottom Info & Action Bar (White BG) */}
-            <div className="p-5 flex items-center justify-between bg-white border-t border-neutral-100 relative z-20 mt-auto">
-                <div className="flex flex-col">
-                    <span className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Mulai Dari</span>
-                    <span className="text-xl font-bold text-deepSea">
-                        {formatRupiah(service.price)}
-                    </span>
-                </div>
-
-                <Link
-                    href={`/services/${service.id}`}
-                    onClick={handleNavigate}
-                    className={`flex items-center justify-center w-12 h-12 rounded-full bg-neutral-100 text-deepSea hover:bg-primary hover:text-white transition-all duration-300 shrink-0 ${
-                        isBooking ? "pointer-events-none opacity-50" : ""
-                    }`}
-                >
-                    {isBooking ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                        <ArrowRight className="w-5 h-5 -rotate-45 group-hover:rotate-0 transition-transform duration-300" />
-                    )}
-                </Link>
-            </div>
-        </div>
+        </article>
     );
 }

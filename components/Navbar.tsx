@@ -22,23 +22,23 @@ function isAbortError(error: unknown): boolean {
 
 // ─── Static nav configs ─────────────────────────────────────────
 const customerNavLinks: NavLink[] = [
-    { name: "Home", href: "/" },
-    { name: "Dive Packages", href: "/services" },
-    { name: "Dive Map", href: "/lokasi" },
-    { name: "Route Planner", href: "/route-planner" },
-    { name: "About", href: "/about" },
+    { name: "Beranda", href: "/" },
+    { name: "Layanan", href: "/services" },
+    { name: "Peta Selam", href: "/lokasi" },
+    { name: "Rute Kapal", href: "/route-planner" },
+    { name: "Tentang", href: "/about" },
 ];
 
 const providerNavLinks: NavLink[] = [
     { name: "Dashboard", href: "/dashboard" },
     { name: "Manajemen Layanan", href: "/dashboard/provider/services" },
-    { name: "Dashboard Pesanan", href: "/dashboard/provider/orders" },
+    { name: "Pesanan", href: "/dashboard/provider/orders" },
     { name: "Profil Bisnis", href: "/dashboard/provider/setup" },
 ];
 
 const adminNavLinks: NavLink[] = [
     { name: "Dashboard", href: "/dashboard" },
-    { name: "Kelola Layanan", href: "/admin/services" },
+    { name: "Layanan", href: "/admin/services" },
     { name: "Panel Admin", href: "/admin", isButton: true },
 ];
 
@@ -221,7 +221,8 @@ export default function Navbar() {
                 <button
                     className="md:hidden p-2"
                     onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-                    aria-label="Toggle menu"
+                    aria-label={isMobileMenuOpen ? "Tutup menu" : "Buka menu"}
+                    aria-expanded={isMobileMenuOpen}
                 >
                     {isMobileMenuOpen ? (
                         <X className={isDark ? "text-deepSea" : "text-white"} />

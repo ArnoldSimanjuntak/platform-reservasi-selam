@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useRef, useState } from "react";
 
-// Dynamic import — Leaflet requires `window`, so SSR must be disabled
 const MapLeaflet = dynamic(() => import("@/components/MapLeaflet"), {
     ssr: false,
     loading: () => (
@@ -16,5 +16,38 @@ const MapLeaflet = dynamic(() => import("@/components/MapLeaflet"), {
 });
 
 export default function MapWrapper() {
-    return <MapLeaflet />;
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [shouldLoad, setShouldLoad] = useState(false);
+
+    useEffect(() => {
+        const element = containerRef.current;
+        if (!element || shouldLoad) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (!entry.isIntersecting) return;
+                setShouldLoad(true);
+                observer.disconnect();
+            },
+            { rootMargin: "320px" }
+        );
+
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [shouldLoad]);
+
+    return (
+        <div ref={containerRef} className="h-full w-full">
+            {shouldLoad ? (
+                <MapLeaflet />
+            ) : (
+                <div className="flex h-full w-full items-center justify-center rounded-2xl bg-blue-50">
+                    <div className="text-center">
+                        <div className="skeleton mx-auto mb-4 h-10 w-10 rounded-full" />
+                        <p className="text-sm font-semibold text-slate-500">Peta akan dimuat saat diperlukan</p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }

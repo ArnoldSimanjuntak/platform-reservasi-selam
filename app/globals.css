@@ -1,20 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  /* Lembeh Theme Colors - Deep & Professional */
-  --primary: #023E8A;
-  /* Deep Ocean Blue */
-  --secondary: #0077B6;
-  /* Starfish Blue */
-  --accent: #ADE8F4;
-  /* Clear Water */
-  --deep-sea: #03045E;
-  /* Midnight Navy (Text) */
-  --neutral: #F8F9FA;
-  /* Sea Salt (Background) */
-
+  color-scheme: light;
+  --primary: #023e8a;
+  --primary-strong: #012f6b;
+  --secondary: #0077b6;
+  --accent: #78d9ea;
+  --accent-soft: #dff6fb;
+  --deep-sea: #102a43;
+  --neutral: #f5f7fa;
+  --surface: #ffffff;
+  --surface-muted: #eef4f8;
+  --border: #d9e2ec;
+  --muted: #627d98;
   --background: var(--neutral);
   --foreground: var(--deep-sea);
+  --shadow-sm: 0 1px 2px rgba(16, 42, 67, 0.05), 0 4px 14px rgba(16, 42, 67, 0.06);
+  --shadow-md: 0 12px 32px rgba(16, 42, 67, 0.1);
+  --radius-card: 1rem;
 }
 
 @theme inline {
@@ -25,26 +28,55 @@
   --color-accent: var(--accent);
   --color-deepSea: var(--deep-sea);
   --color-neutral: var(--neutral);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
   --font-sans: var(--font-jakarta);
   --font-serif: var(--font-jakarta);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #03045E;
-    --foreground: #ADE8F4;
-  }
-}
-
-html, body {
+html,
+body {
   overflow-x: hidden;
 }
 
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(0, 166, 200, 0.06), transparent 24rem),
+    var(--background);
   color: var(--foreground);
-  font-family: var(--font-jakarta), Arial, Helvetica, sans-serif;
+  font-family: var(--font-jakarta), sans-serif;
   min-height: 100vh;
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(0, 166, 200, 0.45);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: rgba(0, 166, 200, 0.22);
+  color: var(--deep-sea);
 }
 
 /* Utility classes for ocean theme */
@@ -52,28 +84,50 @@ body {
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   color: white;
   padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(2, 62, 138, 0.3);
+  border-radius: 0.75rem;
+  font-weight: 700;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  box-shadow: 0 6px 18px rgba(2, 62, 138, 0.22);
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(2, 62, 138, 0.4);
+  box-shadow: 0 10px 24px rgba(2, 62, 138, 0.28);
 }
 
 .card {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 10px 40px rgba(3, 4, 94, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 15px 50px rgba(3, 4, 94, 0.12);
+.page-shell {
+  width: min(100% - 2rem, 80rem);
+  margin-inline: auto;
+}
+
+.surface-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #e7edf3;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
 
 .glass {
@@ -94,6 +148,39 @@ body {
   }
 }
 
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .animate-fade-in-up {
-  animation: fadeInUp 0.8s ease-out forwards;
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover {
+    transform: translateY(-1px);
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(0, 119, 182, 0.25);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

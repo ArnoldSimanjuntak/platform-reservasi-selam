@@ -9,7 +9,13 @@ export default function HeroSection() {
                 <div className="absolute inset-0 bg-gradient-to-b from-[#023E8A]/50 via-[#03045E]/40 to-[#F8F9FA] z-10" />
                 {/* Placeholder for Lembeh Critter/Muck image */}
                 <div className="w-full h-full relative opacity-60">
-                    <div className="absolute inset-0 bg-[url('/images/lembeh-map.png')] bg-cover bg-center" />
+                    <Image
+                        src="/images/lembeh-map.jpg"
+                        alt=""
+                        fill
+                        sizes="100vw"
+                        className="object-cover"
+                    />
                 </div>
             </div>
 

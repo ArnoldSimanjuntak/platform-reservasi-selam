@@ -45,7 +45,7 @@ export default function HeroBooking() {
             {/* Background Image & Gradient Overlay */}
             <div className="absolute inset-0 z-0 overflow-hidden">
                 <Image
-                    src="/images/lembeh-map-baru copy.jpg"
+                    src="/images/lembeh-map.jpg"
                     alt="Pantai dan perairan Selat Lembeh"
                     fill
                     className="object-cover opacity-90"
@@ -109,10 +109,11 @@ export default function HeroBooking() {
 
                         {/* Tanggal Dive */}
                         <div className="flex min-h-[132px] flex-col justify-center rounded-xl border border-slate-200 bg-white p-4 transition-colors">
-                            <label className="block w-full text-left text-xs font-bold uppercase tracking-wider text-gray-500">Tanggal Dive</label>
+                            <label htmlFor="hero-booking-date" className="block w-full text-left text-xs font-bold uppercase tracking-wider text-gray-500">Tanggal Selam</label>
                             <div className="relative mt-3 flex w-full items-center gap-3 text-deepSea font-semibold">
                                 <Calendar className="w-5 h-5 text-primary absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
+                                    id="hero-booking-date"
                                     type="date"
                                     className="w-full min-w-0 bg-transparent border-none outline-none pl-8 text-deepSea cursor-pointer font-sans text-base font-bold"
                                     value={date}
@@ -127,7 +128,7 @@ export default function HeroBooking() {
                             <div className="mt-3 flex items-center justify-between gap-3 text-deepSea font-semibold">
                                 <div className="flex min-w-0 items-center gap-3">
                                     <Users className="w-5 h-5 text-primary" />
-                                    <span className="truncate text-base font-bold">{pax} Divers</span>
+                                    <span className="truncate text-base font-bold">{pax} Penyelam</span>
                                 </div>
                                 <div className="flex shrink-0 gap-2">
                                     <button
