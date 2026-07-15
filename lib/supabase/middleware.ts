@@ -1,70 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/**
- * Helper: Ambil role dari tabel public.users.
- * Jangan fallback ke user_metadata karena metadata tersimpan di session cookie
- * dan bisa stale setelah admin mengubah role di DB.
- */
-async function getRoleFromDB(
-    supabase: ReturnType<typeof createServerClient>,
-    userId: string
-): Promise<string> {
-    try {
-        const { data, error } = await supabase
-            .from("users")
-            .select("role")
-            .eq("id", userId)
-            .maybeSingle();
-
-        if (error) {
-            console.warn("[middleware] DB role fetch error, using least-privilege role:", error.message);
-            return "customer";
-        }
-        return data?.role || "customer";
-    } catch (e) {
-        // DB tidak bisa diakses sama sekali (network error)
-        console.warn("[middleware] DB role fetch exception, using least-privilege role:", e);
-        return "customer";
-    }
-}
-
-async function getOnboardingFlagFromDB(
-    supabase: ReturnType<typeof createServerClient>,
-    userId: string
-): Promise<boolean> {
-    try {
-        const { data, error } = await supabase
-            .from("users")
-            .select("wants_provider")
-            .eq("id", userId)
-            .maybeSingle();
-
-        if (error) return false;
-        return !!data?.wants_provider;
-    } catch {
-        return false;
-    }
-}
-
-async function getPendingProviderProfileFromDB(
-    supabase: ReturnType<typeof createServerClient>,
-    userId: string
-): Promise<boolean> {
-    try {
-        const { data, error } = await supabase
-            .from("providers")
-            .select("verification_status, is_active")
-            .eq("owner_user_id", userId)
-            .maybeSingle();
-
-        if (error || !data) return false;
-        return data.verification_status !== "verified" || !data.is_active;
-    } catch {
-        return false;
-    }
-}
-
 function redirectWithSessionCookies(
     request: NextRequest,
     supabaseResponse: NextResponse,
@@ -120,13 +56,60 @@ export async function updateSession(request: NextRequest) {
     }
 
     // ─── 2. DATABASE-FIRST ROLE (tanpa fallback ke metadata/cookie) ───
-    const role = await getRoleFromDB(supabase, user.id);
-    const [wantsProvider, hasPendingProviderProfile] = role === "customer"
-        ? await Promise.all([
-            getOnboardingFlagFromDB(supabase, user.id),
-            getPendingProviderProfileFromDB(supabase, user.id),
-        ])
-        : [false, false];
+    // Ambil profil pengguna dan status provider dalam satu putaran jaringan.
+    // Hasilnya dipakai ulang agar setiap keputusan redirect tidak mengulang query.
+    const { role, wantsProvider, providerRecord } = await (async () => {
+        try {
+            const [profileResult, providerResult] = await Promise.all([
+                supabase
+                    .from("users")
+                    .select("role, wants_provider")
+                    .eq("id", user.id)
+                    .maybeSingle(),
+                supabase
+                    .from("providers")
+                    .select("verification_status, is_active")
+                    .eq("owner_user_id", user.id)
+                    .maybeSingle(),
+            ]);
+
+            if (profileResult.error) {
+                console.warn(
+                    "[middleware] DB profile fetch error, using least-privilege role:",
+                    profileResult.error.message
+                );
+            }
+            if (providerResult.error) {
+                console.warn(
+                    "[middleware] DB provider fetch error, treating provider as unverified:",
+                    providerResult.error.message
+                );
+            }
+
+            // Jangan gunakan user_metadata sebagai fallback karena session cookie
+            // dapat tertinggal setelah admin mengubah role di database.
+            const resolvedRole = profileResult.error || !profileResult.data?.role
+                ? "customer"
+                : profileResult.data.role;
+
+            return {
+                role: resolvedRole,
+                wantsProvider: resolvedRole === "customer" && !!profileResult.data?.wants_provider,
+                providerRecord: providerResult.error ? null : providerResult.data,
+            };
+        } catch (error) {
+            // Gangguan jaringan tidak boleh membuat seluruh navigasi gagal.
+            console.warn("[middleware] Access context fetch failed:", error);
+            return {
+                role: "customer",
+                wantsProvider: false,
+                providerRecord: null,
+            };
+        }
+    })();
+
+    const isVerifiedProvider = providerRecord?.verification_status === "verified" && !!providerRecord.is_active;
+    const hasPendingProviderProfile = role === "customer" && !!providerRecord && !isVerifiedProvider;
 
     // ─── 3. LOGIKA ROUTING & PROTEKSI ROLE ───
     if (pathname.startsWith("/admin") && role !== "admin") {
@@ -134,24 +117,16 @@ export async function updateSession(request: NextRequest) {
     }
 
     if (role === "provider") {
-        const { data: providerRecord } = await supabase
-            .from("providers")
-            .select("verification_status, is_active")
-            .eq("owner_user_id", user.id)
-            .maybeSingle();
-
-        const isVerified = providerRecord?.verification_status === "verified" && providerRecord?.is_active;
-
         if (pathname === "/" || pathname === "/services") {
             return redirectWithSessionCookies(
                 request,
                 supabaseResponse,
-                isVerified ? "/dashboard" : "/dashboard/provider/setup"
+                isVerifiedProvider ? "/dashboard" : "/dashboard/provider/setup"
             );
         }
 
         if (pathname.startsWith("/dashboard/provider") && !pathname.startsWith("/dashboard/provider/setup")) {
-            if (!isVerified) {
+            if (!isVerifiedProvider) {
                 return redirectWithSessionCookies(request, supabaseResponse, "/dashboard/provider/setup");
             }
         }
@@ -175,17 +150,10 @@ export async function updateSession(request: NextRequest) {
             return redirectWithSessionCookies(request, supabaseResponse, "/admin");
         }
         else if (role === "provider") {
-            const { data: providerRecord } = await supabase
-                .from("providers")
-                .select("verification_status, is_active")
-                .eq("owner_user_id", user.id)
-                .maybeSingle();
-
-            const isVerified = providerRecord?.verification_status === "verified" && providerRecord?.is_active;
             return redirectWithSessionCookies(
                 request,
                 supabaseResponse,
-                isVerified ? "/dashboard" : "/dashboard/provider/setup"
+                isVerifiedProvider ? "/dashboard" : "/dashboard/provider/setup"
             );
         }
         else {

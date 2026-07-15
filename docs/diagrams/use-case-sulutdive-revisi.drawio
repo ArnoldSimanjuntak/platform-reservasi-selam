@@ -1,0 +1,154 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Use Case Diagram">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="system" value="Aplikasi SulutDive" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontStyle=1;fontSize=16;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="150" y="40" width="1050" height="900" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="customer" value="Customer" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="45" y="270" width="40" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="provider" value="Provider" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="270" width="40" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="admin" value="Admin" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="730" width="40" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="login" value="Login" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="590" y="75" width="120" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="register" value="Registrasi Akun" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="220" y="100" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="catalog" value="Melihat Katalog Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="205" y="190" width="185" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="detail" value="Melihat Detail Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="425" y="190" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="location" value="Melihat Lokasi Penyelaman" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="200" y="285" width="195" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="routePlanner" value="Menggunakan Route Planner" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="200" y="380" width="195" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="booking" value="Melakukan Booking" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="300" width="165" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="bookingStatus" value="Melihat Status Booking dan Pembayaran" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="415" y="405" width="220" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="uploadPayment" value="Mengunggah Bukti Pembayaran" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="510" width="210" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="providerOnboard" value="Mengajukan Onboarding Provider" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="850" y="100" width="220" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="providerProfile" value="Mengisi Profil Bisnis" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="730" y="190" width="175" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="providerDocuments" value="Mengunggah Dokumen Verifikasi" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="950" y="190" width="220" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="manageProviderService" value="Mengelola Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="855" y="300" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="addService" value="Menambah Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="690" y="390" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="editService" value="Mengubah Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="900" y="390" width="165" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="deactivateService" value="Menonaktifkan Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="680" y="470" width="185" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="deleteService" value="Menghapus Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="905" y="470" width="165" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="manageOrders" value="Mengelola Pesanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="850" y="550" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="viewOrders" value="Melihat Pesanan Masuk" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="630" y="625" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="verifyPayment" value="Memverifikasi Pembayaran" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="835" y="625" width="190" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="viewPayment" value="Melihat Bukti Pembayaran" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1045" y="625" width="190" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="updateBookingStatus" value="Mengubah Status Pesanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="835" y="705" width="190" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="adminDashboard" value="Melihat Dashboard Admin" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="220" y="700" width="190" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="verifyProvider" value="Memverifikasi Provider" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="700" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="viewProviderDocs" value="Memeriksa Dokumen Provider" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="430" y="790" width="200" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="approveProvider" value="Menyetujui Provider" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="220" y="790" width="170" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="rejectProvider" value="Menolak Provider" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="865" width="160" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="monitorServices" value="Memantau Seluruh Layanan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="700" y="820" width="200" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="monitorBookings" value="Memantau Booking dan Pembayaran" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="940" y="820" width="225" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="w1" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="customer" target="register"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="w2" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="customer" target="login"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="w3" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="customer" target="catalog"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="w4" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="customer" target="location"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="w5" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="customer" target="routePlanner"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="w6" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="customer" target="bookingStatus"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="p1" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="provider" target="login"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="provider" target="providerOnboard"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p3" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="provider" target="manageProviderService"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p4" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="provider" target="manageOrders"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="a1" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="admin" target="login"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a2" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="admin" target="adminDashboard"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a3" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="admin" target="verifyProvider"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a4" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="admin" target="monitorServices"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a5" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="admin" target="monitorBookings"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="incBookingLogin" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;" edge="1" parent="1" source="booking" target="login"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="incStatusLogin" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;" edge="1" parent="1" source="bookingStatus" target="login"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="incUploadLogin" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;" edge="1" parent="1" source="uploadPayment" target="login"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="incOnboardProfile" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;" edge="1" parent="1" source="providerOnboard" target="providerProfile"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="incOnboardDocuments" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;" edge="1" parent="1" source="providerOnboard" target="providerDocuments"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="incViewOrders" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;" edge="1" parent="1" source="manageOrders" target="viewOrders"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="incPaymentProof" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;" edge="1" parent="1" source="verifyPayment" target="viewPayment"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="incProviderDocs" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;" edge="1" parent="1" source="verifyProvider" target="viewProviderDocs"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="extDetail" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="detail" target="catalog"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extBooking" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="booking" target="detail"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extUploadPayment" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="uploadPayment" target="bookingStatus"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extAddService" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="addService" target="manageProviderService"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extEditService" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="editService" target="manageProviderService"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extDeactivateService" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="deactivateService" target="manageProviderService"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extDeleteService" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="deleteService" target="manageProviderService"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extVerifyPayment" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="verifyPayment" target="manageOrders"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extUpdateStatus" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="updateBookingStatus" target="manageOrders"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extApprove" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="approveProvider" target="verifyProvider"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="extReject" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;endFill=0;dashed=1;html=1;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1" source="rejectProvider" target="verifyProvider"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

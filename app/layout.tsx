@@ -7,7 +7,7 @@ import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import BottomNav from "@/components/BottomNav";
 import SessionTimeout from "@/components/SessionTimeout";
 import AuthNavigationProvider from "@/components/AuthNavigationProvider";
-import type { NavbarAuthState } from "@/lib/auth/navbar-state";
+import { getServerNavbarAuthState } from "@/lib/auth/navbar-state";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -26,13 +26,6 @@ const supabaseOrigin = (() => {
     return null;
   }
 })();
-
-const initialAuthState: NavbarAuthState = {
-  user: null,
-  role: null,
-  providerVerified: false,
-  isLoading: true,
-};
 
 export const metadata: Metadata = {
   title: "SulutDive - Aplikasi Booking Wisata Selam Lembeh",
@@ -68,11 +61,16 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Render navbar dengan state sesi yang sudah selesai dibaca di server.
+  // Client tetap menyinkronkan perubahan sesi setelah hydration, tetapi tidak
+  // lagi memulai setiap pemuatan halaman dengan skeleton tanpa batas waktu.
+  const initialAuthState = await getServerNavbarAuthState();
+
   return (
     <html lang="id">
       <head>

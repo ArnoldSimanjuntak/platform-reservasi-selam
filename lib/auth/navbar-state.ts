@@ -20,7 +20,9 @@ export const guestNavbarState: NavbarAuthState = {
     isLoading: false,
 };
 
-export async function getServerNavbarAuthState(): Promise<NavbarAuthState> {
+const SERVER_NAVBAR_TIMEOUT_MS = 4_000;
+
+async function resolveServerNavbarAuthState(): Promise<NavbarAuthState> {
     try {
         const supabase = await createClient();
         const { data: { user }, error } = await supabase.auth.getUser();
@@ -32,32 +34,31 @@ export async function getServerNavbarAuthState(): Promise<NavbarAuthState> {
             name: (user.user_metadata?.name as string | undefined) ?? null,
         };
 
-        const { data: userRecord } = await supabase
-            .from("users")
-            .select("role")
-            .eq("id", user.id)
-            .maybeSingle();
-
-        const role = userRecord?.role ?? null;
-        if (!role) {
-            return {
-                user: navbarUser,
-                role: null,
-                providerVerified: false,
-                isLoading: true,
-            };
-        }
-
-        let providerVerified = false;
-        if (role === "provider") {
-            const { data: provider } = await supabase
+        // Jalankan pembacaan role dan status provider secara paralel agar navbar
+        // provider tidak menunggu dua perjalanan jaringan yang berurutan.
+        const [profileResult, providerResult] = await Promise.all([
+            supabase
+                .from("users")
+                .select("role")
+                .eq("id", user.id)
+                .maybeSingle(),
+            supabase
                 .from("providers")
                 .select("verification_status, is_active")
                 .eq("owner_user_id", user.id)
-                .maybeSingle();
+                .maybeSingle(),
+        ]);
 
-            providerVerified = provider?.verification_status === "verified" && !!provider?.is_active;
-        }
+        // Role navbar hanya mengatur tampilan, bukan otorisasi. Jika pembacaan
+        // profil gagal sesaat, gunakan hak paling rendah agar navbar tetap bisa
+        // dipakai dan sinkronisasi client dapat mencoba lagi di latar belakang.
+        const role = profileResult.error || !profileResult.data?.role
+            ? "customer"
+            : profileResult.data.role;
+        const providerVerified = role === "provider"
+            && !providerResult.error
+            && providerResult.data?.verification_status === "verified"
+            && !!providerResult.data?.is_active;
 
         return {
             user: navbarUser,
@@ -67,5 +68,20 @@ export async function getServerNavbarAuthState(): Promise<NavbarAuthState> {
         };
     } catch {
         return guestNavbarState;
+    }
+}
+
+export async function getServerNavbarAuthState(): Promise<NavbarAuthState> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+        return await Promise.race([
+            resolveServerNavbarAuthState(),
+            new Promise<NavbarAuthState>((resolve) => {
+                timeoutId = setTimeout(() => resolve(guestNavbarState), SERVER_NAVBAR_TIMEOUT_MS);
+            }),
+        ]);
+    } finally {
+        if (timeoutId) clearTimeout(timeoutId);
     }
 }

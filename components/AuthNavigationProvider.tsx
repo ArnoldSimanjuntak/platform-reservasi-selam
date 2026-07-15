@@ -20,6 +20,8 @@ const guestAuthState: NavbarAuthState = {
     isLoading: false,
 };
 
+const AUTH_SYNC_TIMEOUT_MS = 8_000;
+
 interface AuthNavigationContextValue {
     authState: NavbarAuthState;
     refreshAuthState: (showLoading?: boolean) => Promise<void>;
@@ -58,68 +60,84 @@ export default function AuthNavigationProvider({
     const [authState, setAuthState] = useState(initialAuthState);
     const mountedRef = useRef(true);
     const requestIdRef = useRef(0);
-    const inFlightRef = useRef<Promise<void> | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
     const lastRefreshAtRef = useRef(Date.now());
 
     const markSignedOut = useCallback(() => {
         requestIdRef.current += 1;
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = null;
         setAuthState(guestAuthState);
     }, []);
 
     const refreshAuthState = useCallback(async (showLoading = false) => {
-        if (inFlightRef.current) return inFlightRef.current;
-
         const requestId = ++requestIdRef.current;
+        abortControllerRef.current?.abort();
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        const timeoutId = window.setTimeout(() => controller.abort(), AUTH_SYNC_TIMEOUT_MS);
+
         if (showLoading) setAuthState((previous) => ({ ...previous, isLoading: true }));
 
-        const request = (async () => {
-            try {
-                const response = await fetch("/api/auth/navbar-state", {
-                    cache: "no-store",
-                    credentials: "same-origin",
-                    headers: { "Cache-Control": "no-cache" },
-                });
-                if (!response.ok) throw new Error(`Auth navigation sync failed: ${response.status}`);
-
-                const nextState = (await response.json()) as NavbarAuthState;
-                if (!mountedRef.current || requestId !== requestIdRef.current) return;
-
-                setAuthState((previous) => {
-                    const sameUser =
-                        !!previous.user &&
-                        !!nextState.user &&
-                        previous.user.id === nextState.user.id;
-
-                    if (sameUser && nextState.user && !nextState.role && previous.role) {
-                        return {
-                            ...nextState,
-                            role: previous.role,
-                            providerVerified: previous.providerVerified,
-                            isLoading: false,
-                        };
-                    }
-
-                    return { ...nextState, isLoading: false };
-                });
-                lastRefreshAtRef.current = Date.now();
-            } catch (error) {
-                if (!mountedRef.current || requestId !== requestIdRef.current) return;
-                if (!isAbortError(error)) console.warn("[AuthNavigation] sync failed:", error);
-                setAuthState((previous) => ({ ...previous, isLoading: false }));
-            }
-        })();
-
-        inFlightRef.current = request;
         try {
-            await request;
+            const response = await fetch("/api/auth/navbar-state", {
+                cache: "no-store",
+                credentials: "same-origin",
+                headers: { "Cache-Control": "no-cache" },
+                signal: controller.signal,
+            });
+            if (!response.ok) throw new Error(`Auth navigation sync failed: ${response.status}`);
+
+            const nextState = (await response.json()) as NavbarAuthState;
+            if (!mountedRef.current || requestId !== requestIdRef.current) return;
+
+            setAuthState((previous) => {
+                const sameUser =
+                    !!previous.user &&
+                    !!nextState.user &&
+                    previous.user.id === nextState.user.id;
+
+                if (sameUser && nextState.user && !nextState.role && previous.role) {
+                    return {
+                        ...nextState,
+                        role: previous.role,
+                        providerVerified: previous.providerVerified,
+                        isLoading: false,
+                    };
+                }
+
+                return { ...nextState, isLoading: false };
+            });
+        } catch (error) {
+            if (!mountedRef.current || requestId !== requestIdRef.current) return;
+            if (!isAbortError(error)) console.warn("[AuthNavigation] sync failed:", error);
+
+            // Kegagalan jaringan tidak boleh membekukan navbar. Pertahankan
+            // state terakhir yang masih valid dan selalu akhiri loading.
+            setAuthState((previous) => ({ ...previous, isLoading: false }));
         } finally {
-            if (inFlightRef.current === request) inFlightRef.current = null;
+            window.clearTimeout(timeoutId);
+            if (requestId === requestIdRef.current) {
+                abortControllerRef.current = null;
+                lastRefreshAtRef.current = Date.now();
+            }
         }
     }, []);
 
     useEffect(() => {
+        requestIdRef.current += 1;
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = null;
         setAuthState(initialAuthState);
-    }, [initialAuthState]);
+        lastRefreshAtRef.current = Date.now();
+    }, [
+        initialAuthState.isLoading,
+        initialAuthState.providerVerified,
+        initialAuthState.role,
+        initialAuthState.user?.email,
+        initialAuthState.user?.id,
+        initialAuthState.user?.name,
+    ]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -139,7 +157,10 @@ export default function AuthNavigationProvider({
                 user,
                 role: previous.user?.id === user.id ? previous.role : null,
                 providerVerified: previous.user?.id === user.id ? previous.providerVerified : false,
-                isLoading: true,
+                // Refresh token dan perpindahan halaman untuk user yang sama
+                // berjalan di latar belakang tanpa mengganti navbar menjadi
+                // skeleton yang tidak dapat digunakan.
+                isLoading: previous.user?.id !== user.id,
             }));
 
             const sessionChanged = initialAuthState.user?.id !== user.id;
@@ -155,6 +176,9 @@ export default function AuthNavigationProvider({
 
         return () => {
             mountedRef.current = false;
+            requestIdRef.current += 1;
+            abortControllerRef.current?.abort();
+            abortControllerRef.current = null;
             subscription.unsubscribe();
         };
     }, [initialAuthState.isLoading, initialAuthState.user?.id, markSignedOut, refreshAuthState]);

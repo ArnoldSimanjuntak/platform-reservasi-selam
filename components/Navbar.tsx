@@ -148,7 +148,10 @@ export default function Navbar() {
 
                 {/* Desktop Nav */}
                 <div className="hidden md:flex items-center gap-8">
-                    {!isAuthResolving && navLinks.map((link) => (
+                    {/* Tautan publik tetap dapat digunakan ketika sesi sedang
+                        disinkronkan. Hanya bagian profil yang menampilkan
+                        skeleton, sehingga navbar tidak pernah terkunci. */}
+                    {navLinks.map((link) => (
                         <Link
                             key={link.href}
                             href={link.href}
@@ -235,7 +238,7 @@ export default function Navbar() {
             {/* Mobile Menu */}
             {isMobileMenuOpen && (
                 <MobileMenu
-                    navLinks={isAuthResolving ? [] : navLinks}
+                    navLinks={navLinks}
                     user={user}
                     userName={userName}
                     isProvider={isProvider}
