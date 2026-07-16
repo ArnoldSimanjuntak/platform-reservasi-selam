@@ -70,7 +70,10 @@ export default async function AdminVerificationPage() {
                 public_url, is_required, status, notes, created_at, updated_at
             )
         `)
-        .order("created_at", { ascending: true });
+        // Antrean verifikasi menampilkan pengajuan terbaru terlebih dahulu.
+        // created_at menjadi penentu kedua jika waktu pengajuan sama.
+        .order("verification_submitted_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
 
     const providers = await Promise.all(
         (allProviders ?? []).map(async (provider) => ({

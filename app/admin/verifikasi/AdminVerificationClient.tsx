@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ElementType } from "react";
+import { useEffect, useState, useTransition, type ElementType } from "react";
 import { useRouter } from "next/navigation";
 import {
     CheckCircle2,
@@ -16,6 +16,10 @@ import {
     Ship,
     Glasses,
     GraduationCap,
+    ExternalLink,
+    RotateCcw,
+    ZoomIn,
+    ZoomOut,
 } from "lucide-react";
 import { verifyProviderIdentity } from "@/app/actions/provider";
 import type { Provider } from "@/lib/supabase";
@@ -59,6 +63,25 @@ const TYPE_CONFIG: Record<string, { icon: ElementType; bg: string; text: string;
 
 type TabKey = "pending" | "verified" | "rejected";
 
+interface SelectedDocument {
+    url: string;
+    title: string;
+    isImage: boolean;
+}
+
+const MIN_IMAGE_ZOOM = 0.5;
+const MAX_IMAGE_ZOOM = 3;
+const IMAGE_ZOOM_STEP = 0.25;
+
+function isImageDocumentUrl(url: string) {
+    try {
+        const pathname = decodeURIComponent(new URL(url, window.location.origin).pathname);
+        return /\.(?:jpe?g|png|webp)$/i.test(pathname);
+    } catch {
+        return /\.(?:jpe?g|png|webp)(?:\?|$)/i.test(url);
+    }
+}
+
 export default function AdminVerificationClient({
     initialProviders,
     verifiedProviders = [],
@@ -68,11 +91,49 @@ export default function AdminVerificationClient({
     const [providers, setProviders] = useState<Provider[]>(initialProviders);
     const [isPending, startTransition] = useTransition();
     const [pendingId, setPendingId] = useState<string | null>(null);
-    const [selectedImage, setSelectedImage] = useState<{ url: string; title: string } | null>(null);
+    const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null);
+    const [imageZoom, setImageZoom] = useState(1);
     const [actionResult, setActionResult] = useState<{ id: string; msg: string; isError: boolean } | null>(null);
     const [removingId, setRemovingId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<TabKey>("pending");
     const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        setProviders(initialProviders);
+    }, [initialProviders]);
+
+    useEffect(() => {
+        if (!selectedDocument) return;
+
+        const previousOverflow = document.body.style.overflow;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") setSelectedDocument(null);
+        };
+
+        document.body.style.overflow = "hidden";
+        window.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [selectedDocument]);
+
+    const openDocument = (url: string, title: string) => {
+        setImageZoom(1);
+        setSelectedDocument({
+            url,
+            title,
+            isImage: isImageDocumentUrl(url),
+        });
+    };
+
+    const changeImageZoom = (difference: number) => {
+        setImageZoom((current) => Math.min(
+            MAX_IMAGE_ZOOM,
+            Math.max(MIN_IMAGE_ZOOM, Number((current + difference).toFixed(2)))
+        ));
+    };
 
     const handleVerify = (providerId: string, action: "approve" | "reject") => {
         setActionResult(null);
@@ -130,42 +191,125 @@ export default function AdminVerificationClient({
 
     return (
         <div className="space-y-5">
-            {/* Image Viewer Modal */}
-            {selectedImage && (
+            {/* Responsive document viewer */}
+            {selectedDocument && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md"
-                    onClick={() => setSelectedImage(null)}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 p-0 backdrop-blur-md sm:p-4"
+                    onClick={() => setSelectedDocument(null)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={selectedDocument.title}
                 >
                     <div
-                        className="bg-white rounded-3xl overflow-hidden max-w-2xl w-full shadow-2xl border border-white/20"
+                        className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[min(90dvh,900px)] sm:max-w-5xl sm:rounded-3xl sm:border sm:border-white/20"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
                         <div
-                            className="flex items-center justify-between p-4 border-b border-gray-100"
+                            className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 p-3 sm:p-4"
                             style={{ background: "linear-gradient(135deg, #023E8A, #0077B6)" }}
                         >
-                            <h3 className="font-bold text-white flex items-center gap-2">
-                                <FileImage className="w-5 h-5 text-cyan-300" />
-                                {selectedImage.title}
+                            <h3 className="flex min-w-0 items-center gap-2 font-bold text-white">
+                                {selectedDocument.isImage ? (
+                                    <FileImage className="h-5 w-5 shrink-0 text-cyan-300" />
+                                ) : (
+                                    <FileText className="h-5 w-5 shrink-0 text-cyan-300" />
+                                )}
+                                <span className="truncate">{selectedDocument.title}</span>
                             </h3>
                             <button
-                                onClick={() => setSelectedImage(null)}
-                                className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                                type="button"
+                                onClick={() => setSelectedDocument(null)}
+                                className="shrink-0 rounded-full p-2 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                                aria-label="Tutup dokumen"
                             >
-                                <XCircle className="w-6 h-6" />
+                                <XCircle className="h-6 w-6" />
                             </button>
                         </div>
-                        {/* Modal Body */}
-                        <div className="p-4 bg-gray-100 flex items-center justify-center relative min-h-[50vh] max-h-[75vh]">
-                            <iframe
-                                src={selectedImage.url}
-                                title={selectedImage.title}
-                                className="h-[70vh] w-full rounded-lg bg-white shadow-sm"
-                            />
+
+                        {/* Viewer controls */}
+                        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-4">
+                            {selectedDocument.isImage ? (
+                                <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => changeImageZoom(-IMAGE_ZOOM_STEP)}
+                                        disabled={imageZoom <= MIN_IMAGE_ZOOM}
+                                        className="rounded-lg p-2 text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35"
+                                        aria-label="Perkecil gambar"
+                                    >
+                                        <ZoomOut className="h-4 w-4" />
+                                    </button>
+                                    <span className="w-12 text-center text-xs font-black text-slate-700">
+                                        {Math.round(imageZoom * 100)}%
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => changeImageZoom(IMAGE_ZOOM_STEP)}
+                                        disabled={imageZoom >= MAX_IMAGE_ZOOM}
+                                        className="rounded-lg p-2 text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35"
+                                        aria-label="Perbesar gambar"
+                                    >
+                                        <ZoomIn className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setImageZoom(1)}
+                                        className="ml-1 flex items-center gap-1.5 rounded-lg border-l border-slate-200 px-2 py-2 text-xs font-bold text-[#023E8A] transition hover:bg-white sm:px-3"
+                                        aria-label="Sesuaikan gambar ke layar"
+                                    >
+                                        <RotateCcw className="h-4 w-4" />
+                                        <span className="hidden sm:inline">Sesuaikan</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                <p className="text-xs font-semibold text-slate-500">Dokumen PDF</p>
+                            )}
+                            <a
+                                href={selectedDocument.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-bold text-[#023E8A] transition hover:bg-blue-50 sm:px-3"
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                                Buka terpisah
+                            </a>
                         </div>
-                        <div className="p-3 bg-slate-50 text-center">
-                            <p className="text-xs text-slate-400">Klik di luar gambar untuk menutup</p>
+
+                        {/* Modal body: images fit the screen first; PDFs stay in an iframe. */}
+                        <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-slate-100 p-2 sm:p-4">
+                            {selectedDocument.isImage ? (
+                                <div className="flex min-h-full min-w-full items-center justify-center">
+                                    <div
+                                        className="flex shrink-0 items-center justify-center"
+                                        style={{
+                                            width: `${imageZoom * 100}%`,
+                                            height: `${imageZoom * 100}%`,
+                                        }}
+                                    >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={selectedDocument.url}
+                                            alt={selectedDocument.title}
+                                            className="max-h-full max-w-full select-none object-contain shadow-sm"
+                                            draggable={false}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <iframe
+                                    src={selectedDocument.url}
+                                    title={selectedDocument.title}
+                                    className="h-full min-h-[70dvh] w-full rounded-lg bg-white shadow-sm"
+                                />
+                            )}
+                        </div>
+                        <div className="shrink-0 bg-slate-50 px-3 py-2 text-center">
+                            <p className="text-[11px] text-slate-500">
+                                {selectedDocument.isImage
+                                    ? "Gunakan tombol zoom, lalu geser area gambar saat diperbesar."
+                                    : "Gunakan kontrol PDF atau buka dokumen di tab terpisah."}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -402,10 +546,10 @@ export default function AdminVerificationClient({
                                                         type="button"
                                                         onClick={() =>
                                                             documentUrl &&
-                                                            setSelectedImage({
-                                                                url: documentUrl,
-                                                                title: `${definition.label}: ${provider.name}`,
-                                                            })
+                                                            openDocument(
+                                                                documentUrl,
+                                                                `${definition.label}: ${provider.name}`
+                                                            )
                                                         }
                                                         disabled={!documentUrl}
                                                         className={`shrink-0 rounded-xl border px-4 py-2 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
