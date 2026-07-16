@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { sendPushToProvider, sendPushToUsers } from "@/lib/push/server";
 
 export interface PaymentVerificationResult {
     success: boolean;
@@ -41,7 +42,7 @@ export async function submitPaymentProof(
     // ─── 3. Ambil booking + verifikasi kepemilikan ──────────────
     const { data: booking, error: bookingError } = await supabase
         .from("bookings")
-        .select("id, user_id, payment_status, payment_deadline")
+        .select("id, user_id, provider_id, payment_status, payment_deadline")
         .eq("id", bookingId)
         .single();
 
@@ -105,6 +106,13 @@ export async function submitPaymentProof(
         };
     }
 
+    await sendPushToProvider(booking.provider_id, {
+        title: "Bukti Pembayaran Baru",
+        body: "Customer telah mengunggah bukti pembayaran yang perlu Anda periksa.",
+        url: "/dashboard/provider/orders",
+        tag: `payment-proof-${bookingId}`,
+    });
+
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard/provider/orders");
@@ -137,7 +145,7 @@ export async function verifyPayment(
     // Ambil booking
     const { data: booking, error: bookingError } = await supabase
         .from("bookings")
-        .select("id, provider_id, payment_status")
+        .select("id, provider_id, user_id, payment_status")
         .eq("id", bookingId)
         .single();
 
@@ -177,6 +185,15 @@ export async function verifyPayment(
         console.error("Payment verify error:", updateError);
         return { success: false, message: `Gagal memverifikasi: ${updateError.message}` };
     }
+
+    await sendPushToUsers([booking.user_id], {
+        title: action === "approve" ? "Pembayaran Diterima" : "Pembayaran Ditolak",
+        body: action === "approve"
+            ? "Pembayaran telah diverifikasi dan booking Anda dikonfirmasi."
+            : "Bukti pembayaran ditolak. Silakan periksa dan unggah kembali bukti yang sesuai.",
+        url: "/dashboard/bookings",
+        tag: `payment-review-${bookingId}`,
+    });
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/bookings");

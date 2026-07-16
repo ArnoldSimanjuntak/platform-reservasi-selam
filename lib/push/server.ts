@@ -1,0 +1,188 @@
+import "server-only";
+
+import webpush from "web-push";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
+import type { SulutDivePushPayload } from "@/lib/push/types";
+
+interface StoredSubscription {
+    id: string;
+    user_id: string;
+    endpoint: string;
+    p256dh: string;
+    auth_key: string;
+}
+
+export interface PushDeliverySummary {
+    sent: number;
+    failed: number;
+    removed: number;
+    skipped: boolean;
+}
+
+const EMPTY_SUMMARY: PushDeliverySummary = {
+    sent: 0,
+    failed: 0,
+    removed: 0,
+    skipped: true,
+};
+
+let configuredVapidSignature: string | null = null;
+
+function configureWebPush() {
+    const subject = process.env.VAPID_SUBJECT;
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+    if (!subject || !publicKey || !privateKey) return false;
+
+    const signature = `${subject}:${publicKey}:${privateKey}`;
+    if (configuredVapidSignature !== signature) {
+        webpush.setVapidDetails(subject, publicKey, privateKey);
+        configuredVapidSignature = signature;
+    }
+    return true;
+}
+
+function readStatusCode(error: unknown) {
+    if (error && typeof error === "object" && "statusCode" in error) {
+        const statusCode = Number((error as { statusCode?: unknown }).statusCode);
+        return Number.isFinite(statusCode) ? statusCode : null;
+    }
+    return null;
+}
+
+async function sendPushToSubscriptions(
+    subscriptions: StoredSubscription[],
+    payload: SulutDivePushPayload
+): Promise<PushDeliverySummary> {
+    if (subscriptions.length === 0) return EMPTY_SUMMARY;
+    if (!configureWebPush()) {
+        console.warn("[push] VAPID environment variables are incomplete; notification skipped.");
+        return EMPTY_SUMMARY;
+    }
+
+    const admin = createServiceRoleClient();
+    if (!admin) {
+        console.warn("[push] Service-role client is unavailable; notification skipped.");
+        return EMPTY_SUMMARY;
+    }
+
+    const notification = JSON.stringify({
+        ...payload,
+        icon: payload.icon || "/icons/icon-192x192.png",
+        badge: payload.badge || "/icons/icon-96x96.png",
+    });
+    const expiredIds: string[] = [];
+    let sent = 0;
+    let failed = 0;
+
+    await Promise.all(
+        subscriptions.map(async (subscription) => {
+            try {
+                await webpush.sendNotification(
+                    {
+                        endpoint: subscription.endpoint,
+                        keys: {
+                            p256dh: subscription.p256dh,
+                            auth: subscription.auth_key,
+                        },
+                    },
+                    notification,
+                    { TTL: 60 * 60, urgency: "normal" }
+                );
+                sent += 1;
+            } catch (error) {
+                failed += 1;
+                const statusCode = readStatusCode(error);
+                if (statusCode === 404 || statusCode === 410) {
+                    expiredIds.push(subscription.id);
+                } else {
+                    console.warn("[push] Delivery failed:", statusCode ?? "network error");
+                }
+            }
+        })
+    );
+
+    if (expiredIds.length > 0) {
+        const { error } = await admin.from("push_subscriptions").delete().in("id", expiredIds);
+        if (error) console.warn("[push] Failed to remove expired subscriptions:", error.message);
+    }
+
+    return {
+        sent,
+        failed,
+        removed: expiredIds.length,
+        skipped: false,
+    };
+}
+
+export async function sendPushToUsers(
+    userIds: Array<string | null | undefined>,
+    payload: SulutDivePushPayload
+): Promise<PushDeliverySummary> {
+    try {
+        const uniqueUserIds = [...new Set(userIds.filter((id): id is string => !!id))];
+        if (uniqueUserIds.length === 0) return EMPTY_SUMMARY;
+
+        const admin = createServiceRoleClient();
+        if (!admin) return EMPTY_SUMMARY;
+
+        const { data, error } = await admin
+            .from("push_subscriptions")
+            .select("id, user_id, endpoint, p256dh, auth_key")
+            .in("user_id", uniqueUserIds);
+
+        if (error) {
+            console.warn("[push] Failed to read subscriptions:", error.message);
+            return EMPTY_SUMMARY;
+        }
+
+        return sendPushToSubscriptions((data ?? []) as StoredSubscription[], payload);
+    } catch (error) {
+        console.warn("[push] User notification skipped:", error);
+        return EMPTY_SUMMARY;
+    }
+}
+
+export async function sendPushToProvider(
+    providerId: string | null | undefined,
+    payload: SulutDivePushPayload
+) {
+    try {
+        if (!providerId) return EMPTY_SUMMARY;
+        const admin = createServiceRoleClient();
+        if (!admin) return EMPTY_SUMMARY;
+
+        const { data, error } = await admin
+            .from("providers")
+            .select("owner_user_id")
+            .eq("id", providerId)
+            .maybeSingle();
+
+        if (error) {
+            console.warn("[push] Failed to resolve provider owner:", error.message);
+            return EMPTY_SUMMARY;
+        }
+        return sendPushToUsers([data?.owner_user_id], payload);
+    } catch (error) {
+        console.warn("[push] Provider notification skipped:", error);
+        return EMPTY_SUMMARY;
+    }
+}
+
+export async function sendPushToRole(role: string, payload: SulutDivePushPayload) {
+    try {
+        const admin = createServiceRoleClient();
+        if (!admin) return EMPTY_SUMMARY;
+
+        const { data, error } = await admin.from("users").select("id").eq("role", role);
+        if (error) {
+            console.warn("[push] Failed to resolve role recipients:", error.message);
+            return EMPTY_SUMMARY;
+        }
+        return sendPushToUsers((data ?? []).map((user) => user.id), payload);
+    } catch (error) {
+        console.warn("[push] Role notification skipped:", error);
+        return EMPTY_SUMMARY;
+    }
+}

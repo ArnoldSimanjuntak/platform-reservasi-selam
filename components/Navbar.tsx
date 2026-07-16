@@ -9,6 +9,7 @@ import { signOut as serverSignOut } from "@/app/auth/actions";
 import { useCartStore } from "@/lib/cart-store";
 import { useAuthNavigation } from "@/components/AuthNavigationProvider";
 import { clearPrivateCachesOnSignOut } from "@/lib/pwa/cache";
+import { unsubscribeCurrentDevicePush } from "@/lib/push/client";
 import type { NavbarUser } from "@/lib/auth/navbar-state";
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ export default function Navbar() {
         useCartStore.getState().resetCart();
 
         try {
+            await unsubscribeCurrentDevicePush();
             const supabase = createClient();
             await supabase.auth.signOut({ scope: "global" });
             await clearPrivateCachesOnSignOut();

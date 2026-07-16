@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { sendPushToProvider, sendPushToUsers } from "@/lib/push/server";
 
 export interface BookingResult {
     success: boolean;
@@ -319,6 +320,13 @@ export async function createBooking(
         ? `${totalParticipants} unit alat selama ${effectiveDays} hari`
         : `${totalParticipants} penyelam`;
 
+    await sendPushToProvider(service.provider_id, {
+        title: "Booking Baru",
+        body: `Ada pesanan baru untuk ${service.name} pada ${bookingDate}.`,
+        url: "/dashboard/provider/orders",
+        tag: `booking-created-${booking.id}`,
+    });
+
     // ─── 10. Invalidate cache agar halaman bookings langsung up-to-date ───
     revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard");
@@ -497,6 +505,14 @@ export async function updateBookingStatus(
         completed: "Selesai",
         cancelled: "Dibatalkan",
     };
+
+    const serviceName = (booking.service as { name?: string })?.name || "layanan Anda";
+    await sendPushToUsers([booking.user_id], {
+        title: `Booking ${statusLabels[newStatus] || newStatus}`,
+        body: `Status ${serviceName} telah diperbarui menjadi ${statusLabels[newStatus] || newStatus}.`,
+        url: "/dashboard/bookings",
+        tag: `booking-status-${bookingId}`,
+    });
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/bookings");

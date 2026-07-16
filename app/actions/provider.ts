@@ -11,6 +11,7 @@ import {
     getRequiredDocumentTypes,
     type VerificationDocumentType,
 } from "@/lib/provider-verification";
+import { sendPushToRole, sendPushToUsers } from "@/lib/push/server";
 
 export interface ProviderSetupResult {
     success: boolean;
@@ -503,6 +504,13 @@ export async function setupProviderProfile(
         console.warn("[setupProviderProfile] wants_provider update skipped:", error);
     }
 
+    await sendPushToRole("admin", {
+        title: "Pengajuan Provider Baru",
+        body: `${name} telah mengirim dokumen dan menunggu verifikasi.`,
+        url: "/admin/verifikasi",
+        tag: `provider-submitted-${providerRow.id}`,
+    });
+
     // ─── 4. Revalidasi cache & redirect ke halaman setup (status verifikasi) ─
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/provider/setup");
@@ -763,6 +771,15 @@ export async function verifyProviderIdentity(
             };
         }
     }
+
+    await sendPushToUsers([providerRecord.owner_user_id], {
+        title: action === "approve" ? "Provider Disetujui" : "Pengajuan Provider Ditolak",
+        body: action === "approve"
+            ? "Pengajuan provider Anda telah disetujui. Fitur operasional provider kini dapat digunakan."
+            : "Pengajuan provider Anda ditolak. Buka aplikasi untuk melihat alasan dan memperbaiki dokumen.",
+        url: "/dashboard/provider/setup",
+        tag: `provider-reviewed-${providerId}`,
+    });
 
     // 4. Revalidasi root layout agar role baru terbaca di seluruh App Router tree.
     revalidatePath("/", "layout");

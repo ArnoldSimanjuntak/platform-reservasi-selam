@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthNavigation } from "@/components/AuthNavigationProvider";
 import { clearPrivateCachesOnSignOut } from "@/lib/pwa/cache";
+import { unsubscribeCurrentDevicePush } from "@/lib/push/client";
 
 const LAST_ACTIVITY_KEY = "sulutdive-last-activity";
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
@@ -50,6 +51,7 @@ export default function SessionTimeout() {
                 }
                 shouldRedirect = true;
 
+                await unsubscribeCurrentDevicePush();
                 const supabase = createClient();
                 await supabase.auth.signOut({ scope: "global" });
                 markSignedOut();
