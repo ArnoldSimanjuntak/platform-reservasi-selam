@@ -13,13 +13,20 @@ import { savePushSubscription, sendTestPushNotification } from "@/app/actions/pu
 import { useAuthNavigation } from "@/components/AuthNavigationProvider";
 import {
     getCurrentPushSubscription,
-    getPushServiceWorkerRegistration,
+    subscribeCurrentDevicePush,
     unsubscribeCurrentDevicePush,
     withPushTimeout,
 } from "@/lib/push/client";
 import type { SerializedPushSubscription } from "@/lib/push/types";
 
-type PushState = "checking" | "available" | "enabled" | "denied" | "unsupported" | "error";
+type PushState =
+    | "checking"
+    | "available"
+    | "enabled"
+    | "denied"
+    | "unsupported"
+    | "development"
+    | "error";
 
 function urlBase64ToUint8Array(value: string) {
     const padding = "=".repeat((4 - (value.length % 4)) % 4);
@@ -55,12 +62,14 @@ export default function PushNotificationManager() {
     const [isOpen, setIsOpen] = useState(false);
     const [isWorking, setIsWorking] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [currentEndpoint, setCurrentEndpoint] = useState<string | null>(null);
     const [isIOS, setIsIOS] = useState(false);
     const [isStandalone, setIsStandalone] = useState(false);
 
     const refreshPushState = useCallback(async () => {
         if (!authState.user) {
             setPushState("checking");
+            setCurrentEndpoint(null);
             return;
         }
 
@@ -74,7 +83,14 @@ export default function PushNotificationManager() {
         // next-pwa is disabled while `next dev` is running, so waiting for
         // navigator.serviceWorker.ready there would never finish.
         if (process.env.NODE_ENV !== "production") {
+            setPushState("development");
+            setMessage("Push notification tersedia pada build production melalui HTTPS.");
+            return;
+        }
+
+        if (!window.isSecureContext) {
             setPushState("unsupported");
+            setMessage("Push notification memerlukan koneksi HTTPS yang aman.");
             return;
         }
 
@@ -87,6 +103,12 @@ export default function PushNotificationManager() {
             return;
         }
 
+        if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
+            setPushState("error");
+            setMessage("Public VAPID key belum dikonfigurasi pada aplikasi.");
+            return;
+        }
+
         if (Notification.permission === "denied") {
             setPushState("denied");
             return;
@@ -95,12 +117,14 @@ export default function PushNotificationManager() {
         try {
             const subscription = await getCurrentPushSubscription();
             if (!subscription) {
+                setCurrentEndpoint(null);
                 setPushState("available");
                 return;
             }
 
             const serialized = serializeSubscription(subscription);
             if (!serialized) {
+                setCurrentEndpoint(null);
                 setPushState("error");
                 return;
             }
@@ -117,6 +141,7 @@ export default function PushNotificationManager() {
                 setPushState("error");
                 return;
             }
+            setCurrentEndpoint(subscription.endpoint);
             setPushState("enabled");
         } catch (error) {
             console.warn("[push] Failed to read subscription:", error);
@@ -141,7 +166,11 @@ export default function PushNotificationManager() {
         try {
             const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
             if (!publicKey) throw new Error("Public VAPID key belum dikonfigurasi.");
-            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+            if (
+                !("serviceWorker" in navigator) ||
+                !("PushManager" in window) ||
+                !("Notification" in window)
+            ) {
                 setPushState("unsupported");
                 return;
             }
@@ -158,12 +187,9 @@ export default function PushNotificationManager() {
                 return;
             }
 
-            const registration = await getPushServiceWorkerRegistration();
-            const current = await registration.pushManager.getSubscription();
-            const subscription = current ?? await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(publicKey),
-            });
+            const subscription = await subscribeCurrentDevicePush(
+                urlBase64ToUint8Array(publicKey)
+            );
             const serialized = serializeSubscription(subscription);
             if (!serialized) throw new Error("Browser tidak memberikan kunci subscription yang lengkap.");
 
@@ -174,6 +200,7 @@ export default function PushNotificationManager() {
             );
             if (!result.success) throw new Error(result.message);
 
+            setCurrentEndpoint(subscription.endpoint);
             setPushState("enabled");
             setMessage(result.message);
         } catch (error) {
@@ -191,9 +218,16 @@ export default function PushNotificationManager() {
         setMessage(null);
 
         try {
-            await unsubscribeCurrentDevicePush();
-            setPushState(Notification.permission === "denied" ? "denied" : "available");
-            setMessage("Notifikasi dinonaktifkan pada perangkat ini.");
+            const result = await unsubscribeCurrentDevicePush();
+            setCurrentEndpoint(null);
+            setPushState(
+                result.success
+                    ? Notification.permission === "denied"
+                        ? "denied"
+                        : "available"
+                    : "error"
+            );
+            setMessage(result.message);
         } finally {
             setIsWorking(false);
         }
@@ -205,7 +239,10 @@ export default function PushNotificationManager() {
         setMessage(null);
 
         try {
-            const result = await sendTestPushNotification();
+            if (!currentEndpoint) {
+                throw new Error("Subscription perangkat tidak ditemukan. Aktifkan ulang notifikasi.");
+            }
+            const result = await sendTestPushNotification(currentEndpoint);
             setMessage(result.message);
         } catch (error) {
             setMessage(error instanceof Error ? error.message : "Notifikasi uji gagal dikirim.");
@@ -281,7 +318,16 @@ export default function PushNotificationManager() {
                                 <p className="text-xs font-semibold leading-5 text-amber-800">
                                     {isIOS && !isStandalone
                                         ? "Pada iPhone/iPad, tambahkan SulutDive ke Home Screen lalu buka dari ikon aplikasi sebelum mengaktifkan notifikasi."
-                                        : "Browser atau perangkat ini belum mendukung Web Push."}
+                                        : message || "Browser atau perangkat ini belum mendukung Web Push."}
+                                </p>
+                            </div>
+                        )}
+
+                        {pushState === "development" && (
+                            <div className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3">
+                                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                                <p className="text-xs font-semibold leading-5 text-blue-800">
+                                    {message}
                                 </p>
                             </div>
                         )}
@@ -295,13 +341,13 @@ export default function PushNotificationManager() {
                             </div>
                         )}
 
-                        {message && pushState !== "error" && (
+                        {message && pushState !== "error" && pushState !== "unsupported" && pushState !== "development" && (
                             <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
                                 {message}
                             </p>
                         )}
 
-                        {pushState !== "checking" && pushState !== "unsupported" && pushState !== "denied" && (
+                        {pushState !== "checking" && pushState !== "unsupported" && pushState !== "development" && pushState !== "denied" && (
                             <div className="space-y-2">
                                 {enabled && (
                                     <button

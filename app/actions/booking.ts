@@ -325,6 +325,8 @@ export async function createBooking(
         body: `Ada pesanan baru untuk ${service.name} pada ${bookingDate}.`,
         url: "/dashboard/provider/orders",
         tag: `booking-created-${booking.id}`,
+        urgency: "high",
+        ttlSeconds: 24 * 60 * 60,
     });
 
     // ─── 10. Invalidate cache agar halaman bookings langsung up-to-date ───
@@ -512,6 +514,8 @@ export async function updateBookingStatus(
         body: `Status ${serviceName} telah diperbarui menjadi ${statusLabels[newStatus] || newStatus}.`,
         url: "/dashboard/bookings",
         tag: `booking-status-${bookingId}`,
+        urgency: "high",
+        ttlSeconds: 24 * 60 * 60,
     });
 
     revalidatePath("/dashboard");

@@ -509,6 +509,8 @@ export async function setupProviderProfile(
         body: `${name} telah mengirim dokumen dan menunggu verifikasi.`,
         url: "/admin/verifikasi",
         tag: `provider-submitted-${providerRow.id}`,
+        urgency: "normal",
+        ttlSeconds: 24 * 60 * 60,
     });
 
     // ─── 4. Revalidasi cache & redirect ke halaman setup (status verifikasi) ─
@@ -779,6 +781,8 @@ export async function verifyProviderIdentity(
             : "Pengajuan provider Anda ditolak. Buka aplikasi untuk melihat alasan dan memperbaiki dokumen.",
         url: "/dashboard/provider/setup",
         tag: `provider-reviewed-${providerId}`,
+        urgency: "high",
+        ttlSeconds: 2 * 24 * 60 * 60,
     });
 
     // 4. Revalidasi root layout agar role baru terbaca di seluruh App Router tree.

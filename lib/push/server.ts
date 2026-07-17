@@ -26,6 +26,10 @@ const EMPTY_SUMMARY: PushDeliverySummary = {
     skipped: true,
 };
 
+const DEFAULT_TTL_SECONDS = 60 * 60;
+const MAX_TTL_SECONDS = 7 * 24 * 60 * 60;
+const PUSH_REQUEST_TIMEOUT_MS = 8_000;
+
 let configuredVapidSignature: string | null = null;
 
 function configureWebPush() {
@@ -67,14 +71,20 @@ async function sendPushToSubscriptions(
         return EMPTY_SUMMARY;
     }
 
+    const { ttlSeconds, urgency, ...visiblePayload } = payload;
     const notification = JSON.stringify({
-        ...payload,
+        ...visiblePayload,
         icon: payload.icon || "/icons/icon-192x192.png",
         badge: payload.badge || "/icons/icon-96x96.png",
     });
     const expiredIds: string[] = [];
+    const successfulIds: string[] = [];
+    const failedIds: string[] = [];
     let sent = 0;
     let failed = 0;
+    const ttl = Number.isFinite(ttlSeconds)
+        ? Math.min(MAX_TTL_SECONDS, Math.max(60, Math.round(ttlSeconds as number)))
+        : DEFAULT_TTL_SECONDS;
 
     await Promise.all(
         subscriptions.map(async (subscription) => {
@@ -88,15 +98,21 @@ async function sendPushToSubscriptions(
                         },
                     },
                     notification,
-                    { TTL: 60 * 60, urgency: "normal" }
+                    {
+                        TTL: ttl,
+                        urgency: urgency || "normal",
+                        timeout: PUSH_REQUEST_TIMEOUT_MS,
+                    }
                 );
                 sent += 1;
+                successfulIds.push(subscription.id);
             } catch (error) {
                 failed += 1;
                 const statusCode = readStatusCode(error);
                 if (statusCode === 404 || statusCode === 410) {
                     expiredIds.push(subscription.id);
                 } else {
+                    failedIds.push(subscription.id);
                     console.warn("[push] Delivery failed:", statusCode ?? "network error");
                 }
             }
@@ -108,12 +124,72 @@ async function sendPushToSubscriptions(
         if (error) console.warn("[push] Failed to remove expired subscriptions:", error.message);
     }
 
+    const deliveryTimestamp = new Date().toISOString();
+    const metadataUpdates: PromiseLike<void>[] = [];
+
+    if (successfulIds.length > 0) {
+        metadataUpdates.push(
+            admin
+                .from("push_subscriptions")
+                .update({ last_success_at: deliveryTimestamp })
+                .in("id", successfulIds)
+                .then(({ error }) => {
+                    if (error) {
+                        console.warn("[push] Failed to update delivery success metadata:", error.message);
+                    }
+                })
+        );
+    }
+    if (failedIds.length > 0) {
+        metadataUpdates.push(
+            admin
+                .from("push_subscriptions")
+                .update({ last_failure_at: deliveryTimestamp })
+                .in("id", failedIds)
+                .then(({ error }) => {
+                    if (error) {
+                        console.warn("[push] Failed to update delivery failure metadata:", error.message);
+                    }
+                })
+        );
+    }
+    await Promise.all(metadataUpdates);
+
     return {
         sent,
         failed,
         removed: expiredIds.length,
         skipped: false,
     };
+}
+
+export async function sendPushToUserEndpoint(
+    userId: string,
+    endpoint: string,
+    payload: SulutDivePushPayload
+): Promise<PushDeliverySummary> {
+    try {
+        const admin = createServiceRoleClient();
+        if (!admin) return EMPTY_SUMMARY;
+
+        const { data, error } = await admin
+            .from("push_subscriptions")
+            .select("id, user_id, endpoint, p256dh, auth_key")
+            .eq("user_id", userId)
+            .eq("endpoint", endpoint)
+            .maybeSingle();
+
+        if (error) {
+            console.warn("[push] Failed to read device subscription:", error.message);
+            return EMPTY_SUMMARY;
+        }
+        if (!data) return EMPTY_SUMMARY;
+
+        return sendPushToSubscriptions([data as StoredSubscription], payload);
+    } catch (error) {
+        console.warn("[push] Device notification skipped:", error);
+        return EMPTY_SUMMARY;
+    }
 }
 
 export async function sendPushToUsers(

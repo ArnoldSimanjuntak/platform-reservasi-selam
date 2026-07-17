@@ -7,13 +7,25 @@ CREATE TABLE IF NOT EXISTS public.push_subscriptions (
     endpoint TEXT NOT NULL UNIQUE,
     p256dh TEXT NOT NULL,
     auth_key TEXT NOT NULL,
+    expiration_time BIGINT,
     user_agent TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_success_at TIMESTAMPTZ,
+    last_failure_at TIMESTAMPTZ
 );
+
+-- Aman dijalankan ulang apabila tabel versi awal sudah pernah dibuat.
+ALTER TABLE public.push_subscriptions
+    ADD COLUMN IF NOT EXISTS expiration_time BIGINT,
+    ADD COLUMN IF NOT EXISTS last_success_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS last_failure_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id
     ON public.push_subscriptions(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_updated_at
+    ON public.push_subscriptions(updated_at);
 
 ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
 

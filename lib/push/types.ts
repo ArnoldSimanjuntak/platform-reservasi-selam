@@ -14,6 +14,10 @@ export interface SulutDivePushPayload {
     tag: string;
     icon?: string;
     badge?: string;
+    /** Lama pesan disimpan push service apabila perangkat sedang offline. */
+    ttlSeconds?: number;
+    /** Prioritas pengiriman ke perangkat. */
+    urgency?: "very-low" | "low" | "normal" | "high";
 }
 
 export interface PushActionResult {

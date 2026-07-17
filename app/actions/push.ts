@@ -2,16 +2,26 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
-import { sendPushToUsers } from "@/lib/push/server";
+import { sendPushToUserEndpoint } from "@/lib/push/server";
 import type { PushActionResult, SerializedPushSubscription } from "@/lib/push/types";
 
 const MAX_ENDPOINT_LENGTH = 4_096;
 const MAX_KEY_LENGTH = 1_024;
 const MAX_USER_AGENT_LENGTH = 1_000;
 
+function isValidEndpoint(endpoint: string) {
+    if (!endpoint || endpoint.length > MAX_ENDPOINT_LENGTH) return false;
+
+    try {
+        return new URL(endpoint).protocol === "https:";
+    } catch {
+        return false;
+    }
+}
+
 function isValidSubscription(subscription: SerializedPushSubscription) {
     if (!subscription || typeof subscription !== "object") return false;
-    if (!subscription.endpoint || subscription.endpoint.length > MAX_ENDPOINT_LENGTH) return false;
+    if (!isValidEndpoint(subscription.endpoint)) return false;
     if (!subscription.keys?.p256dh || !subscription.keys?.auth) return false;
     if (
         subscription.keys.p256dh.length > MAX_KEY_LENGTH ||
@@ -20,11 +30,7 @@ function isValidSubscription(subscription: SerializedPushSubscription) {
         return false;
     }
 
-    try {
-        return new URL(subscription.endpoint).protocol === "https:";
-    } catch {
-        return false;
-    }
+    return true;
 }
 
 export async function savePushSubscription(
@@ -61,6 +67,7 @@ export async function savePushSubscription(
                 endpoint: subscription.endpoint,
                 p256dh: subscription.keys.p256dh,
                 auth_key: subscription.keys.auth,
+                expiration_time: subscription.expirationTime ?? null,
                 user_agent: userAgent?.slice(0, MAX_USER_AGENT_LENGTH) || null,
                 updated_at: now,
             },
@@ -92,7 +99,7 @@ export async function deletePushSubscription(endpoint: string): Promise<PushActi
     if (authError || !user) {
         return { success: false, message: "Sesi pengguna tidak ditemukan." };
     }
-    if (!endpoint || endpoint.length > MAX_ENDPOINT_LENGTH) {
+    if (!isValidEndpoint(endpoint)) {
         return { success: false, message: "Endpoint subscription tidak valid." };
     }
 
@@ -115,7 +122,7 @@ export async function deletePushSubscription(endpoint: string): Promise<PushActi
     return { success: true, message: "Notifikasi dinonaktifkan pada perangkat ini." };
 }
 
-export async function sendTestPushNotification(): Promise<PushActionResult> {
+export async function sendTestPushNotification(endpoint: string): Promise<PushActionResult> {
     const supabase = await createClient();
     const {
         data: { user },
@@ -125,12 +132,20 @@ export async function sendTestPushNotification(): Promise<PushActionResult> {
     if (authError || !user) {
         return { success: false, message: "Silakan login sebelum menguji notifikasi." };
     }
+    if (!isValidEndpoint(endpoint)) {
+        return {
+            success: false,
+            message: "Subscription perangkat tidak ditemukan. Aktifkan ulang notifikasi.",
+        };
+    }
 
-    const delivery = await sendPushToUsers([user.id], {
+    const delivery = await sendPushToUserEndpoint(user.id, endpoint, {
         title: "Notifikasi SulutDive Aktif",
         body: "Perangkat ini siap menerima pembaruan booking, pembayaran, dan verifikasi provider.",
         url: "/dashboard",
         tag: `push-test-${user.id}`,
+        urgency: "high",
+        ttlSeconds: 5 * 60,
     });
 
     if (delivery.sent > 0) {

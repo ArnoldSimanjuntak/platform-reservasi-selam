@@ -5,6 +5,17 @@
 Buka **Supabase Dashboard > SQL Editor**, salin seluruh isi
 `supabase/migration_push_subscriptions.sql`, lalu jalankan satu kali. Migration ini
 membuat tabel subscription perangkat, indeks, foreign key, dan kebijakan RLS.
+File migration aman dijalankan ulang karena menggunakan `IF NOT EXISTS` dan juga
+menambahkan kolom metadata pengiriman apabila tabel versi awal sudah tersedia.
+
+Setelah migration dijalankan, periksa koneksi aplikasi dengan:
+
+```bash
+npm run audit:push
+```
+
+Hasil `tableAvailable: true` berarti tabel sudah dapat diakses. Pemeriksaan ini
+tidak menampilkan endpoint maupun kunci subscription perangkat.
 
 ## 2. Tambahkan environment variables di Vercel
 
@@ -22,7 +33,8 @@ Jangan menaruh private key di source code atau dokumen laporan.
 1. Login ke aplikasi melalui HTTPS.
 2. Tekan tombol **Notifikasi** di kanan bawah.
 3. Tekan **Aktifkan Notifikasi** dan izinkan notifikasi dari browser.
-4. Tekan **Kirim Notifikasi Uji**.
+4. Tekan **Kirim Notifikasi Uji**. Pengujian hanya dikirim ke perangkat yang
+   sedang digunakan, bukan ke seluruh perangkat pada akun tersebut.
 5. Pindahkan aplikasi ke background dan pastikan notifikasi tetap muncul.
 
 Pada iPhone/iPad, tambahkan aplikasi ke Home Screen terlebih dahulu, buka aplikasi

@@ -111,6 +111,8 @@ export async function submitPaymentProof(
         body: "Customer telah mengunggah bukti pembayaran yang perlu Anda periksa.",
         url: "/dashboard/provider/orders",
         tag: `payment-proof-${bookingId}`,
+        urgency: "high",
+        ttlSeconds: 24 * 60 * 60,
     });
 
     revalidatePath("/dashboard");
@@ -193,6 +195,8 @@ export async function verifyPayment(
             : "Bukti pembayaran ditolak. Silakan periksa dan unggah kembali bukti yang sesuai.",
         url: "/dashboard/bookings",
         tag: `payment-review-${bookingId}`,
+        urgency: "high",
+        ttlSeconds: 24 * 60 * 60,
     });
 
     revalidatePath("/dashboard");
