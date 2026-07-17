@@ -1,23 +1,33 @@
-﻿"use client";
+"use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
     MapContainer,
-    TileLayer,
     Marker,
     Polyline,
     Popup,
+    TileLayer,
     useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Anchor, ChevronDown, Info, Waves } from "lucide-react";
-import { getMapProviders } from "@/lib/supabase";
-import type { ProviderMapPin } from "@/lib/supabase";
-import { haversineDistanceKm } from "@/lib/geo";
+import {
+    AlertTriangle,
+    Anchor,
+    ChevronDown,
+    Info,
+    LoaderCircle,
+    Navigation,
+    Waves,
+} from "lucide-react";
+import { getDiveSites, getMapProviders } from "@/lib/supabase";
+import type { DiveSite, ProviderMapPin } from "@/lib/supabase";
+import {
+    buildMarineRoute,
+    distanceToMarineNetwork,
+} from "@/lib/marine-route";
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface LocationPoint {
     id: string;
     name: string;
@@ -27,32 +37,30 @@ interface LocationPoint {
     label?: string;
 }
 
-
-// â”€â”€â”€ Dive Spots (loaded from data_selam.json coordinates) â”€â”€â”€
-const DIVE_SPOTS: LocationPoint[] = [
-    { id: "nudi-falls", name: "Nudi Falls", lat: 1.4606494, lng: 125.2270824, type: "dive_spot" },
-    { id: "angels-window", name: "Angel's Window", lat: 1.4959408, lng: 125.2618465, type: "dive_spot" },
-    { id: "police-pier", name: "Police Pier", lat: 1.4583598, lng: 125.2209549, type: "dive_spot" },
-    { id: "hairball", name: "Hairball", lat: 1.4974972, lng: 125.2422262, type: "dive_spot" },
-    { id: "nudi-retreat", name: "Nudi Retreat", lat: 1.4858198, lng: 125.2414241, type: "dive_spot" },
-    { id: "jahir", name: "Jahir", lat: 1.4792372, lng: 125.2363678, type: "dive_spot" },
-    { id: "makawide", name: "Makawide", lat: 1.4816689, lng: 125.2383698, type: "dive_spot" },
-    { id: "magic-crack", name: "Magic Crack", lat: 1.4891269, lng: 125.2391822, type: "dive_spot" },
-    { id: "batu-angus", name: "Batu Angus", lat: 1.5070808, lng: 125.2468088, type: "dive_spot" },
-    { id: "california-dreaming", name: "California Dreaming", lat: 1.4893563, lng: 125.2576304, type: "dive_spot" },
-    { id: "batu-kapal", name: "Batu Kapal", lat: 1.5231969, lng: 125.2770809, type: "dive_spot" },
-    { id: "mawali-wreck", name: "Mawali Wreck", lat: 1.4597112, lng: 125.2222424, type: "dive_spot" },
-    { id: "retak-larry", name: "Retak Larry", lat: 1.4901425, lng: 125.2370284, type: "dive_spot" },
-    { id: "tk-123", name: "TK 1 2 3", lat: 1.4934459, lng: 125.2366851, type: "dive_spot" },
-    { id: "aer-prang", name: "Aer Prang", lat: 1.473168, lng: 125.23428, type: "dive_spot" },
-    { id: "critter-hunt", name: "Critter Hunt", lat: 1.4547109, lng: 125.224359, type: "dive_spot" },
-    { id: "pintu-kota", name: "Pintu Kota", lat: 1.4533976, lng: 125.2118496, type: "dive_spot" },
-    { id: "dantes-wall", name: "Dante's Wall", lat: 1.4969704, lng: 125.2633485, type: "dive_spot" },
-    { id: "sarena-north", name: "Sarena North", lat: 1.4611905, lng: 125.2319444, type: "dive_spot" },
-    { id: "serena-besar", name: "Serena Besar", lat: 1.4595817, lng: 125.2338971, type: "dive_spot" },
+// Cadangan lokal digunakan apabila data dive_sites tidak dapat dimuat.
+const FALLBACK_DIVE_SPOTS: LocationPoint[] = [
+    { id: "fallback-nudi-falls", name: "Nudi Falls", lat: 1.4606494, lng: 125.2270824, type: "dive_spot" },
+    { id: "fallback-angels-window", name: "Angel's Window", lat: 1.4959408, lng: 125.2618465, type: "dive_spot" },
+    { id: "fallback-police-pier", name: "Police Pier", lat: 1.4583598, lng: 125.2209549, type: "dive_spot" },
+    { id: "fallback-hairball", name: "Hairball", lat: 1.4974972, lng: 125.2422262, type: "dive_spot" },
+    { id: "fallback-nudi-retreat", name: "Nudi Retreat", lat: 1.4858198, lng: 125.2414241, type: "dive_spot" },
+    { id: "fallback-jahir", name: "Jahir", lat: 1.4792372, lng: 125.2363678, type: "dive_spot" },
+    { id: "fallback-makawide", name: "Makawide", lat: 1.4816689, lng: 125.2383698, type: "dive_spot" },
+    { id: "fallback-magic-crack", name: "Magic Crack", lat: 1.4891269, lng: 125.2391822, type: "dive_spot" },
+    { id: "fallback-batu-angus", name: "Batu Angus", lat: 1.5070808, lng: 125.2468088, type: "dive_spot" },
+    { id: "fallback-california-dreaming", name: "California Dreaming", lat: 1.4893563, lng: 125.2576304, type: "dive_spot" },
+    { id: "fallback-batu-kapal", name: "Batu Kapal", lat: 1.5231969, lng: 125.2770809, type: "dive_spot" },
+    { id: "fallback-mawali-wreck", name: "Mawali Wreck", lat: 1.4597112, lng: 125.2222424, type: "dive_spot" },
+    { id: "fallback-retak-larry", name: "Retak Larry", lat: 1.4901425, lng: 125.2370284, type: "dive_spot" },
+    { id: "fallback-tk-123", name: "TK 1 2 3", lat: 1.4934459, lng: 125.2366851, type: "dive_spot" },
+    { id: "fallback-aer-prang", name: "Aer Prang", lat: 1.473168, lng: 125.23428, type: "dive_spot" },
+    { id: "fallback-critter-hunt", name: "Critter Hunt", lat: 1.4547109, lng: 125.224359, type: "dive_spot" },
+    { id: "fallback-pintu-kota", name: "Pintu Kota", lat: 1.4533976, lng: 125.2118496, type: "dive_spot" },
+    { id: "fallback-dantes-wall", name: "Dante's Wall", lat: 1.4969704, lng: 125.2633485, type: "dive_spot" },
+    { id: "fallback-sarena-north", name: "Sarena North", lat: 1.4611905, lng: 125.2319444, type: "dive_spot" },
+    { id: "fallback-serena-besar", name: "Serena Besar", lat: 1.4595817, lng: 125.2338971, type: "dive_spot" },
 ];
 
-// â”€â”€â”€ Custom Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const createIcon = (color: string, label: string) =>
     L.divIcon({
         html: `<div style="
@@ -72,45 +80,87 @@ const createIcon = (color: string, label: string) =>
         className: "",
     });
 
-const providerIcon  = createIcon("#0077B6", "PB"); // Pangkalan provider dari DB
-const diveIcon      = createIcon("#E63946", "DS");
+const providerIcon = createIcon("#0077B6", "PB");
+const diveIcon = createIcon("#E63946", "DS");
 
-// â”€â”€â”€ Map Bounds Fitter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function FitBounds({ start, end }: { start: [number, number]; end: [number, number] }) {
+function FitBounds({ positions }: { positions: [number, number][] }) {
     const map = useMap();
 
     useEffect(() => {
-        const bounds = L.latLngBounds([start, end]);
-        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
-    }, [map, start, end]);
+        if (positions.length < 2) return;
+        map.fitBounds(L.latLngBounds(positions), {
+            padding: [50, 50],
+            maxZoom: 15,
+        });
+    }, [map, positions]);
 
     return null;
 }
 
-// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function isValidCoordinate(value: unknown): value is number {
+    return typeof value === "number" && Number.isFinite(value);
+}
+
+function mapDiveSites(sites: DiveSite[]) {
+    const uniqueByName = new Map<string, LocationPoint>();
+
+    for (const site of sites) {
+        if (
+            site.is_active === false ||
+            !isValidCoordinate(site.latitude) ||
+            !isValidCoordinate(site.longitude)
+        ) {
+            continue;
+        }
+
+        const point: LocationPoint = {
+            id: `site-${site.id}`,
+            name: site.name.trim(),
+            lat: site.latitude,
+            lng: site.longitude,
+            type: "dive_spot",
+            label: `Zona ${site.zone_level}`,
+        };
+        const normalizedName = point.name.toLocaleLowerCase("id-ID");
+        const existing = uniqueByName.get(normalizedName);
+
+        // Jika nama ganda, pilih koordinat yang paling dekat dengan koridor laut.
+        if (
+            !existing ||
+            distanceToMarineNetwork(point.lat, point.lng) <
+                distanceToMarineNetwork(existing.lat, existing.lng)
+        ) {
+            uniqueByName.set(normalizedName, point);
+        }
+    }
+
+    return Array.from(uniqueByName.values()).sort((a, b) =>
+        a.name.localeCompare(b.name, "id-ID")
+    );
+}
+
 export default function RouteDistancePicker() {
     const searchParams = useSearchParams();
     const [departureId, setDepartureId] = useState("");
     const [destinationId, setDestinationId] = useState("");
-    // Pangkalan provider dari Supabase (terverifikasi + punya koordinat)
     const [providerBases, setProviderBases] = useState<LocationPoint[]>([]);
-
-    // â”€â”€ Route Sync: baca koordinat dari URL params (dikirim oleh Dive Map popup)
-    // Format: /route-planner?start_lat=1.456&start_lng=125.21&start_name=Pangkalan+X
+    const [diveSpots, setDiveSpots] = useState<LocationPoint[]>([]);
     const [customStart, setCustomStart] = useState<LocationPoint | null>(null);
+    const [isLoadingLocations, setIsLoadingLocations] = useState(true);
+    const [locationWarning, setLocationWarning] = useState<string | null>(null);
 
     useEffect(() => {
-        const lat  = parseFloat(searchParams.get("start_lat") || "");
-        const lng  = parseFloat(searchParams.get("start_lng") || "");
+        const lat = Number.parseFloat(searchParams.get("start_lat") || "");
+        const lng = Number.parseFloat(searchParams.get("start_lng") || "");
         const name = searchParams.get("start_name");
 
-        if (!isNaN(lat) && !isNaN(lng) && name) {
+        if (Number.isFinite(lat) && Number.isFinite(lng) && name) {
             const fromMap: LocationPoint = {
-                id:    `map-${lat}-${lng}`,
-                name:  decodeURIComponent(name),
+                id: `map-${lat}-${lng}`,
+                name,
                 lat,
                 lng,
-                type:  "provider_base",
+                type: "provider_base",
                 label: "Dari Peta",
             };
             setCustomStart(fromMap);
@@ -118,73 +168,129 @@ export default function RouteDistancePicker() {
         }
     }, [searchParams]);
 
-    // â”€â”€ Fetch provider bases dari Supabase
     useEffect(() => {
-        getMapProviders().then(({ data }) => {
-            if (data) {
-                const mapped: LocationPoint[] = (data as ProviderMapPin[]).map((p) => ({
-                    id:    `provider-${p.id}`,
-                    name:  p.name,
-                    lat:   p.latitude,
-                    lng:   p.longitude,
-                    type:  "provider_base" as const,
-                    label: p.location || "Pangkalan Kapal",
-                }));
-                setProviderBases(mapped);
+        let isMounted = true;
+
+        async function loadLocations() {
+            setIsLoadingLocations(true);
+            const warnings: string[] = [];
+
+            try {
+                const [providerResult, diveSiteResult] = await Promise.all([
+                    getMapProviders(),
+                    getDiveSites(),
+                ]);
+
+                if (!isMounted) return;
+
+                if (providerResult.error) {
+                    warnings.push("Pangkalan provider belum dapat dimuat.");
+                } else {
+                    const mappedProviders = ((providerResult.data ?? []) as ProviderMapPin[])
+                        .filter(
+                            (provider) =>
+                                isValidCoordinate(provider.latitude) &&
+                                isValidCoordinate(provider.longitude)
+                        )
+                        .map((provider) => ({
+                            id: `provider-${provider.id}`,
+                            name: provider.name,
+                            lat: provider.latitude,
+                            lng: provider.longitude,
+                            type: "provider_base" as const,
+                            label: provider.location || "Pangkalan Kapal",
+                        }));
+                    setProviderBases(mappedProviders);
+                }
+
+                if (diveSiteResult.error) {
+                    setDiveSpots(FALLBACK_DIVE_SPOTS);
+                    warnings.push("Spot selam memakai data cadangan lokal.");
+                } else {
+                    const mappedSites = mapDiveSites((diveSiteResult.data ?? []) as DiveSite[]);
+                    if (mappedSites.length === 0) {
+                        setDiveSpots(FALLBACK_DIVE_SPOTS);
+                        warnings.push("Spot selam memakai data cadangan lokal.");
+                    } else {
+                        setDiveSpots(mappedSites);
+                    }
+                }
+            } catch {
+                if (!isMounted) return;
+                setDiveSpots(FALLBACK_DIVE_SPOTS);
+                warnings.push("Koneksi data terganggu; spot selam memakai data cadangan lokal.");
+            } finally {
+                if (isMounted) {
+                    setLocationWarning(warnings.length > 0 ? warnings.join(" ") : null);
+                    setIsLoadingLocations(false);
+                }
             }
-        });
+        }
+
+        void loadLocations();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
-    // Departure point hanya memakai pangkalan provider agar estimasi mengikuti layanan aktual.
     const allDeparturePoints = useMemo(() => {
         const points = [...providerBases];
-        if (customStart && !points.find((p) => p.id === customStart.id)) {
+        if (customStart && !points.some((point) => point.id === customStart.id)) {
             points.unshift(customStart);
         }
         return points;
     }, [providerBases, customStart]);
 
     const departure = useMemo(
-        () => allDeparturePoints.find((p) => p.id === departureId) || null,
-        [departureId, allDeparturePoints]
+        () => allDeparturePoints.find((point) => point.id === departureId) ?? null,
+        [allDeparturePoints, departureId]
     );
     const destination = useMemo(
-        () => DIVE_SPOTS.find((p) => p.id === destinationId) || null,
-        [destinationId]
+        () => diveSpots.find((point) => point.id === destinationId) ?? null,
+        [destinationId, diveSpots]
     );
-
-    const distance = useMemo(() => {
+    const route = useMemo(() => {
         if (!departure || !destination) return null;
-        return haversineDistanceKm(departure.lat, departure.lng, destination.lat, destination.lng);
+        return buildMarineRoute(
+            [departure.lat, departure.lng],
+            [destination.lat, destination.lng]
+        );
     }, [departure, destination]);
 
-    // Estimated boat speed ~25km/h for Lembeh waters
-    const estimatedTime = distance ? Math.round((distance / 25) * 60) : null;
-
-    const center: [number, number] = [1.4750, 125.2400];
+    const estimatedTime = route
+        ? Math.max(1, Math.round((route.distanceKm / 25) * 60))
+        : null;
+    const routeDifferencePercent = route && route.directDistanceKm > 0.01
+        ? Math.max(0, Math.round((route.distanceKm / route.directDistanceKm - 1) * 100))
+        : 0;
+    const farFromCorridor = route
+        ? Math.max(route.startAccessDistanceKm, route.endAccessDistanceKm) > 2.5
+        : false;
+    const center: [number, number] = [1.475, 125.24];
 
     return (
         <div className="space-y-6">
-            {/* â”€â”€â”€ Dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Departure */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                    <label className="text-sm font-semibold text-deepSea block">
+                    <label className="block text-sm font-semibold text-deepSea">
                         Pangkalan Kapal
                     </label>
                     <div className="relative">
                         <Anchor className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#0077B6]" />
                         <select
                             value={departureId}
-                            onChange={(e) => setDepartureId(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-700 font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none cursor-pointer text-sm"
+                            onChange={(event) => setDepartureId(event.target.value)}
+                            disabled={isLoadingLocations && !customStart}
+                            className="w-full cursor-pointer appearance-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm font-medium text-gray-700 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-wait disabled:bg-slate-50"
                         >
-                            <option value="">Pilih pangkalan kapal...</option>
+                            <option value="">
+                                {isLoadingLocations ? "Memuat pangkalan..." : "Pilih pangkalan kapal..."}
+                            </option>
                             {providerBases.length > 0 && (
                                 <optgroup label="Pangkalan Kapal Provider">
-                                    {providerBases.map((p) => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.name}
+                                    {providerBases.map((point) => (
+                                        <option key={point.id} value={point.id}>
+                                            {point.name}
                                         </option>
                                     ))}
                                 </optgroup>
@@ -195,63 +301,75 @@ export default function RouteDistancePicker() {
                                 </optgroup>
                             )}
                         </select>
-                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        {isLoadingLocations ? (
+                            <LoaderCircle className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+                        ) : (
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        )}
                     </div>
                     {departure && (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#023E8A]/10 text-[#023E8A]">
+                        <span className="inline-flex items-center rounded-full bg-[#023E8A]/10 px-2.5 py-1 text-xs font-semibold text-[#023E8A]">
                             Pangkalan Kapal
                         </span>
                     )}
-                    {providerBases.length === 0 && !customStart && (
+                    {!isLoadingLocations && providerBases.length === 0 && !customStart && (
                         <p className="text-xs text-slate-500">
                             Belum ada pangkalan kapal provider terverifikasi dengan koordinat.
                         </p>
                     )}
                 </div>
 
-                {/* Destination */}
                 <div className="space-y-2">
-                    <label className="text-sm font-semibold text-deepSea block">
+                    <label className="block text-sm font-semibold text-deepSea">
                         Tujuan Selam
                     </label>
                     <div className="relative">
                         <Waves className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#E63946]" />
                         <select
                             value={destinationId}
-                            onChange={(e) => setDestinationId(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-700 font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none cursor-pointer text-sm"
+                            onChange={(event) => setDestinationId(event.target.value)}
+                            disabled={isLoadingLocations}
+                            className="w-full cursor-pointer appearance-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm font-medium text-gray-700 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-wait disabled:bg-slate-50"
                         >
-                            <option value="">Pilih spot selam...</option>
-                            {DIVE_SPOTS.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.name}
+                            <option value="">
+                                {isLoadingLocations ? "Memuat spot selam..." : "Pilih spot selam..."}
+                            </option>
+                            {diveSpots.map((spot) => (
+                                <option key={spot.id} value={spot.id}>
+                                    {spot.name}
                                 </option>
                             ))}
                         </select>
-                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        {isLoadingLocations ? (
+                            <LoaderCircle className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+                        ) : (
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        )}
                     </div>
                 </div>
             </div>
 
-            {/* â”€â”€â”€ Map â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <div className="w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden border-4 border-white shadow-xl relative">
+            {locationWarning && (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>{locationWarning}</p>
+                </div>
+            )}
+
+            <div className="relative h-[400px] w-full overflow-hidden rounded-2xl border-4 border-white shadow-xl md:h-[500px]">
                 <MapContainer
                     center={center}
                     zoom={12}
-                    scrollWheelZoom={true}
-                    className="w-full h-full z-0"
+                    scrollWheelZoom
+                    className="z-0 h-full w-full"
                 >
                     <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
 
-                    {/* Departure marker */}
                     {departure && (
-                        <Marker
-                            position={[departure.lat, departure.lng]}
-                            icon={providerIcon}
-                        >
+                        <Marker position={[departure.lat, departure.lng]} icon={providerIcon}>
                             <Popup>
                                 <div className="text-center">
                                     <strong className="text-sm">{departure.name}</strong>
@@ -266,17 +384,15 @@ export default function RouteDistancePicker() {
                         </Marker>
                     )}
 
-                    {/* Destination marker */}
                     {destination && (
-                        <Marker
-                            position={[destination.lat, destination.lng]}
-                            icon={diveIcon}
-                        >
+                        <Marker position={[destination.lat, destination.lng]} icon={diveIcon}>
                             <Popup>
                                 <div className="text-center">
                                     <strong className="text-sm">{destination.name}</strong>
                                     <br />
-                                    <span className="text-xs text-gray-500">Dive Spot</span>
+                                    <span className="text-xs text-gray-500">
+                                        {destination.label || "Spot Selam"}
+                                    </span>
                                     <br />
                                     <span className="text-[10px] text-gray-400">
                                         {destination.lat.toFixed(5)}, {destination.lng.toFixed(5)}
@@ -286,57 +402,82 @@ export default function RouteDistancePicker() {
                         </Marker>
                     )}
 
-                    {/* Route Polyline */}
-                    {departure && destination && (
+                    {route && (
                         <>
-                            <Polyline
-                                positions={[
-                                    [departure.lat, departure.lng],
-                                    [destination.lat, destination.lng],
-                                ]}
-                                pathOptions={{
-                                    color: "#023E8A",
-                                    weight: 3,
-                                    dashArray: "8, 8",
-                                    opacity: 0.8,
-                                }}
-                            />
-                            <FitBounds
-                                start={[departure.lat, departure.lng]}
-                                end={[destination.lat, destination.lng]}
-                            />
+                            {route.corridorCoordinates.length >= 2 && (
+                                <Polyline
+                                    positions={route.corridorCoordinates}
+                                    pathOptions={{
+                                        color: route.usesFallback ? "#E63946" : "#023E8A",
+                                        weight: 5,
+                                        opacity: 0.9,
+                                    }}
+                                />
+                            )}
+                            {route.startAccessCoordinates.length >= 2 && (
+                                <Polyline
+                                    positions={route.startAccessCoordinates}
+                                    pathOptions={{
+                                        color: "#38BDF8",
+                                        weight: 4,
+                                        dashArray: "7, 7",
+                                        opacity: 0.9,
+                                    }}
+                                />
+                            )}
+                            {route.endAccessCoordinates.length >= 2 && (
+                                <Polyline
+                                    positions={route.endAccessCoordinates}
+                                    pathOptions={{
+                                        color: "#38BDF8",
+                                        weight: 4,
+                                        dashArray: "7, 7",
+                                        opacity: 0.9,
+                                    }}
+                                />
+                            )}
+                            <FitBounds positions={route.allCoordinates} />
                         </>
                     )}
                 </MapContainer>
+
+                {route && !route.usesFallback && (
+                    <div className="pointer-events-none absolute bottom-3 left-3 z-[400] rounded-lg bg-white/95 px-3 py-2 text-[10px] font-medium text-slate-600 shadow-md backdrop-blur">
+                        <div className="flex items-center gap-2">
+                            <span className="h-1 w-6 rounded bg-[#023E8A]" />
+                            Koridor laut
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                            <span className="w-6 border-t-2 border-dashed border-sky-400" />
+                            Akses titik ke koridor
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* â”€â”€â”€ Route Info Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            {departure && destination && distance !== null && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-                    {/* Header gradient */}
+            {departure && destination && route && (
+                <div className="animate-in overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm fade-in slide-in-from-bottom-2">
                     <div className="bg-gradient-to-r from-primary to-secondary px-6 py-4 text-white">
-                        <h3 className="font-bold text-lg">Ringkasan Rute Kapal</h3>
+                        <h3 className="text-lg font-bold">Ringkasan Rute Kapal</h3>
                         <p className="text-sm opacity-80">
                             {departure.name} {"->"} {destination.name}
                         </p>
                     </div>
 
                     <div className="p-6">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {/* Distance */}
-                            <div className="text-center p-4 rounded-xl bg-blue-50">
-                                <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
-                                    Jarak
+                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                            <div className="rounded-xl bg-blue-50 p-4 text-center">
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Jarak Rute
                                 </p>
                                 <p className="text-2xl font-bold text-primary">
-                                    {distance.toFixed(1)}
+                                    {route.distanceKm.toFixed(1)}
                                 </p>
-                                <p className="text-xs text-gray-500">km (garis lurus)</p>
+                                <p className="text-xs text-gray-500">km melalui koridor laut</p>
                             </div>
 
-                            {/* Estimated Time */}
-                            <div className="text-center p-4 rounded-xl bg-green-50">
-                                <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
+                            <div className="rounded-xl bg-green-50 p-4 text-center">
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                                     Estimasi Waktu
                                 </p>
                                 <p className="text-2xl font-bold text-green-600">
@@ -345,47 +486,57 @@ export default function RouteDistancePicker() {
                                 <p className="text-xs text-gray-500">menit dengan kapal</p>
                             </div>
 
-                            {/* Departure Type */}
-                            <div className="text-center p-4 rounded-xl bg-amber-50">
-                                <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
-                                    Berangkat
+                            <div className="rounded-xl bg-amber-50 p-4 text-center">
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Metode
                                 </p>
-                                <p className="text-lg font-bold text-amber-700">
-                                    Kapal
-                                </p>
-                                <p className="text-xs text-gray-500">{departure.label}</p>
+                                <div className="flex items-center justify-center gap-1 text-lg font-bold text-amber-700">
+                                    <Navigation className="h-4 w-4" />
+                                    Dijkstra
+                                </div>
+                                <p className="text-xs text-gray-500">jaringan waypoint laut</p>
                             </div>
 
-                            {/* Coordinates */}
-                            <div className="text-center p-4 rounded-xl bg-gray-50">
-                                <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mb-1">
-                                    Tujuan
+                            <div className="rounded-xl bg-gray-50 p-4 text-center">
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                    Dibanding Garis Lurus
                                 </p>
-                                <p className="text-lg font-bold text-gray-700">Spot Selam</p>
+                                <p className="text-lg font-bold text-gray-700">
+                                    +{routeDifferencePercent}%
+                                </p>
                                 <p className="text-xs text-gray-500">
-                                    {destination.lat.toFixed(4)} deg N
+                                    garis lurus {route.directDistanceKm.toFixed(1)} km
                                 </p>
                             </div>
                         </div>
 
-                        {/* Info note */}
-                        <div className="mt-4 p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-xs text-blue-800 flex items-start gap-2">
+                        {farFromCorridor && (
+                            <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                <p>
+                                    Salah satu koordinat berjarak lebih dari 2,5 km dari jaringan waypoint.
+                                    Periksa kembali koordinat pangkalan atau spot selam untuk meningkatkan ketepatan rute.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="mt-4 flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-xs text-blue-800">
                             <Info className="mt-0.5 h-4 w-4 shrink-0" />
                             <p>
-                                Jarak yang ditampilkan adalah estimasi garis lurus menggunakan rumus Haversine.
-                                Rute kapal sebenarnya dapat berbeda karena cuaca, arus, dan kebutuhan navigasi.
-                                Estimasi waktu memakai asumsi kecepatan kapal sekitar 25 km/jam.
+                                Garis biru tua adalah estimasi rute terpendek pada jaringan waypoint laut,
+                                sedangkan garis putus-putus menghubungkan koordinat awal dan tujuan ke koridor.
+                                Hasil ini bukan navigasi resmi. Waktu tempuh memakai asumsi kecepatan kapal
+                                sekitar 25 km/jam dan dapat berubah karena cuaca, arus, serta kondisi operasional.
                             </p>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Empty state */}
             {(!departure || !destination) && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-                    <p className="text-gray-400 text-sm">
-                        Pilih pangkalan kapal dan spot selam untuk melihat rute serta estimasi jarak.
+                <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+                    <p className="text-sm text-gray-400">
+                        Pilih pangkalan kapal dan spot selam untuk melihat rute laut serta estimasi jarak.
                     </p>
                 </div>
             )}

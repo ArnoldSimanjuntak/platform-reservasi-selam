@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
     title: "Route Planner Kapal - SulutDive Lembeh",
-    description: "Rencanakan estimasi jarak dari pangkalan kapal provider ke spot selam di Selat Lembeh.",
+    description: "Rencanakan estimasi rute laut dari pangkalan kapal provider ke spot selam di Selat Lembeh.",
 };
 
 export default function RoutePlannerPage() {
@@ -15,7 +15,7 @@ export default function RoutePlannerPage() {
                         Perencana Rute Kapal
                     </h1>
                     <p className="text-gray-600 max-w-2xl mx-auto">
-                        Pilih pangkalan kapal provider dan spot selam untuk melihat estimasi rute, jarak, dan waktu tempuh di Selat Lembeh.
+                        Pilih pangkalan kapal provider dan spot selam untuk melihat estimasi rute laut, jarak, dan waktu tempuh di Selat Lembeh.
                     </p>
                 </div>
 
@@ -24,7 +24,7 @@ export default function RoutePlannerPage() {
                 <div className="mt-10 rounded-2xl bg-white p-5 text-sm text-slate-600 shadow-sm border border-gray-100">
                     <h2 className="font-bold text-[#023E8A] mb-2">Batasan Perhitungan</h2>
                     <p>
-                        Route planner ini hanya berlaku untuk layanan kapal karena titik berangkatnya adalah pangkalan kapal provider. Layanan guide/instruktur dan penyewaan alat selam tidak memakai estimasi jarak kapal pada revisi ini.
+                        Route planner ini hanya berlaku untuk layanan kapal karena titik berangkatnya adalah pangkalan kapal provider. Rute dihitung dengan algoritma Dijkstra pada jaringan waypoint laut lokal, bukan sebagai jalur navigasi resmi. Layanan guide/instruktur dan penyewaan alat selam tidak memakai estimasi jarak kapal pada revisi ini.
                     </p>
                     <p className="mt-2">
                         Kategori jarak pada proses booking kapal memakai patokan: dekat sampai 5 km, sedang 5-10 km, dan jauh di atas 10 km dari pangkalan kapal ke spot selam.
