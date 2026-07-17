@@ -13,7 +13,9 @@ import { savePushSubscription, sendTestPushNotification } from "@/app/actions/pu
 import { useAuthNavigation } from "@/components/AuthNavigationProvider";
 import {
     getCurrentPushSubscription,
+    getPushServiceWorkerRegistration,
     unsubscribeCurrentDevicePush,
+    withPushTimeout,
 } from "@/lib/push/client";
 import type { SerializedPushSubscription } from "@/lib/push/types";
 
@@ -62,6 +64,9 @@ export default function PushNotificationManager() {
             return;
         }
 
+        setPushState("checking");
+        setMessage(null);
+
         const iOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
         setIsIOS(iOS);
         setIsStandalone(isStandaloneDisplay());
@@ -102,7 +107,11 @@ export default function PushNotificationManager() {
 
             // Re-associate an existing browser subscription with the current
             // authenticated account after a session refresh or account switch.
-            const result = await savePushSubscription(serialized, window.navigator.userAgent);
+            const result = await withPushTimeout(
+                savePushSubscription(serialized, window.navigator.userAgent),
+                10_000,
+                "Sinkronisasi notifikasi ke server melewati batas waktu."
+            );
             if (!result.success) {
                 setMessage(result.message);
                 setPushState("error");
@@ -111,6 +120,11 @@ export default function PushNotificationManager() {
             setPushState("enabled");
         } catch (error) {
             console.warn("[push] Failed to read subscription:", error);
+            setMessage(
+                error instanceof Error
+                    ? error.message
+                    : "Pemeriksaan notifikasi gagal. Muat ulang aplikasi dan coba kembali."
+            );
             setPushState("error");
         }
     }, [authState.user]);
@@ -144,7 +158,7 @@ export default function PushNotificationManager() {
                 return;
             }
 
-            const registration = await navigator.serviceWorker.ready;
+            const registration = await getPushServiceWorkerRegistration();
             const current = await registration.pushManager.getSubscription();
             const subscription = current ?? await registration.pushManager.subscribe({
                 userVisibleOnly: true,
@@ -153,7 +167,11 @@ export default function PushNotificationManager() {
             const serialized = serializeSubscription(subscription);
             if (!serialized) throw new Error("Browser tidak memberikan kunci subscription yang lengkap.");
 
-            const result = await savePushSubscription(serialized, window.navigator.userAgent);
+            const result = await withPushTimeout(
+                savePushSubscription(serialized, window.navigator.userAgent),
+                10_000,
+                "Penyimpanan subscription melewati batas waktu."
+            );
             if (!result.success) throw new Error(result.message);
 
             setPushState("enabled");
