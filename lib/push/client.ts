@@ -1,10 +1,11 @@
 "use client";
 
 import { deletePushSubscription } from "@/app/actions/push";
+import { ensureActiveServiceWorkerRegistration } from "@/lib/pwa/service-worker";
 import type { PushActionResult } from "@/lib/push/types";
 
-const SERVICE_WORKER_TIMEOUT_MS = 10_000;
-const PUSH_MANAGER_TIMEOUT_MS = 8_000;
+const SERVICE_WORKER_TIMEOUT_MS = 35_000;
+const PUSH_MANAGER_TIMEOUT_MS = 15_000;
 
 export function withPushTimeout<T>(
     promise: Promise<T>,
@@ -22,29 +23,7 @@ export function withPushTimeout<T>(
 }
 
 export async function getPushServiceWorkerRegistration() {
-    if (!("serviceWorker" in navigator)) {
-        throw new Error("Service worker tidak didukung oleh browser ini.");
-    }
-
-    return withPushTimeout(
-        (async () => {
-            let registration = await navigator.serviceWorker.getRegistration("/");
-
-            // Registration normally happens in ServiceWorkerRegistration, but
-            // this fallback removes the race on the first page load.
-            if (!registration) {
-                registration = await navigator.serviceWorker.register("/sw.js", {
-                    scope: "/",
-                    updateViaCache: "none",
-                });
-            }
-
-            if (registration.active) return registration;
-            return navigator.serviceWorker.ready;
-        })(),
-        SERVICE_WORKER_TIMEOUT_MS,
-        "Service worker belum siap. Periksa koneksi lalu muat ulang aplikasi."
-    );
+    return ensureActiveServiceWorkerRegistration();
 }
 
 export async function getCurrentPushSubscription() {
@@ -54,7 +33,7 @@ export async function getCurrentPushSubscription() {
     // mencegah panel tertahan pada navigator.serviceWorker.ready ketika SW
     // belum tersedia, khususnya saat koneksi lambat atau build baru dipasang.
     const registration = await withPushTimeout(
-        navigator.serviceWorker.getRegistration("/"),
+        navigator.serviceWorker.getRegistration(),
         PUSH_MANAGER_TIMEOUT_MS,
         "Pemeriksaan service worker melewati batas waktu."
     );

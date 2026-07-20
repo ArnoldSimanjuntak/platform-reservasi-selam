@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { clearLegacyPrivateCaches } from "@/lib/pwa/cache";
+import { ensureActiveServiceWorkerRegistration } from "@/lib/pwa/service-worker";
 
 /**
  * Registers the generated next-pwa service worker.
@@ -17,14 +18,9 @@ export default function ServiceWorkerRegistration() {
             "serviceWorker" in navigator &&
             process.env.NODE_ENV === "production"
         ) {
-            navigator.serviceWorker
-                .register("/sw.js", {
-                    scope: "/",
-                    updateViaCache: "none",
-                })
+            ensureActiveServiceWorkerRegistration()
                 .then((registration) => {
-                    console.log("[PWA] Service Worker registered:", registration.scope);
-                    void registration.update();
+                    console.log("[PWA] Service Worker active:", registration.scope);
                     void clearLegacyPrivateCaches();
 
                     if (cancelled) return;
