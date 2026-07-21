@@ -1,5 +1,9 @@
 const withPWA = require("next-pwa")({
     dest: "public",
+    // Next.js App Router emits this webpack asset while building, but Vercel
+    // does not serve it from /_next in production. If Workbox precaches it,
+    // the resulting 404 aborts the entire service-worker installation.
+    buildExcludes: [/app-build-manifest\.json$/],
     // Registration is handled by components/ServiceWorkerRegistration.tsx so we
     // can force updateViaCache="none" and avoid stale service worker installs.
     register: false,
