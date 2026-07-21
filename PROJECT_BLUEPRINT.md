@@ -12,7 +12,7 @@ Dokumen ini berfungsi sebagai panduan utama/konteks ringkas untuk AI Agent yang 
 
 ## 📂 Current Architecture
 - `/app`: Routing utama berbasis App Router. Terdiri dari route `/` (Home), `/services`, `/services/[id]` (Detail), `/lokasi` (Peta Leaflet), `/booking`, `/dashboard` (User profil), `/offline`, dan `/auth` (Login/Register).
-- `/components`: Reusable UI components (seperti `Navbar`, `Footer`, `ServiceCard`, `HeroSection`, `MapLeaflet`, `BookingForm`).
+- `/components`: Reusable UI components (seperti `Navbar`, `Footer`, `ServiceCard`, `HeroBooking`, `MapLeaflet`, `BookingForm`).
 - `/lib`: Helper functions & konfigurasi. Khususnya `lib/supabase.ts` untuk fetching data, dan direktori `lib/supabase/` untuk auth client (client, server, middleware).
 - `/public`: Static assets, gambar, PWA icons, manifest, sw.js, dan tile proxy jika ada.
 
@@ -22,7 +22,6 @@ Beroperasi pada Supabase PostgreSQL:
 - `providers`: Entitas penyedia jasa selam (boat, dive center).
 - `services`: Layanan yang ditawarkan (Boat, Instructor, Gear). Berlaku sistem *carrying capacity* (`max_capacity`).
 - `dive_sites`: Data titik selam Lembeh (koordinat, zona, info).
-- `resources`: Aset fisik dari provider (boat 1, boat 2, dst).
 - `bookings`: Transaksi reservasi. Relasi ke `users`, `services`, `dive_sites`.
 
 ## ⚙️ Core Logic 

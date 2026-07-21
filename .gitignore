@@ -13,6 +13,14 @@
 # testing
 /coverage
 
+# local Codex/report inspection artifacts
+/.tmp/
+/.codex-remote-attachments/
+
+# ERD files are maintained with the thesis report, not the application source
+/docs/ERD-*
+/docs/erd-*
+
 # next.js
 /.next/
 /out/
