@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Pemulihan PWA SulutDive</title>
+    <style>
+      :root { color-scheme: light; font-family: Arial, sans-serif; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f1f5f9; color: #0f172a; }
+      main { width: min(30rem, calc(100% - 2rem)); box-sizing: border-box; padding: 2rem; border-radius: 1rem; background: white; box-shadow: 0 1rem 3rem rgba(15, 23, 42, .14); text-align: center; }
+      h1 { margin-top: 0; color: #023e8a; }
+      p { line-height: 1.6; }
+      button { border: 0; border-radius: .75rem; padding: .85rem 1.25rem; background: #023e8a; color: white; font-weight: 700; font-size: 1rem; }
+      button:disabled { opacity: .65; }
+      .error { color: #b91c1c; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Pemulihan SulutDive</h1>
+      <p id="status">Tekan tombol berikut untuk membersihkan service worker lama dan memasangnya kembali.</p>
+      <button id="repair" type="button">Perbaiki Aplikasi</button>
+    </main>
+    <script>
+      const button = document.getElementById("repair");
+      const status = document.getElementById("status");
+
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        status.className = "";
+        status.textContent = "Membersihkan registrasi dan cache lama...";
+
+        try {
+          if (!("serviceWorker" in navigator)) {
+            throw new Error("Browser ini tidak mendukung service worker.");
+          }
+
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+
+          if ("caches" in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+          }
+
+          status.textContent = "Memasang service worker terbaru...";
+          const registration = await navigator.serviceWorker.register(
+            `/sw.js?repair=${Date.now()}`,
+            { scope: "/", updateViaCache: "none" }
+          );
+
+          const worker = registration.installing || registration.waiting || registration.active;
+          if (worker && worker.state !== "activated") {
+            await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => reject(new Error("Aktivasi melewati batas waktu.")), 45000);
+              worker.addEventListener("statechange", () => {
+                if (worker.state === "activated") {
+                  clearTimeout(timeout);
+                  resolve();
+                } else if (worker.state === "redundant") {
+                  clearTimeout(timeout);
+                  reject(new Error("Instalasi service worker ditolak browser."));
+                }
+              });
+            });
+          }
+
+          status.textContent = "Pemulihan berhasil. Membuka SulutDive...";
+          window.location.replace(`/?pwa-repaired=1&v=${Date.now()}`);
+        } catch (error) {
+          status.className = "error";
+          status.textContent = `Pemulihan gagal: ${error instanceof Error ? error.message : "kesalahan tidak diketahui"}`;
+          button.disabled = false;
+          button.textContent = "Coba Lagi";
+        }
+      });
+    </script>
+  </body>
+</html>

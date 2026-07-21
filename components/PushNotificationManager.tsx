@@ -161,6 +161,7 @@ export default function PushNotificationManager() {
     const enableNotifications = async () => {
         if (isWorking) return;
         setIsWorking(true);
+        setPushState("checking");
         setMessage(null);
 
         try {
@@ -336,7 +337,7 @@ export default function PushNotificationManager() {
                             <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3">
                                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                                 <p className="text-xs font-semibold leading-5 text-red-700">
-                                    Konfigurasi notifikasi belum siap atau terjadi gangguan. {message}
+                                    {message || "Notifikasi belum dapat diaktifkan pada perangkat ini."}
                                 </p>
                             </div>
                         )}
@@ -385,7 +386,9 @@ export default function PushNotificationManager() {
                                         ? "Memproses..."
                                         : enabled
                                             ? "Nonaktifkan di Perangkat Ini"
-                                            : "Aktifkan Notifikasi"}
+                                            : pushState === "error"
+                                                ? "Perbaiki & Coba Lagi"
+                                                : "Aktifkan Notifikasi"}
                                 </button>
                             </div>
                         )}

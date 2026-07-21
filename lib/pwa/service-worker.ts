@@ -4,6 +4,7 @@ const REGISTRATION_TIMEOUT_MS = 20_000;
 const ACTIVATION_TIMEOUT_MS = 35_000;
 
 let activeRegistrationPromise: Promise<ServiceWorkerRegistration> | null = null;
+let repairRegistrationPromise: Promise<ServiceWorkerRegistration> | null = null;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -18,6 +19,20 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 
 function isActive(registration: ServiceWorkerRegistration) {
     return registration.active?.state === "activated";
+}
+
+function workerState(registration: ServiceWorkerRegistration | null) {
+    if (!registration) return "registrasi tidak ditemukan";
+
+    return [
+        `active=${registration.active?.state ?? "tidak ada"}`,
+        `waiting=${registration.waiting?.state ?? "tidak ada"}`,
+        `installing=${registration.installing?.state ?? "tidak ada"}`,
+    ].join(", ");
+}
+
+function appClientUrl() {
+    return new URL("/", window.location.origin).href;
 }
 
 function waitForActivation(registration: ServiceWorkerRegistration) {
@@ -102,7 +117,7 @@ async function registerAndActivateServiceWorker() {
     }
 
     let registration = await withTimeout(
-        navigator.serviceWorker.getRegistration(),
+        navigator.serviceWorker.getRegistration(appClientUrl()),
         REGISTRATION_TIMEOUT_MS,
         "Pemeriksaan service worker melewati batas waktu."
     );
@@ -142,6 +157,58 @@ async function registerAndActivateServiceWorker() {
     return waitForActivation(registration);
 }
 
+async function clearOriginCaches() {
+    if (!("caches" in window)) return;
+
+    const cacheNames = await window.caches.keys();
+    await Promise.all(cacheNames.map((cacheName) => window.caches.delete(cacheName)));
+}
+
+async function performServiceWorkerRepair() {
+    if (!("serviceWorker" in navigator)) {
+        throw new Error("Service worker tidak didukung oleh browser ini.");
+    }
+
+    activeRegistrationPromise = null;
+
+    const registrations = await withTimeout(
+        navigator.serviceWorker.getRegistrations(),
+        REGISTRATION_TIMEOUT_MS,
+        "Pemeriksaan registrasi lama melewati batas waktu."
+    );
+
+    await withTimeout(
+        Promise.all(registrations.map((registration) => registration.unregister())),
+        REGISTRATION_TIMEOUT_MS,
+        "Pembersihan registrasi lama melewati batas waktu."
+    );
+    await withTimeout(
+        clearOriginCaches(),
+        REGISTRATION_TIMEOUT_MS,
+        "Pembersihan cache PWA melewati batas waktu."
+    );
+
+    const registration = await withTimeout(
+        navigator.serviceWorker.register(`/sw.js?repair=${Date.now()}`, {
+            scope: "/",
+            updateViaCache: "none",
+        }),
+        REGISTRATION_TIMEOUT_MS,
+        "Pendaftaran ulang service worker melewati batas waktu."
+    );
+
+    try {
+        const activeRegistration = await waitForActivation(registration);
+        activeRegistrationPromise = Promise.resolve(activeRegistration);
+        return activeRegistration;
+    } catch (error) {
+        const detail = error instanceof Error ? error.message : "Aktivasi gagal.";
+        throw new Error(
+            `Pemulihan service worker gagal (${workerState(registration)}). ${detail}`
+        );
+    }
+}
+
 /**
  * Mengembalikan registrasi SulutDive yang sudah memiliki worker aktif.
  * Promise dibagikan antara komponen PWA dan aktivasi push agar keduanya tidak
@@ -155,4 +222,18 @@ export function ensureActiveServiceWorkerRegistration() {
         });
     }
     return activeRegistrationPromise;
+}
+
+/**
+ * Menghapus registrasi/cache PWA pada origin SulutDive dan memasang worker
+ * bersih. Dipanggil hanya sesudah aktivasi eksplisit pengguna gagal agar
+ * registrasi Workbox lama yang rusak dapat dipulihkan tanpa membuka setelan HP.
+ */
+export function repairServiceWorkerRegistration() {
+    if (!repairRegistrationPromise) {
+        repairRegistrationPromise = performServiceWorkerRepair().finally(() => {
+            repairRegistrationPromise = null;
+        });
+    }
+    return repairRegistrationPromise;
 }

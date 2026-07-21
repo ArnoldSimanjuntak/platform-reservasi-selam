@@ -1,7 +1,10 @@
 "use client";
 
 import { deletePushSubscription } from "@/app/actions/push";
-import { ensureActiveServiceWorkerRegistration } from "@/lib/pwa/service-worker";
+import {
+    ensureActiveServiceWorkerRegistration,
+    repairServiceWorkerRegistration,
+} from "@/lib/pwa/service-worker";
 import type { PushActionResult } from "@/lib/push/types";
 
 const SERVICE_WORKER_TIMEOUT_MS = 35_000;
@@ -23,7 +26,20 @@ export function withPushTimeout<T>(
 }
 
 export async function getPushServiceWorkerRegistration() {
-    return ensureActiveServiceWorkerRegistration();
+    try {
+        return await ensureActiveServiceWorkerRegistration();
+    } catch (initialError) {
+        console.warn("[push] Initial service worker activation failed; repairing:", initialError);
+        try {
+            return await repairServiceWorkerRegistration();
+        } catch (repairError) {
+            const detail =
+                repairError instanceof Error
+                    ? repairError.message
+                    : "Pendaftaran ulang tidak berhasil.";
+            throw new Error(`Service worker gagal dipulihkan otomatis. ${detail}`);
+        }
+    }
 }
 
 export async function getCurrentPushSubscription() {
@@ -55,6 +71,40 @@ function subscriptionUsesKey(subscription: PushSubscription, expectedKey: Uint8A
     return currentBytes.every((value, index) => value === expectedKey[index]);
 }
 
+function isPermissionError(error: unknown) {
+    return (
+        error instanceof DOMException &&
+        (error.name === "NotAllowedError" || error.name === "SecurityError")
+    );
+}
+
+function actionableSubscriptionError(error: unknown) {
+    if (isPermissionError(error)) {
+        return new Error(
+            "Izin notifikasi diblokir oleh browser atau perangkat. Aktifkan izin SulutDive melalui pengaturan notifikasi."
+        );
+    }
+
+    const detail = error instanceof Error ? error.message : "Layanan push tidak merespons.";
+    return new Error(
+        `Pembuatan subscription push gagal. ${detail} Pastikan Chrome dan Google Play Services diperbarui, lalu coba lagi.`
+    );
+}
+
+async function createPushSubscription(
+    registration: ServiceWorkerRegistration,
+    applicationServerKey: ArrayBuffer
+) {
+    return withPushTimeout(
+        registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+        }),
+        SERVICE_WORKER_TIMEOUT_MS,
+        "Pembuatan subscription melewati batas waktu."
+    );
+}
+
 export async function subscribeCurrentDevicePush(applicationServerKey: Uint8Array) {
     const registration = await getPushServiceWorkerRegistration();
     let subscription = await withPushTimeout(
@@ -83,14 +133,21 @@ export async function subscribeCurrentDevicePush(applicationServerKey: Uint8Arra
     const keyBuffer = new ArrayBuffer(applicationServerKey.byteLength);
     new Uint8Array(keyBuffer).set(applicationServerKey);
 
-    return withPushTimeout(
-        registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: keyBuffer,
-        }),
-        SERVICE_WORKER_TIMEOUT_MS,
-        "Pembuatan subscription melewati batas waktu."
-    );
+    try {
+        return await createPushSubscription(registration, keyBuffer);
+    } catch (initialError) {
+        if (isPermissionError(initialError)) throw actionableSubscriptionError(initialError);
+
+        // PushManager pada beberapa browser Android tetap terikat pada
+        // registrasi Workbox lama. Bersihkan registrasi dan coba tepat satu kali.
+        console.warn("[push] Subscription failed; repairing service worker:", initialError);
+        try {
+            const repairedRegistration = await repairServiceWorkerRegistration();
+            return await createPushSubscription(repairedRegistration, keyBuffer);
+        } catch (retryError) {
+            throw actionableSubscriptionError(retryError);
+        }
+    }
 }
 
 export async function unsubscribeCurrentDevicePush(): Promise<PushActionResult> {
