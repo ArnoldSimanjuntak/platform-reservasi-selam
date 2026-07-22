@@ -7,6 +7,8 @@ import { sendPushToProvider, sendPushToUsers } from "@/lib/push/server";
 export interface PaymentVerificationResult {
     success: boolean;
     message: string;
+    bookingStatus?: string;
+    paymentStatus?: string;
 }
 
 /**
@@ -39,74 +41,47 @@ export async function submitPaymentProof(
         return { success: false, message: "Data tidak lengkap. Pastikan bukti pembayaran sudah diunggah." };
     }
 
-    // ─── 3. Ambil booking + verifikasi kepemilikan ──────────────
-    const { data: booking, error: bookingError } = await supabase
-        .from("bookings")
-        .select("id, user_id, provider_id, payment_status, payment_deadline")
-        .eq("id", bookingId)
-        .single();
-
-    if (bookingError || !booking) {
-        return { success: false, message: "Booking tidak ditemukan." };
-    }
-
-    if (booking.user_id !== user.id) {
-        return { success: false, message: "Anda tidak memiliki izin untuk booking ini." };
-    }
-
-    // ─── 4. Cek apakah deadline sudah lewat ─────────────────────
-    if (booking.payment_deadline) {
-        const deadline = new Date(booking.payment_deadline);
-        if (Date.now() > deadline.getTime()) {
-            // Auto-expire
-            await supabase
-                .from("bookings")
-                .update({ payment_status: "expired", status: "cancelled", updated_at: new Date().toISOString() })
-                .eq("id", bookingId);
-
-            return {
-                success: false,
-                message: "Batas waktu pembayaran telah berakhir. Booking otomatis dibatalkan.",
-            };
+    // ─── 3. Validasi kepemilikan, deadline, dan update secara atomik ───
+    const { data: submissionRows, error: submissionError } = await supabase.rpc(
+        "submit_payment_proof_secure",
+        {
+            p_booking_id: bookingId,
+            p_payment_proof_url: paymentProofUrl,
         }
-    }
+    );
 
-    // ─── 5. Cek apakah sudah pernah dikirim ─────────────────────
-    if (booking.payment_status === "pending_verification") {
-        return { success: false, message: "Bukti pembayaran sudah dikirim dan sedang menunggu verifikasi." };
-    }
-
-    if (booking.payment_status === "paid") {
-        return { success: false, message: "Pembayaran sudah terverifikasi." };
-    }
-
-    // ─── 6. Update payment_proof_url + status ───────────────────
-    const { error: updateError } = await supabase
-        .from("bookings")
-        .update({
-            payment_proof_url: paymentProofUrl,
-            payment_status: "pending_verification",
-            updated_at: new Date().toISOString(),
-        })
-        .eq("id", bookingId);
-
-    if (updateError) {
-        console.error("Payment proof update error:", updateError);
-
-        if (updateError.code === "42501" || updateError.message.includes("policy")) {
-            return {
-                success: false,
-                message: "Gagal menyimpan: kebijakan keamanan database tidak mengizinkan. Hubungi admin.",
-            };
-        }
-
+    if (submissionError) {
+        console.error("Payment proof update error:", submissionError);
         return {
             success: false,
-            message: `Gagal menyimpan bukti pembayaran: ${updateError.message}`,
+            message: `Gagal menyimpan bukti pembayaran: ${submissionError.message}`,
         };
     }
 
-    await sendPushToProvider(booking.provider_id, {
+    const submission = Array.isArray(submissionRows) ? submissionRows[0] : submissionRows;
+    if (!submission) {
+        return { success: false, message: "Booking tidak ditemukan." };
+    }
+    if (submission.result_code === "expired") {
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/bookings");
+        revalidatePath("/dashboard/provider/orders");
+        revalidatePath("/admin/orders");
+        return {
+            success: false,
+            message: "Batas waktu pembayaran telah berakhir. Booking otomatis dibatalkan.",
+            bookingStatus: "cancelled",
+            paymentStatus: "expired",
+        };
+    }
+    if (submission.result_code === "already_submitted") {
+        return { success: false, message: "Bukti pembayaran sudah dikirim dan sedang menunggu verifikasi." };
+    }
+    if (submission.result_code === "paid") {
+        return { success: false, message: "Pembayaran sudah terverifikasi." };
+    }
+
+    await sendPushToProvider(submission.provider_id, {
         title: "Bukti Pembayaran Baru",
         body: "Customer telah mengunggah bukti pembayaran yang perlu Anda periksa.",
         url: "/dashboard/provider/orders",
@@ -144,55 +119,36 @@ export async function verifyPayment(
         return { success: false, message: "Silakan login terlebih dahulu." };
     }
 
-    // Ambil booking
-    const { data: booking, error: bookingError } = await supabase
-        .from("bookings")
-        .select("id, provider_id, user_id, payment_status")
-        .eq("id", bookingId)
-        .single();
+    const { data: reviewRows, error: reviewError } = await supabase.rpc(
+        "review_payment_secure",
+        { p_booking_id: bookingId, p_action: action }
+    );
 
-    if (bookingError || !booking) {
-        return { success: false, message: "Booking tidak ditemukan." };
+    if (reviewError) {
+        console.error("Payment verify error:", reviewError);
+        return { success: false, message: `Gagal memverifikasi: ${reviewError.message}` };
     }
 
-    // Verifikasi kepemilikan provider
-    const { data: provider } = await supabase
-        .from("providers")
-        .select("id")
-        .eq("id", booking.provider_id)
-        .eq("owner_user_id", user.id)
-        .single();
-
-    if (!provider) {
-        return { success: false, message: "Anda tidak memiliki izin untuk memverifikasi pembayaran ini." };
+    const review = Array.isArray(reviewRows) ? reviewRows[0] : reviewRows;
+    if (!review?.user_id) {
+        return { success: false, message: "Booking tidak ditemukan atau sudah diproses." };
     }
+    const retryAllowed = review.result_code === "rejected_retry";
+    const rejectedExpired = review.result_code === "rejected_expired";
+    const approvalExpired = review.result_code === "approval_expired";
+    const approved = review.result_code === "approved";
 
-    if (booking.payment_status !== "pending_verification") {
-        return { success: false, message: "Pembayaran tidak dalam status menunggu verifikasi." };
-    }
-
-    const newPaymentStatus = action === "approve" ? "paid" : "unpaid";
-    const newBookingStatus = action === "approve" ? "confirmed" : "pending";
-
-    const { error: updateError } = await supabase
-        .from("bookings")
-        .update({
-            payment_status: newPaymentStatus,
-            status: newBookingStatus,
-            updated_at: new Date().toISOString(),
-        })
-        .eq("id", bookingId);
-
-    if (updateError) {
-        console.error("Payment verify error:", updateError);
-        return { success: false, message: `Gagal memverifikasi: ${updateError.message}` };
-    }
-
-    await sendPushToUsers([booking.user_id], {
-        title: action === "approve" ? "Pembayaran Diterima" : "Pembayaran Ditolak",
-        body: action === "approve"
+    await sendPushToUsers([review.user_id], {
+        title: approvalExpired
+            ? "Booking Kedaluwarsa"
+            : approved ? "Pembayaran Diterima" : "Pembayaran Ditolak",
+        body: approvalExpired
+            ? "Pembayaran tidak dapat disetujui karena jadwal layanan telah lewat. Booking dibatalkan."
+            : approved
             ? "Pembayaran telah diverifikasi dan booking Anda dikonfirmasi."
-            : "Bukti pembayaran ditolak. Silakan periksa dan unggah kembali bukti yang sesuai.",
+            : retryAllowed
+                ? "Bukti pembayaran ditolak. Silakan unggah kembali sebelum batas waktu pembayaran yang baru."
+                : "Bukti pembayaran ditolak dan waktu layanan tidak memungkinkan pengunggahan ulang. Booking dibatalkan.",
         url: "/dashboard/bookings",
         tag: `payment-review-${bookingId}`,
         urgency: "high",
@@ -206,9 +162,17 @@ export async function verifyPayment(
 
     return {
         success: true,
-        message: action === "approve"
+        message: approvalExpired
+            ? "Jadwal layanan telah lewat sehingga pembayaran tidak dapat disetujui dan booking dibatalkan."
+            : approved
             ? "Pembayaran berhasil diverifikasi. Booking dikonfirmasi."
-            : "Pembayaran ditolak. Wisatawan diminta mengunggah ulang.",
+            : rejectedExpired
+                ? "Pembayaran ditolak dan booking dibatalkan karena batas waktunya telah lewat."
+                : "Pembayaran ditolak. Wisatawan memperoleh waktu untuk mengunggah ulang.",
+        bookingStatus: review.booking_status,
+        paymentStatus: approved
+            ? "paid"
+            : (rejectedExpired || approvalExpired) ? "expired" : "unpaid",
     };
 }
 
@@ -260,6 +224,8 @@ export async function getPaymentProofSignedUrl(
         .select("id")
         .eq("id", booking.provider_id)
         .eq("owner_user_id", user.id)
+        .eq("verification_status", "verified")
+        .eq("is_active", true)
         .single();
 
     if (!provider) {
@@ -273,6 +239,11 @@ export async function getPaymentProofSignedUrl(
     // https://<project>.supabase.co/storage/v1/object/<bucket>/<path>
     const storedUrl = booking.payment_proof_url as string;
     const bucketName = "payment-receipts";
+    const expectedOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    if (!expectedOrigin || !storedUrl.startsWith(`${expectedOrigin}/storage/v1/object/`)) {
+        return { url: null, error: "Alamat bukti pembayaran tidak valid." };
+    }
     
     // Ekstrak path relatif dari URL yang sudah tersimpan
     const publicMarker = `/object/public/${bucketName}/`;
@@ -286,8 +257,7 @@ export async function getPaymentProofSignedUrl(
     }
 
     if (!filePath) {
-        // Jika URL tidak bisa di-parse, kembalikan URL asli (mungkin sudah signed atau dari bucket publik)
-        return { url: storedUrl };
+        return { url: null, error: "Lokasi berkas bukti pembayaran tidak valid." };
     }
 
     // ─── 4. Generate Signed URL (berlaku 1 jam) ─────────────────
@@ -296,9 +266,8 @@ export async function getPaymentProofSignedUrl(
         .createSignedUrl(filePath, 3600); // 3600 detik = 1 jam
 
     if (signedError || !signedData?.signedUrl) {
-        // Fallback ke URL publik jika bucket ternyata publik
-        console.warn("Signed URL generation failed, falling back to stored URL:", signedError?.message);
-        return { url: storedUrl };
+        console.warn("Signed URL generation failed:", signedError?.message);
+        return { url: null, error: "Bukti pembayaran tidak dapat dibuka saat ini." };
     }
 
     return { url: signedData.signedUrl };

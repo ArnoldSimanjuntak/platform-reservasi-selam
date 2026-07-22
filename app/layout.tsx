@@ -8,6 +8,7 @@ import BottomNav from "@/components/BottomNav";
 import SessionTimeout from "@/components/SessionTimeout";
 import AuthNavigationProvider from "@/components/AuthNavigationProvider";
 import PushNotificationManager from "@/components/PushNotificationManager";
+import PushInAppBanner from "@/components/PushInAppBanner";
 import { getServerNavbarAuthState } from "@/lib/auth/navbar-state";
 import "./globals.css";
 
@@ -110,6 +111,7 @@ export default async function RootLayout({
           <SessionTimeout />
           <ServiceWorkerRegistration />
           <PushNotificationManager />
+          <PushInAppBanner />
         </AuthNavigationProvider>
       </body>
     </html>

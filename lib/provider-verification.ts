@@ -110,10 +110,7 @@ export function getDocumentDefinition(type: string): VerificationDocumentDefinit
     return { type: type as VerificationDocumentType, ...definition };
 }
 
-export function getRequiredDocumentTypes(
-    primaryType?: string | null,
-    instructorScope?: string | null
-): VerificationDocumentType[] {
+export function getRequiredDocumentTypes(primaryType?: string | null): VerificationDocumentType[] {
     const common: VerificationDocumentType[] = ["identity_card", "business_license"];
 
     if (primaryType === "boat") {
@@ -144,11 +141,10 @@ export function getOptionalDocumentTypes(primaryType?: string | null): Verificat
 }
 
 export function getDocumentTypesForProvider(
-    primaryType?: string | null,
-    instructorScope?: string | null
+    primaryType?: string | null
 ): VerificationDocumentType[] {
     return [
-        ...getRequiredDocumentTypes(primaryType, instructorScope),
+        ...getRequiredDocumentTypes(primaryType),
         ...getOptionalDocumentTypes(primaryType),
     ];
 }
@@ -172,7 +168,7 @@ export function getSubmittedDocumentTypes(profile: ProviderVerificationProfile) 
 
 export function getMissingRequiredDocumentTypes(profile: ProviderVerificationProfile) {
     const submitted = getSubmittedDocumentTypes(profile);
-    return getRequiredDocumentTypes(profile.primary_type, profile.instructor_scope).filter(
+    return getRequiredDocumentTypes(profile.primary_type).filter(
         (type) => !submitted.has(type)
     );
 }

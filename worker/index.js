@@ -21,7 +21,8 @@ function readPushPayload(event) {
     }
 
     try {
-        return event.data.json();
+        const payload = event.data.json();
+        return payload && typeof payload === "object" ? payload : {};
     } catch {
         return {
             title: "SulutDive",
@@ -30,6 +31,49 @@ function readPushPayload(event) {
             tag: "sulutdive-update",
         };
     }
+}
+
+function deliverToVisibleClient(client, message) {
+    return new Promise((resolve) => {
+        let channel;
+        try {
+            channel = new MessageChannel();
+        } catch {
+            resolve(false);
+            return;
+        }
+        let settled = false;
+        let timeoutId;
+        const finish = (delivered) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            channel.port1.onmessage = null;
+            try {
+                channel.port1.close();
+            } catch {
+                // Port sudah ditutup oleh runtime browser.
+            }
+            resolve(delivered);
+        };
+        timeoutId = setTimeout(() => finish(false), 700);
+
+        channel.port1.onmessage = (event) => {
+            if (event.data?.type !== "SULUTDIVE_PUSH_ACK") return;
+            finish(true);
+        };
+
+        try {
+            client.postMessage(message, [channel.port2]);
+        } catch {
+            try {
+                channel.port2.close();
+            } catch {
+                // Port mungkin sempat dipindahkan sebelum postMessage gagal.
+            }
+            finish(false);
+        }
+    });
 }
 
 function sameOriginUrl(value) {
@@ -48,17 +92,41 @@ self.addEventListener("push", (event) => {
     const title = safeText(payload.title, "SulutDive", 80);
 
     event.waitUntil(
-        self.registration.showNotification(title, {
-            body: safeText(payload.body, "Ada pembaruan baru pada akun Anda.", 240),
-            icon: payload.icon || DEFAULT_ICON,
-            badge: payload.badge || DEFAULT_BADGE,
-            tag: safeText(payload.tag, "sulutdive-update", 120),
-            renotify: false,
-            timestamp: Date.now(),
-            data: {
-                url: sameOriginUrl(payload.url),
-            },
-        })
+        (async () => {
+            const body = safeText(payload.body, "Ada pembaruan baru pada akun Anda.", 240);
+            const targetUrl = sameOriginUrl(payload.url);
+            const windowClients = await self.clients.matchAll({
+                type: "window",
+                includeUncontrolled: true,
+            });
+            const visibleClients = windowClients.filter(
+                (client) => client.visibilityState === "visible"
+            );
+
+            if (visibleClients.length > 0) {
+                const deliveries = await Promise.all(
+                    visibleClients.map((client) => deliverToVisibleClient(client, {
+                        type: "SULUTDIVE_PUSH_RECEIVED",
+                        payload: { title, body, url: targetUrl },
+                    }))
+                );
+                if (deliveries.some(Boolean)) return;
+            }
+
+            await self.registration.showNotification(title, {
+                body,
+                icon: payload.icon || DEFAULT_ICON,
+                badge: payload.badge || DEFAULT_BADGE,
+                tag: safeText(payload.tag, "sulutdive-update", 120),
+                renotify: true,
+                silent: false,
+                vibrate: [200, 100, 200],
+                timestamp: Date.now(),
+                data: {
+                    url: targetUrl,
+                },
+            });
+        })()
     );
 });
 

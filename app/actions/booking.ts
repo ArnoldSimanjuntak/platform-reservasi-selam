@@ -3,6 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushToProvider, sendPushToUsers } from "@/lib/push/server";
+import { normalizeWhatsAppNumber } from "@/lib/formatters";
+
+function buildScheduledDate(bookingDate: string, timeValue: string | null | undefined) {
+    if (!timeValue) return null;
+    const normalizedTime = timeValue.slice(0, 8);
+    const parsed = new Date(`${bookingDate}T${normalizedTime}+08:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getMakassarDateString(date = new Date()) {
+    return new Intl.DateTimeFormat("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        timeZone: "Asia/Makassar",
+    }).format(date);
+}
 
 export interface BookingResult {
     success: boolean;
@@ -56,7 +73,9 @@ export async function createBooking(
     bookingDate: string,
     totalParticipants: number,
     diveSiteId?: string,
-    rentalDays?: number
+    rentalDays?: number,
+    customerContact?: string,
+    notes?: string
 ): Promise<BookingResult> {
     const supabase = await createClient();
 
@@ -69,7 +88,7 @@ export async function createBooking(
     if (authError || !user) {
         return {
             success: false,
-            message: "Please log in first to make a booking.",
+            message: "Silakan login terlebih dahulu untuk membuat booking.",
         };
     }
 
@@ -107,41 +126,56 @@ export async function createBooking(
     if (!serviceId || !bookingDate || !totalParticipants) {
         return {
             success: false,
-            message: "Incomplete booking data. Please provide date and number of participants.",
+            message: "Data booking belum lengkap. Isi tanggal dan jumlah peserta atau unit.",
         };
     }
 
     if (totalParticipants < 1) {
         return {
             success: false,
-            message: "Minimum of 1 participant is required.",
+            message: "Jumlah minimal adalah 1 peserta atau unit.",
+        };
+    }
+
+    const normalizedCustomerContact = normalizeWhatsAppNumber(customerContact);
+    if (normalizedCustomerContact.length < 10 || normalizedCustomerContact.length > 15) {
+        return {
+            success: false,
+            message: "Nomor WhatsApp pemesan tidak valid.",
+        };
+    }
+
+    const cleanedNotes = notes?.trim() || null;
+    if (cleanedNotes && cleanedNotes.length > 500) {
+        return {
+            success: false,
+            message: "Catatan tambahan maksimal 500 karakter.",
         };
     }
 
     // Validate booking date is not in the past (timezone-safe)
     // bookingDate is a YYYY-MM-DD string from the client
     // We compare as strings since YYYY-MM-DD format sorts correctly
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayStr = getMakassarDateString();
 
     if (bookingDate < todayStr) {
         return {
             success: false,
-            message: "Booking date cannot be in the past.",
+            message: "Tanggal booking tidak boleh berada di masa lalu.",
         };
     }
 
     // ─── 3. Ambil Data Service (max_capacity, price, provider_id, is_available)
     const { data: service, error: serviceError } = await supabase
         .from("services")
-        .select("id, name, type, max_capacity, price, provider_id, is_available")
+        .select("id, name, type, max_capacity, price, provider_id, is_available, default_start_time, estimated_duration_minutes, meeting_instructions, provider:providers(location, contact, verification_status, is_active)")
         .eq("id", serviceId)
         .single();
 
     if (serviceError || !service) {
         return {
             success: false,
-            message: "Service not found.",
+            message: "Layanan tidak ditemukan.",
         };
     }
 
@@ -162,6 +196,52 @@ export async function createBooking(
         };
     }
 
+    const providerRelation = service.provider as
+        | { location?: string | null; contact?: string | null; verification_status?: string | null; is_active?: boolean | null }
+        | Array<{ location?: string | null; contact?: string | null; verification_status?: string | null; is_active?: boolean | null }>
+        | null;
+    const providerDetails = Array.isArray(providerRelation)
+        ? providerRelation[0] ?? null
+        : providerRelation;
+
+    if (
+        !providerDetails ||
+        providerDetails.verification_status !== "verified" ||
+        providerDetails.is_active !== true
+    ) {
+        return {
+            success: false,
+            message: "Provider layanan ini sedang tidak aktif atau belum terverifikasi.",
+        };
+    }
+
+    const providerContact = normalizeWhatsAppNumber(providerDetails.contact);
+    const meetingPoint = providerDetails.location?.trim() || "";
+    if (providerContact.length < 10 || providerContact.length > 15 || !meetingPoint) {
+        return {
+            success: false,
+            message: "Informasi lokasi atau kontak provider belum lengkap. Silakan pilih layanan lain atau hubungi admin.",
+        };
+    }
+
+    const durationMinutes = Number(service.estimated_duration_minutes || 0);
+    const scheduledStart = buildScheduledDate(bookingDate, service.default_start_time);
+    if (!scheduledStart || (service.type !== "gear" && durationMinutes < 30)) {
+        return {
+            success: false,
+            message: service.type === "gear"
+                ? "Jam pengambilan alat belum dilengkapi provider. Silakan hubungi provider atau pilih layanan lain."
+                : "Jadwal layanan belum dilengkapi provider. Silakan hubungi provider atau pilih layanan lain.",
+        };
+    }
+
+    const bookingCutoffMs = 60 * 60 * 1000;
+    if (scheduledStart && scheduledStart.getTime() <= Date.now() + bookingCutoffMs) {
+        return {
+            success: false,
+            message: "Batas pemesanan layanan ini adalah 1 jam sebelum jadwal mulai. Silakan pilih tanggal berikutnya.",
+        };
+    }
     // ─── 4. Ambil Surcharge dari Dive Site (jika ada) ───────────
     const normalizedDiveSiteId = service.type === "boat" ? diveSiteId : undefined;
 
@@ -172,21 +252,20 @@ export async function createBooking(
         };
     }
 
-    let surcharge = 0;
     if (normalizedDiveSiteId) {
         const { data: diveSite, error: siteError } = await supabase
             .from("dive_sites")
-            .select("id, surcharge_fee")
+            .select("id")
             .eq("id", normalizedDiveSiteId)
+            .eq("is_active", true)
             .single();
 
         if (siteError || !diveSite) {
             return {
                 success: false,
-                message: "Dive site not found.",
+                message: "Lokasi selam tidak ditemukan atau sedang tidak aktif.",
             };
         }
-        surcharge = diveSite.surcharge_fee;
     }
 
     // ─── 5. Validasi Stok / Kapasitas berdasarkan tipe layanan ────
@@ -268,63 +347,62 @@ export async function createBooking(
         }
     }
 
-    // ─── 7. Hitung Total Harga ───────────────────────────────────
-    // Gear: harga × jumlah unit × durasi sewa (hari)
-    // Boat: harga × jumlah penyelam + surcharge jarak ke lokasi
-    // Instructor: harga × jumlah penyelam (per hari, tanpa surcharge)
+    // Durasi efektif hanya digunakan untuk layanan penyewaan alat.
     const effectiveDays = rentalDays && rentalDays > 0 ? rentalDays : 1;
-    let totalPrice: number;
 
-    if (service.type === "gear") {
-        // Gear: price per unit per day × quantity × days
-        totalPrice = service.price * totalParticipants * effectiveDays;
-    } else if (normalizedDiveSiteId && surcharge > 0) {
-        // Boat dengan surcharge jarak ke dive site
-        totalPrice = service.price * totalParticipants + surcharge;
-    } else {
-        // Instructor atau boat tanpa surcharge
-        totalPrice = service.price * totalParticipants;
-    }
-
-    // ─── 8. Hitung Payment Deadline (24 jam dari sekarang) ────────
-    const paymentDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-    // ─── 9. INSERT Booking dengan semua field yang benar ─────────
-    const { data: booking, error: bookingError } = await supabase
-        .from("bookings")
-        .insert({
-            user_id: user.id,
-            service_id: serviceId,
-            provider_id: service.provider_id || null,
-            dive_site_id: normalizedDiveSiteId || null,
-            booking_date: bookingDate,
-            total_participants: totalParticipants,   // jumlah penyelam ATAU jumlah unit gear
-            rental_days: service.type === "gear" ? effectiveDays : null,  // hanya untuk gear
-            total_price: totalPrice,
-            status: "pending",
-            payment_status: "unpaid",
-            payment_deadline: paymentDeadline,
-        })
-        .select("id")
-        .single();
+    // ─── 7. Validasi kapasitas dan simpan booking secara atomik ───
+    const { data: bookingRows, error: bookingError } = await supabase.rpc(
+        "create_booking_atomic",
+        {
+            p_service_id: serviceId,
+            p_booking_date: bookingDate,
+            p_total_participants: totalParticipants,
+            p_dive_site_id: normalizedDiveSiteId || null,
+            p_rental_days: service.type === "gear" ? effectiveDays : null,
+            p_customer_contact: normalizedCustomerContact,
+            p_notes: cleanedNotes,
+        }
+    );
 
     if (bookingError) {
         console.error("Booking insert error:", bookingError);
+        const capacityError = bookingError.message.includes("Kapasitas tidak cukup");
         return {
             success: false,
-            message: `Gagal membuat booking: ${bookingError.message}`,
+            message: capacityError
+                ? bookingError.message
+                : `Gagal membuat booking: ${bookingError.message}`,
+        };
+    }
+
+    const booking = Array.isArray(bookingRows) ? bookingRows[0] : bookingRows;
+    if (!booking?.booking_id) {
+        return {
+            success: false,
+            message: "Booking tidak berhasil disimpan. Silakan coba lagi.",
         };
     }
 
     const successLabel = service.type === "gear"
         ? `${totalParticipants} unit alat selama ${effectiveDays} hari`
         : `${totalParticipants} penyelam`;
+    const authoritativeServiceName = booking.service_name || service.name;
+    const authoritativeSchedule = booking.scheduled_start_at
+        ? new Date(booking.scheduled_start_at)
+        : null;
+    const scheduleLabel = authoritativeSchedule && !Number.isNaN(authoritativeSchedule.getTime())
+        ? new Intl.DateTimeFormat("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Asia/Makassar",
+        }).format(authoritativeSchedule)
+        : null;
 
-    await sendPushToProvider(service.provider_id, {
+    await sendPushToProvider(booking.provider_id, {
         title: "Booking Baru",
-        body: `Ada pesanan baru untuk ${service.name} pada ${bookingDate}.`,
+        body: `Pesanan ${userRecord.name} untuk ${authoritativeServiceName} pada ${bookingDate}${scheduleLabel ? ` pukul ${scheduleLabel} WITA` : ""}.`,
         url: "/dashboard/provider/orders",
-        tag: `booking-created-${booking.id}`,
+        tag: `booking-created-${booking.booking_id}`,
         urgency: "high",
         ttlSeconds: 24 * 60 * 60,
     });
@@ -336,9 +414,9 @@ export async function createBooking(
 
     return {
         success: true,
-        message: `Booking berhasil! ${successLabel} untuk ${service.name} mulai ${bookingDate}.`,
-        bookingId: booking.id,
-        remainingSlots: remaining - totalParticipants,
+        message: `Booking berhasil! ${successLabel} untuk ${authoritativeServiceName} pada ${bookingDate}${scheduleLabel ? ` pukul ${scheduleLabel} WITA` : ""}.`,
+        bookingId: booking.booking_id,
+        remainingSlots: Number(booking.remaining_slots),
     };
 }
 
@@ -366,11 +444,12 @@ export async function getRemainingSlots(
 
 // ─── Status Management ──────────────────────────────────────────
 
-export type BookingStatusAction = "confirmed" | "in_progress" | "completed" | "cancelled";
+export type BookingStatusAction = "upcoming" | "in_progress" | "completed" | "cancelled";
 
 export interface StatusUpdateResult {
     success: boolean;
     message: string;
+    changedAt?: string;
 }
 
 /**
@@ -402,78 +481,14 @@ export async function updateBookingStatus(
         return { success: false, message: "Silakan login terlebih dahulu." };
     }
 
-    // ─── 2. Ambil booking beserta relasi ─────────────────────────
-    const { data: booking, error: bookingError } = await supabase
-        .from("bookings")
-        .select("id, status, service_id, provider_id, user_id, booking_date, service:services(id, name)")
-        .eq("id", bookingId)
-        .single();
-
-    if (bookingError || !booking) {
-        return { success: false, message: "Booking tidak ditemukan." };
-    }
-
-    // ─── 3. Verifikasi Kepemilikan Provider ─────────────────────
-    const { data: provider, error: providerError } = await supabase
-        .from("providers")
-        .select("id")
-        .eq("id", booking.provider_id)
-        .eq("owner_user_id", user.id)
-        .single();
-
-    if (providerError || !provider) {
-        return {
-            success: false,
-            message: "Anda tidak memiliki izin untuk mengubah status booking ini.",
-        };
-    }
-
-    // ─── 4. Validasi Transisi Status ────────────────────────────
-    const allowedTransitions: Record<string, string[]> = {
-        pending: ["confirmed", "cancelled"],
-        confirmed: ["in_progress", "cancelled"],
-        in_progress: ["completed", "cancelled"],
-    };
-
-    const currentStatus = booking.status;
-    const allowed = allowedTransitions[currentStatus];
-
-    if (!allowed || !allowed.includes(newStatus)) {
-        return {
-            success: false,
-            message: `Tidak bisa mengubah status dari "${currentStatus}" ke "${newStatus}".`,
-        };
-    }
-
-    // ─── 5. Untuk in_progress: validasi tanggal = hari ini ──────
-    if (newStatus === "in_progress") {
-        const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-        if (booking.booking_date !== todayStr) {
-            return {
-                success: false,
-                message: `Dive hanya bisa dimulai pada tanggal booking (${booking.booking_date}). Hari ini: ${todayStr}.`,
-            };
-        }
-    }
-
-    // ─── 6. Update Status ────────────────────────────────────────
-    const { error: updateError } = await supabase
-        .from("bookings")
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq("id", bookingId);
+    // Validasi kepemilikan, transisi, dan waktu dilakukan atomik di database.
+    const { data: updateRows, error: updateError } = await supabase.rpc(
+        "update_booking_status_secure",
+        { p_booking_id: bookingId, p_new_status: newStatus }
+    );
 
     if (updateError) {
         console.error("Status update error:", updateError);
-
-        // Handle specific RLS / permission errors
-        if (updateError.code === "42501" || updateError.message.includes("policy")) {
-            return {
-                success: false,
-                message: "Gagal memperbarui: Anda tidak memiliki izin (kebijakan RLS). Hubungi admin.",
-            };
-        }
 
         return {
             success: false,
@@ -481,18 +496,24 @@ export async function updateBookingStatus(
         };
     }
 
+    const statusUpdate = Array.isArray(updateRows) ? updateRows[0] : updateRows;
+    if (!statusUpdate?.user_id) {
+        return { success: false, message: "Booking tidak ditemukan atau sudah berubah." };
+    }
+    const statusUpdatedAt = statusUpdate.changed_at || new Date().toISOString();
+    const serviceName = statusUpdate.service_name || "layanan Anda";
+
     // ─── 7. Broadcast Realtime ke wisatawan jika dive dimulai ────
     if (newStatus === "in_progress") {
         try {
-            const serviceName = (booking.service as { name?: string })?.name || "Layanan";
-            await supabase.channel(`booking-updates-${booking.user_id}`).send({
+            await supabase.channel(`booking-updates-${statusUpdate.user_id}`).send({
                 type: "broadcast",
                 event: "dive_started",
                 payload: {
                     bookingId,
                     serviceName,
                     message: `Aktivitas selam Anda (${serviceName}) telah dimulai.`,
-                    startedAt: new Date().toISOString(),
+                    startedAt: statusUpdatedAt,
                 },
             });
         } catch (broadcastError) {
@@ -502,14 +523,13 @@ export async function updateBookingStatus(
     }
 
     const statusLabels: Record<string, string> = {
-        confirmed: "Dikonfirmasi",
+        upcoming: "Dikonfirmasi",
         in_progress: "Berlangsung",
         completed: "Selesai",
         cancelled: "Dibatalkan",
     };
 
-    const serviceName = (booking.service as { name?: string })?.name || "layanan Anda";
-    await sendPushToUsers([booking.user_id], {
+    await sendPushToUsers([statusUpdate.user_id], {
         title: `Booking ${statusLabels[newStatus] || newStatus}`,
         body: `Status ${serviceName} telah diperbarui menjadi ${statusLabels[newStatus] || newStatus}.`,
         url: "/dashboard/bookings",
@@ -526,5 +546,6 @@ export async function updateBookingStatus(
     return {
         success: true,
         message: `Status booking berhasil diubah menjadi "${statusLabels[newStatus] || newStatus}".`,
+        changedAt: statusUpdatedAt,
     };
 }

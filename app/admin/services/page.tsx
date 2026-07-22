@@ -1,17 +1,20 @@
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Eye, Package, Ship, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Eye, Package, Phone, Ship, XCircle } from "lucide-react";
 import { getAdminContext } from "@/lib/supabase/admin";
 import { getServiceTypeLabel } from "@/lib/service-types";
-import { formatDateId, formatRupiah } from "@/lib/formatters";
+import { buildWhatsAppUrl, formatDateId, formatRupiah } from "@/lib/formatters";
 
 export const dynamic = "force-dynamic";
 
-function getProviderName(provider: unknown) {
-    if (Array.isArray(provider)) return provider[0]?.name ?? "-";
-    if (provider && typeof provider === "object" && "name" in provider) {
-        return String((provider as { name?: string }).name ?? "-");
+function getProvider(provider: unknown): { name: string; contact?: string | null } {
+    const value = Array.isArray(provider) ? provider[0] : provider;
+    if (value && typeof value === "object" && "name" in value) {
+        return {
+            name: String((value as { name?: string }).name ?? "-"),
+            contact: (value as { contact?: string | null }).contact,
+        };
     }
-    return "-";
+    return { name: "-", contact: null };
 }
 
 export default async function AdminServicesPage() {
@@ -21,7 +24,7 @@ export default async function AdminServicesPage() {
         .select(`
             id, name, type, price, is_available, created_at,
             provider_id,
-            provider:providers ( name )
+            provider:providers ( name, contact )
         `)
         .order("created_at", { ascending: false });
 
@@ -37,7 +40,7 @@ export default async function AdminServicesPage() {
                 <div>
                     <h1 className="flex items-center gap-2 text-2xl font-black text-[#023E8A]">
                         <Ship className="h-6 w-6 text-[#0077B6]" />
-                        Monitor Layanan Platform
+                        Monitor Layanan Aplikasi
                     </h1>
                     <p className="mt-0.5 text-sm text-slate-500">
                         {allServices.length} layanan terdaftar &bull; {activeCount} aktif
@@ -91,10 +94,21 @@ export default async function AdminServicesPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {allServices.map((service) => (
+                                {allServices.map((service) => {
+                                    const provider = getProvider(service.provider);
+                                    const whatsappUrl = buildWhatsAppUrl(provider.contact, `Halo ${provider.name}, Admin SulutDive ingin menghubungi Anda mengenai layanan ${service.name}.`);
+                                    return (
                                     <tr key={service.id} className="transition-colors hover:bg-slate-50">
                                         <td className="px-5 py-4 font-bold text-slate-900">{service.name}</td>
-                                        <td className="px-5 py-4 text-slate-600">{getProviderName(service.provider)}</td>
+                                        <td className="px-5 py-4 text-slate-600">
+                                            <p className="font-semibold text-slate-800">{provider.name}</p>
+                                            {whatsappUrl && (
+                                                <a href={whatsappUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:underline">
+                                                    <Phone className="h-3 w-3" />
+                                                    {provider.contact}
+                                                </a>
+                                            )}
+                                        </td>
                                         <td className="px-5 py-4">
                                             <span className={`inline-flex rounded-lg px-2.5 py-1 text-[11px] font-black uppercase tracking-wider ${
                                                 service.type === "boat" ? "bg-blue-100 text-blue-800" : service.type === "gear" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
@@ -116,7 +130,8 @@ export default async function AdminServicesPage() {
                                             </Link>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

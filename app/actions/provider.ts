@@ -12,6 +12,7 @@ import {
     type VerificationDocumentType,
 } from "@/lib/provider-verification";
 import { sendPushToRole, sendPushToUsers } from "@/lib/push/server";
+import { normalizeWhatsAppNumber } from "@/lib/formatters";
 
 export interface ProviderSetupResult {
     success: boolean;
@@ -345,6 +346,7 @@ export async function setupProviderProfile(
     const name = (formData.get("name") as string)?.trim();
     const location = (formData.get("location") as string)?.trim();
     const contact = (formData.get("contact") as string)?.trim();
+    const normalizedContact = normalizeWhatsAppNumber(contact);
     const description = (formData.get("description") as string)?.trim();
     const primaryType = normalizeProviderType((formData.get("primary_type") as string)?.trim());
     const instructorScope = normalizeInstructorScope(
@@ -359,8 +361,8 @@ export async function setupProviderProfile(
     if (!location) {
         return { success: false, message: "Lokasi pangkalan/dermaga wajib diisi." };
     }
-    if (!contact) {
-        return { success: false, message: "Nomor WhatsApp wajib diisi." };
+    if (normalizedContact.length < 10 || normalizedContact.length > 15) {
+        return { success: false, message: "Nomor WhatsApp provider tidak valid." };
     }
     if (!primaryType) {
         return { success: false, message: "Tipe layanan utama wajib dipilih." };
@@ -370,8 +372,8 @@ export async function setupProviderProfile(
     }
 
     // 3. Validasi & upload dokumen verifikasi
-    const requiredDocumentTypes = getRequiredDocumentTypes(primaryType, instructorScope);
-    const allDocumentTypes = getDocumentTypesForProvider(primaryType, instructorScope);
+    const requiredDocumentTypes = getRequiredDocumentTypes(primaryType);
+    const allDocumentTypes = getDocumentTypesForProvider(primaryType);
     const uploadedDocuments: UploadedVerificationDocument[] = [];
 
     try {
@@ -436,7 +438,7 @@ export async function setupProviderProfile(
                 location,
                 latitude,
                 longitude,
-                contact,
+                contact: normalizedContact,
                 description: description || null,
                 primary_type: primaryType,
                 business_license_number: businessLicenseNumber,
@@ -540,6 +542,7 @@ export async function updateProviderProfile(
     const name = (formData.get("name") as string)?.trim();
     const location = (formData.get("location") as string)?.trim();
     const contact = (formData.get("contact") as string)?.trim();
+    const normalizedContact = normalizeWhatsAppNumber(contact);
     const description = (formData.get("description") as string)?.trim();
     const primaryType = normalizeProviderType((formData.get("primary_type") as string)?.trim());
     const instructorScope = normalizeInstructorScope(
@@ -556,8 +559,8 @@ export async function updateProviderProfile(
     if (!location) {
         return { success: false, message: "Lokasi pangkalan/dermaga wajib diisi." };
     }
-    if (!contact) {
-        return { success: false, message: "Nomor WhatsApp wajib diisi." };
+    if (normalizedContact.length < 10 || normalizedContact.length > 15) {
+        return { success: false, message: "Nomor WhatsApp provider tidak valid." };
     }
     if (!primaryType) {
         return { success: false, message: "Tipe layanan utama wajib dipilih." };
@@ -590,7 +593,7 @@ export async function updateProviderProfile(
                 location,
                 latitude,
                 longitude,
-                contact,
+                contact: normalizedContact,
                 description: description || null,
                 primary_type: primaryType,
                 business_license_number: businessLicenseNumber,

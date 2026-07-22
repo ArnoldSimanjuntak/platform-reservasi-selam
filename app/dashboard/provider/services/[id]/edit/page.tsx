@@ -52,7 +52,7 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
 
     const { data: service } = await supabase
         .from("services")
-        .select("id, provider_id, name, type, price, max_capacity, description, dive_site_category, image_url, is_available")
+        .select("id, provider_id, name, type, price, max_capacity, description, dive_site_category, image_url, is_available, default_start_time, estimated_duration_minutes, meeting_instructions")
         .eq("id", params.id)
         .eq("provider_id", provider.id)
         .maybeSingle();
@@ -71,6 +71,9 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
         dive_site_category: service.dive_site_category,
         image_url: service.image_url,
         is_available: service.is_available,
+        default_start_time: service.default_start_time,
+        estimated_duration_minutes: service.estimated_duration_minutes,
+        meeting_instructions: service.meeting_instructions,
     };
 
     return (

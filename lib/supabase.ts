@@ -9,10 +9,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export type UserRole = "customer" | "provider" | "admin";
 export type ServiceType = "boat" | "instructor" | "gear";
 export type DiveSiteCategory = "Muck" | "Coral" | "Wreck";
-export type BookingStatus = "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
+export type BookingStatus = "pending" | "confirmed" | "upcoming" | "in_progress" | "completed" | "cancelled";
 export type ZoneLevel = 1 | 2 | 3;
-export type ResourceType = "instructor" | "boat" | "gear";
-export type ResourceStatus = "available" | "in_use" | "maintenance";
 
 export interface User {
     id: string;
@@ -60,18 +58,9 @@ export interface Service {
     provider_id?: string;
     max_capacity: number;
     is_available?: boolean;
-    created_at?: string;
-    updated_at?: string;
-    // Joined data (optional)
-    provider?: Provider;
-}
-
-export interface Resource {
-    id: string;
-    provider_id: string;
-    type: ResourceType;
-    name: string;
-    status: ResourceStatus;
+    default_start_time?: string | null;
+    estimated_duration_minutes?: number | null;
+    meeting_instructions?: string | null;
     created_at?: string;
     updated_at?: string;
     // Joined data (optional)
@@ -94,6 +83,15 @@ export interface Booking {
     payment_deadline?: string;
     payment_proof_url?: string;
     notes?: string;
+    customer_name?: string | null;
+    customer_contact?: string | null;
+    meeting_point?: string | null;
+    meeting_instructions?: string | null;
+    provider_contact?: string | null;
+    scheduled_start_at?: string | null;
+    scheduled_end_at?: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
     created_at?: string;
     updated_at?: string;
     // Joined data (optional)
@@ -138,7 +136,7 @@ export interface ProviderMapPin {
 export async function getServices() {
     const result = await supabase
         .from("services")
-        .select("*, provider:providers(id, name, location, verification_status)")
+        .select("*, provider:providers(id, name, location, verification_status, is_active)")
         .eq("is_available", true)
         .order("created_at", { ascending: false });
 
@@ -147,7 +145,10 @@ export async function getServices() {
     return {
         ...result,
         data: result.data.filter(
-            (service) => !service.provider_id || service.provider?.verification_status === "verified"
+            (service) =>
+                !!service.provider_id &&
+                service.provider?.verification_status === "verified" &&
+                service.provider?.is_active === true
         ),
     };
 }
@@ -158,7 +159,8 @@ export async function getServices() {
 export async function getServiceById(id: string) {
     return supabase
         .from("services")
-        .select("*, provider:providers(id, name, location, contact, description, latitude, longitude, primary_type)")
+        .select("*, provider:providers(id, name, location, contact, description, latitude, longitude, primary_type, verification_status, is_active)")
+        .eq("is_available", true)
         .eq("id", id)
         .single();
 }
@@ -190,7 +192,7 @@ export async function getDiveSiteById(id: string) {
 export async function getBoatServices() {
     const result = await supabase
         .from("services")
-        .select("*, provider:providers(id, name, location, verification_status)")
+        .select("*, provider:providers(id, name, location, verification_status, is_active)")
         .eq("type", "boat")
         .eq("is_available", true)
         .order("price", { ascending: true });
@@ -200,7 +202,10 @@ export async function getBoatServices() {
     return {
         ...result,
         data: result.data.filter(
-            (service) => !service.provider_id || service.provider?.verification_status === "verified"
+            (service) =>
+                !!service.provider_id &&
+                service.provider?.verification_status === "verified" &&
+                service.provider?.is_active === true
         ),
     };
 }
@@ -219,12 +224,12 @@ export async function getProviders() {
 }
 
 /**
- * Fetch a single provider by UUID, including its services and resources.
+ * Fetch a single provider by UUID, including its services.
  */
 export async function getProviderById(id: string) {
     return supabase
         .from("providers")
-        .select("*, services(*), resources(*)")
+        .select("*, services(*)")
         .eq("id", id)
         .single();
 }
@@ -270,22 +275,6 @@ export async function getBookingsByUser(userId: string) {
 }
 
 // ─── Resource Helpers ────────────────────────────────────────────
-
-/**
- * Fetch resources for a specific provider, optionally filtered by type.
- */
-export async function getResources(providerId: string, type?: ResourceType) {
-    let query = supabase
-        .from("resources")
-        .select("*")
-        .eq("provider_id", providerId);
-
-    if (type) {
-        query = query.eq("type", type);
-    }
-
-    return query.order("name", { ascending: true });
-}
 
 // ─── Carrying Capacity Helpers ───────────────────────────────────
 

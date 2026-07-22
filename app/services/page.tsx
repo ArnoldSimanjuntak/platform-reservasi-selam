@@ -12,6 +12,8 @@ type ServicesPageProps = {
         type?: string;
         date?: string;
         pax?: string;
+        dive_site?: string;
+        provider?: string;
     };
 };
 
@@ -23,9 +25,21 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
         : undefined;
     const selectedDate = searchParams?.date;
     const selectedPax = searchParams?.pax;
-    const visibleServices = selectedType
-        ? services?.filter((service) => service.type === selectedType)
-        : services;
+    const selectedDiveSite = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(searchParams?.dive_site || "")
+        ? searchParams?.dive_site
+        : undefined;
+    const selectedProvider = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(searchParams?.provider || "")
+        ? searchParams?.provider
+        : undefined;
+    const detailParams = new URLSearchParams();
+    if (selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) detailParams.set("date", selectedDate);
+    if (selectedPax && /^\d{1,3}$/.test(selectedPax)) detailParams.set("pax", selectedPax);
+    if (selectedDiveSite) detailParams.set("dive_site", selectedDiveSite);
+    const detailQuery = detailParams.toString();
+    const visibleServices = services?.filter((service) =>
+        (!selectedType || service.type === selectedType) &&
+        (!selectedProvider || service.provider_id === selectedProvider)
+    );
 
     if (error) {
         console.error("Error fetching services:", error);
@@ -69,7 +83,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
 
             {/* Service Grid Section */}
             <section className="container mx-auto px-4 -mt-16 md:-mt-20 relative z-30 max-w-7xl">
-                {(selectedType || selectedDate || selectedPax) && (
+                {(selectedType || selectedDate || selectedPax || selectedDiveSite || selectedProvider) && (
                     <div className="mb-6 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
                         <p className="text-sm font-semibold text-slate-900">
                             Hasil pencarian
@@ -80,13 +94,23 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
                             {" - "}
                             {selectedPax ? `${selectedPax} penyelam` : "Jumlah penyelam belum dipilih"}
                         </p>
+                        {selectedDiveSite && (
+                            <p className="mt-1 text-xs font-semibold text-blue-700">
+                                Spot dari peta sudah dipilih dan akan otomatis diteruskan ke formulir booking.
+                            </p>
+                        )}
+                        {selectedProvider && (
+                            <p className="mt-1 text-xs font-semibold text-blue-700">
+                                Daftar ini hanya menampilkan layanan kapal dari provider yang dipilih pada peta.
+                            </p>
+                        )}
                     </div>
                 )}
 
                 {visibleServices && visibleServices.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 md:gap-10">
                         {visibleServices.map((service: Service) => (
-                            <ServiceCard key={service.id} service={service} />
+                            <ServiceCard key={service.id} service={service} detailQuery={detailQuery} />
                         ))}
                     </div>
                 ) : (

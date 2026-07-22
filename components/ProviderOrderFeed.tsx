@@ -24,10 +24,13 @@ import {
     Waves,
     CalendarCheck,
     Receipt,
-    Eye
+    MapPin,
+    Phone,
+    UserRound,
+    MessageSquareText,
 } from "lucide-react";
 import { bookingStatusLabels } from "@/lib/booking-status";
-import { formatRupiah, getLocalDateString } from "@/lib/formatters";
+import { buildWhatsAppUrl, formatDateTimeId, formatRupiah, getLocalDateString } from "@/lib/formatters";
 
 interface OrderService {
     id: string;
@@ -43,6 +46,7 @@ interface Order {
     dive_site_id?: string;
     booking_date: string;
     total_participants: number;
+    rental_days?: number | null;
     status: string;
     total_price: number;
     notes?: string;
@@ -52,6 +56,16 @@ interface Order {
     payment_proof_url?: string;
     payment_deadline?: string;
     service?: OrderService;
+    customer_name?: string | null;
+    customer_contact?: string | null;
+    meeting_point?: string | null;
+    meeting_instructions?: string | null;
+    provider_contact?: string | null;
+    scheduled_start_at?: string | null;
+    scheduled_end_at?: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
+    dive_site?: { id: string; name: string } | null;
 }
 
 interface ProviderOrderFeedProps {
@@ -60,10 +74,11 @@ interface ProviderOrderFeedProps {
 
 type BookingRealtimeRow = Partial<Order> & { id: string };
 
-// â”€â”€â”€ Status Config (updated: upcoming â†’ confirmed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ Status Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const statusConfig: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
     pending:     { label: bookingStatusLabels.pending, bg: "bg-amber-50 border-amber-200", text: "text-amber-800", icon: Clock },
     confirmed:   { label: bookingStatusLabels.confirmed, bg: "bg-blue-50 border-blue-200", text: "text-blue-800", icon: CalendarCheck },
+    upcoming:    { label: bookingStatusLabels.upcoming, bg: "bg-blue-50 border-blue-200", text: "text-blue-800", icon: CalendarCheck },
     in_progress: { label: bookingStatusLabels.in_progress, bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-800", icon: Waves },
     completed:   { label: bookingStatusLabels.completed, bg: "bg-gray-100 border-gray-200", text: "text-gray-600", icon: CheckCircle2 },
     cancelled:   { label: bookingStatusLabels.cancelled, bg: "bg-red-50 border-red-200", text: "text-red-700", icon: XCircle },
@@ -83,8 +98,14 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
     const [actionResult, setActionResult] = useState<{ id: string; msg: string; ok: boolean } | null>(null);
     const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
     const [loadingProofId, setLoadingProofId] = useState<string | null>(null);
+    const [nowMs, setNowMs] = useState(() => Date.now());
 
-    const todayStr = getLocalDateString();
+    const todayStr = getLocalDateString(new Date(nowMs));
+
+    useEffect(() => {
+        const intervalId = window.setInterval(() => setNowMs(Date.now()), 30_000);
+        return () => window.clearInterval(intervalId);
+    }, []);
 
     useEffect(() => {
         const supabase = createClient();
@@ -93,7 +114,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
         const fetchOrders = async () => {
             const { data } = await supabase
                 .from("bookings")
-                .select("*, service:services(id, name, type)")
+                .select("*, service:services(id, name, type), dive_site:dive_sites(id, name)")
                 .eq("provider_id", providerId)
                 .order("created_at", { ascending: false })
                 .limit(30);
@@ -118,7 +139,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                 async (payload: RealtimePostgresInsertPayload<BookingRealtimeRow>) => {
                     const { data: fullBooking } = await supabase
                         .from("bookings")
-                        .select("*, service:services(id, name, type)")
+                        .select("*, service:services(id, name, type), dive_site:dive_sites(id, name)")
                         .eq("id", payload.new.id)
                         .single();
 
@@ -162,12 +183,23 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                 if (result.success) {
                     setOrders((prev) =>
                         prev.map((o) =>
-                            o.id === bookingId ? { ...o, status: newStatus } : o
+                            o.id === bookingId
+                                ? {
+                                    ...o,
+                                    status: newStatus,
+                                    started_at: newStatus === "in_progress"
+                                        ? result.changedAt ?? new Date().toISOString()
+                                        : o.started_at,
+                                    completed_at: newStatus === "completed"
+                                        ? result.changedAt ?? new Date().toISOString()
+                                        : o.completed_at,
+                                }
+                                : o
                         )
                     );
                     setTimeout(() => setActionResult(null), 4000);
                 }
-            } catch (err) {
+            } catch {
                 // Network / connectivity error
                 setActionResult({
                     id: bookingId,
@@ -192,8 +224,8 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                             o.id === bookingId 
                                 ? { 
                                     ...o, 
-                                    payment_status: action === "approve" ? "paid" : "unpaid",
-                                    status: action === "approve" ? "confirmed" : "pending"
+                                    payment_status: result.paymentStatus ?? (action === "approve" ? "paid" : "unpaid"),
+                                    status: result.bookingStatus ?? (action === "approve" ? "upcoming" : "pending")
                                 } 
                                 : o
                         )
@@ -201,7 +233,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                     setSelectedProofUrl(null);
                     setTimeout(() => setActionResult(null), 4000);
                 }
-            } catch (err) {
+            } catch {
                 setActionResult({
                     id: bookingId,
                     msg: "Gagal memverifikasi pembayaran. Periksa koneksi internet Anda.",
@@ -225,14 +257,22 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
         }
     };
 
-    // â”€â”€â”€ handleStartDive: Only when confirmed + today â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Status confirmed dipertahankan sementara untuk kompatibilitas migrasi lama.
     const handleStartOrder = (order: Order) => {
-        if (order.status !== "confirmed") return;
+        if (order.status !== "upcoming" && order.status !== "confirmed") return;
         const isGearOrder = order.service?.type === "gear";
         if (order.booking_date !== todayStr) {
             setActionResult({
                 id: order.id,
                 msg: `${isGearOrder ? "Sewa alat" : "Dive"} hanya bisa dimulai pada tanggal booking (${formatDate(order.booking_date)}). Hari ini bukan jadwalnya.`,
+                ok: false,
+            });
+            return;
+        }
+        if (order.scheduled_start_at && Date.now() < new Date(order.scheduled_start_at).getTime()) {
+            setActionResult({
+                id: order.id,
+                msg: `Aktivitas belum dapat dimulai. Jadwalnya ${formatDateTimeId(order.scheduled_start_at)}.`,
                 ok: false,
             });
             return;
@@ -247,6 +287,20 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
             month: "short",
             year: "numeric",
         });
+
+    const formatRentalEndDate = (dateStr: string, rentalDays: number) => {
+        const [year, month, day] = dateStr.split("-").map(Number);
+        const safeRentalDays = Math.max(1, rentalDays);
+        const endDate = new Date(Date.UTC(year, month - 1, day + safeRentalDays - 1));
+
+        return endDate.toLocaleDateString("id-ID", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            timeZone: "UTC",
+        });
+    };
 
     // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (isLoading) {
@@ -352,7 +406,12 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                         const isToday = order.booking_date === todayStr;
                         const isGearOrder = order.service?.type === "gear";
                         const participantLabel = isGearOrder ? "unit" : "peserta";
-                        const canStartOrder = order.status === "confirmed" && isToday;
+                        const rentalDays = Math.max(1, Number(order.rental_days) || 1);
+                        const plannedReturnDate = isGearOrder
+                            ? formatRentalEndDate(order.booking_date, rentalDays)
+                            : null;
+                        const scheduleReached = !order.scheduled_start_at || nowMs >= new Date(order.scheduled_start_at).getTime();
+                        const canStartOrder = (order.status === "upcoming" || order.status === "confirmed") && isToday && scheduleReached;
                         const startLabel = isGearOrder ? "Mulai Sewa" : "Mulai Selam";
                         const todayLabel = isGearOrder ? "Mulai Sewa Hari Ini" : "Tersedia Hari Ini";
                         const statusLabel = order.status === "in_progress" && isGearOrder ? "Sedang Disewa" : status.label;
@@ -414,6 +473,69 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                         </span>
                                     </div>
 
+                                    <div className="mt-4 grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs sm:grid-cols-2">
+                                        <div className="flex items-start gap-2">
+                                            <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                            <div>
+                                                <p className="font-bold uppercase tracking-wide text-slate-400">Pemesan</p>
+                                                <p className="mt-0.5 font-bold text-slate-800">{order.customer_name || "Nama belum tersimpan"}</p>
+                                                {order.customer_contact && (
+                                                    <a
+                                                        href={buildWhatsAppUrl(order.customer_contact, `Halo ${order.customer_name || "Customer"}, kami menghubungi Anda mengenai booking SulutDive ${order.id.slice(0, 8)}.`) ?? undefined}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="mt-1 inline-flex items-center gap-1 font-bold text-emerald-700 hover:underline"
+                                                    >
+                                                        <Phone className="h-3 w-3" />
+                                                        {order.customer_contact}
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                            <div>
+                                                <p className="font-bold uppercase tracking-wide text-slate-400">Destinasi / Titik Temu</p>
+                                                <p className="mt-0.5 font-bold text-slate-800">{order.dive_site?.name || (isGearOrder ? "Pengambilan alat" : "Tidak memilih spot")}</p>
+                                                <p className="mt-0.5 text-slate-600">{order.meeting_point || "Ikuti lokasi pangkalan provider"}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                            <div>
+                                                <p className="font-bold uppercase tracking-wide text-slate-400">
+                                                    {isGearOrder ? "Pengambilan & Pengembalian" : "Jadwal Rencana"}
+                                                </p>
+                                                <p className="mt-0.5 font-bold text-slate-800">
+                                                    {order.scheduled_start_at ? formatDateTimeId(order.scheduled_start_at) : formatDate(order.booking_date)}
+                                                </p>
+                                                {isGearOrder && plannedReturnDate && (
+                                                    <p className="text-slate-600">
+                                                        Durasi {rentalDays} hari &middot; rencana kembali {plannedReturnDate}
+                                                    </p>
+                                                )}
+                                                {order.scheduled_end_at && <p className="text-slate-600">Perkiraan selesai {formatDateTimeId(order.scheduled_end_at)}</p>}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <Waves className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                            <div>
+                                                <p className="font-bold uppercase tracking-wide text-slate-400">Waktu Aktual</p>
+                                                <p className="mt-0.5 text-slate-700">Mulai: {formatDateTimeId(order.started_at)}</p>
+                                                <p className="text-slate-700">Selesai: {formatDateTimeId(order.completed_at)}</p>
+                                            </div>
+                                        </div>
+                                        {(order.meeting_instructions || order.notes) && (
+                                            <div className="flex items-start gap-2 sm:col-span-2">
+                                                <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                                <div>
+                                                    {order.meeting_instructions && <p className="text-slate-700"><strong>Petunjuk:</strong> {order.meeting_instructions}</p>}
+                                                    {order.notes && <p className="mt-1 text-slate-700"><strong>Catatan customer:</strong> {order.notes}</p>}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {/* Payment Proof & Actions */}
                                     <div className="flex flex-col md:flex-row md:items-center gap-4 mt-4 ml-[56px] border-t border-gray-100 pt-4">
                                         
@@ -459,7 +581,7 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                         {/* Action Buttons */}
                                         <div className="flex flex-wrap items-center gap-2 md:ml-auto">
                                             {/* Payment Verification Buttons */}
-                                            {order.payment_status === "pending_verification" && (
+                                            {order.status === "pending" && order.payment_status === "pending_verification" && (
                                                 <div className="flex items-center gap-2 border-gray-200 pr-2">
                                                     <button
                                                         onClick={() => handleVerifyPayment(order.id, "approve")}
@@ -479,12 +601,12 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                             )}
 
                                             {/* Normal Flow Buttons */}
-                                            {order.payment_status !== "pending_verification" && (order.status === "pending" || order.status === "confirmed" || order.status === "in_progress") && (
+                                            {order.payment_status !== "pending_verification" && (order.status === "pending" || order.status === "confirmed" || order.status === "upcoming" || order.status === "in_progress") && (
                                                 <>
                                                     {order.status === "pending" && (
                                                         <>
                                                             <button
-                                                                onClick={() => handleStatusUpdate(order.id, "confirmed")}
+                                                                onClick={() => handleStatusUpdate(order.id, "upcoming")}
                                                                 disabled={isPending || order.payment_status !== "paid"}
                                                                 title={order.payment_status !== "paid" ? "Tunggu pembayaran lunas" : "Konfirmasi pesanan"}
                                                                 className="px-4 py-2 text-xs font-bold rounded-lg bg-[#023E8A] text-white hover:bg-[#03045E] transition-colors disabled:opacity-50 shadow-sm"
@@ -500,12 +622,16 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
                                                             </button>
                                                         </>
                                                     )}
-                                                    {order.status === "confirmed" && (
+                                                    {(order.status === "upcoming" || order.status === "confirmed") && (
                                                         <>
                                                             <button
                                                                 onClick={() => handleStartOrder(order)}
                                                                 disabled={isPending || !canStartOrder}
-                                                                title={!isToday ? `${isGearOrder ? "Sewa dimulai" : "Dive dimulai"} pada ${order.booking_date}` : ""}
+                                                                title={!isToday
+                                                                    ? `${isGearOrder ? "Sewa dimulai" : "Dive dimulai"} pada ${order.booking_date}`
+                                                                    : !scheduleReached
+                                                                        ? `Mulai sesuai jadwal ${formatDateTimeId(order.scheduled_start_at)}`
+                                                                        : ""}
                                                                 className={`px-4 py-2 text-xs font-bold rounded-lg transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5 ${
                                                                     canStartOrder
                                                                         ? "bg-emerald-600 text-white hover:bg-emerald-700"
@@ -542,4 +668,3 @@ export default function ProviderOrderFeed({ providerId }: ProviderOrderFeedProps
         </div>
     );
 }
-

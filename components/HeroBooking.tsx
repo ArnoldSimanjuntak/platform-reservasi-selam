@@ -10,6 +10,11 @@ export default function HeroBooking() {
     const [pax, setPax] = useState(1);
     const [date, setDate] = useState("");
     const [serviceType, setServiceType] = useState("boat");
+    const minDate = new Date(Date.now() + 8 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+    const quantityLabel = serviceType === "gear" ? "Jumlah Unit" : "Jumlah Penyelam";
+    const quantityUnit = serviceType === "gear" ? "Unit" : "Penyelam";
 
     const serviceTypes = [
         {
@@ -41,7 +46,7 @@ export default function HeroBooking() {
     };
 
     return (
-        <section className="relative w-full min-h-[100vh] flex items-center justify-center pt-24 bg-slate-950">
+        <section className="relative flex min-h-[100vh] w-full flex-col items-center justify-center bg-slate-950 pt-24">
             {/* Background Image & Gradient Overlay */}
             <div className="absolute inset-0 z-0 overflow-hidden">
                 <Image
@@ -57,7 +62,7 @@ export default function HeroBooking() {
             </div>
 
             {/* Hero Main Content */}
-            <div className="relative z-20 container mx-auto px-4 mt-[-10vh] pb-32 md:pb-48 text-center flex flex-col items-center">
+            <div className="container relative z-20 mx-auto mt-[-6vh] flex flex-col items-center px-4 pb-8 text-center lg:mt-[-10vh] lg:pb-48">
                 <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/12 border border-white/25 text-white text-sm font-semibold mb-6 uppercase tracking-widest shadow-sm">
                     <MapPin className="w-4 h-4 text-accent" />
                     <span>Selat Lembeh, Sulawesi Utara</span>
@@ -71,17 +76,17 @@ export default function HeroBooking() {
                 </h1>
 
                 <p className="mt-6 text-lg md:text-2xl text-gray-100 max-w-2xl font-medium drop-shadow-md">
-                    Temukan layanan kapal, guide, dan paket selam makro dari penyedia lokal Bitung dalam satu platform.
+                    Temukan layanan kapal, guide, dan peralatan selam dari penyedia lokal Bitung dalam satu aplikasi.
                 </p>
             </div>
 
             {/* Floating Booking Bar (Overlaps next section) */}
-            <div className="absolute bottom-0 left-0 right-0 z-30 px-4 translate-y-1/2">
-                <div className="container mx-auto max-w-5xl">
-                    <div className="grid items-stretch gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_24px_70px_rgba(2,62,138,0.18)] md:p-5 lg:grid-cols-[1.45fr_1.05fr_1.05fr_auto]">
+            <div className="relative z-30 w-full px-4 pb-8 lg:absolute lg:bottom-0 lg:left-0 lg:right-0 lg:translate-y-1/2 lg:pb-0">
+                <div className="container mx-auto max-w-4xl">
+                    <div className="grid items-stretch gap-2.5 rounded-2xl border border-slate-100 bg-white p-3 shadow-[0_24px_70px_rgba(2,62,138,0.18)] sm:grid-cols-2 lg:grid-cols-[1.35fr_.9fr_.9fr_auto]">
 
                         {/* Tipe Layanan */}
-                        <div className="min-h-[132px] rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="min-h-[92px] rounded-xl border border-slate-200 bg-slate-50 p-2.5 sm:col-span-2 lg:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 text-left">Kebutuhan Layanan</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {serviceTypes.map((type) => {
@@ -92,7 +97,7 @@ export default function HeroBooking() {
                                             key={type.value}
                                             type="button"
                                             onClick={() => setServiceType(type.value)}
-                                            className={`flex min-h-[82px] min-w-0 flex-col rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                                            className={`flex min-h-[58px] min-w-0 flex-col rounded-lg border px-2 py-2 text-left transition-colors ${
                                                 isActive
                                                     ? "border-primary bg-white text-primary shadow-sm"
                                                     : "border-transparent bg-transparent text-slate-600 hover:bg-white"
@@ -108,13 +113,14 @@ export default function HeroBooking() {
                         </div>
 
                         {/* Tanggal Dive */}
-                        <div className="flex min-h-[132px] flex-col justify-center rounded-xl border border-slate-200 bg-white p-4 transition-colors">
+                        <div className="flex min-h-[92px] flex-col justify-center rounded-xl border border-slate-200 bg-white p-3 transition-colors">
                             <label htmlFor="hero-booking-date" className="block w-full text-left text-xs font-bold uppercase tracking-wider text-gray-500">Tanggal Selam</label>
                             <div className="relative mt-3 flex w-full items-center gap-3 text-deepSea font-semibold">
                                 <Calendar className="w-5 h-5 text-primary absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
                                     id="hero-booking-date"
                                     type="date"
+                                    min={minDate}
                                     className="w-full min-w-0 bg-transparent border-none outline-none pl-8 text-deepSea cursor-pointer font-sans text-base font-bold"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
@@ -123,12 +129,12 @@ export default function HeroBooking() {
                         </div>
 
                         {/* Jumlah Penyelam */}
-                        <div className="flex min-h-[132px] flex-col justify-center rounded-xl border border-slate-200 bg-white p-4">
-                            <label className="block text-left text-xs font-bold uppercase tracking-wider text-gray-500">Jumlah Penyelam</label>
+                        <div className="flex min-h-[92px] flex-col justify-center rounded-xl border border-slate-200 bg-white p-3">
+                            <label className="block text-left text-xs font-bold uppercase tracking-wider text-gray-500">{quantityLabel}</label>
                             <div className="mt-3 flex items-center justify-between gap-3 text-deepSea font-semibold">
                                 <div className="flex min-w-0 items-center gap-3">
                                     <Users className="w-5 h-5 text-primary" />
-                                    <span className="truncate text-base font-bold">{pax} Penyelam</span>
+                                    <span className="truncate text-base font-bold">{pax} {quantityUnit}</span>
                                 </div>
                                 <div className="flex shrink-0 gap-2">
                                     <button
@@ -152,7 +158,7 @@ export default function HeroBooking() {
                         {/* CTA Button */}
                         <button
                             onClick={handleSearch}
-                            className="flex min-h-[132px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-primary to-secondary px-8 py-4 font-bold text-white shadow-lg transition-all hover:from-primary/90 hover:to-secondary/90 hover:shadow-primary/30 active:scale-95 lg:w-auto"
+                            className="flex min-h-[52px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-primary to-secondary px-5 py-3 font-bold text-white shadow-lg transition-all hover:from-primary/90 hover:to-secondary/90 hover:shadow-primary/30 active:scale-95 sm:col-span-2 lg:col-span-1 lg:min-h-[92px] lg:w-auto"
                         >
                             <Search className="w-5 h-5" />
                             Cari Layanan

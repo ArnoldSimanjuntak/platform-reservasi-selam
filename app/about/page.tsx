@@ -1,4 +1,4 @@
-import { Anchor, Shield, Users, BarChart3, Waves, MapPin, Ship, Sparkles } from "lucide-react";
+import { Anchor, Shield, BarChart3, Waves, MapPin, Ship, Sparkles } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 

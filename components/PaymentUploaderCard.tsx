@@ -20,6 +20,12 @@ export default function PaymentUploaderCard({ bookingId, paymentDeadline, initia
     const [isPending, startTransition] = useTransition();
     const [resultMsg, setResultMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
+    useEffect(() => {
+        return () => {
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+        };
+    }, [previewUrl]);
+
     // ─── Countdown Timer ──────────────────────────────────────
     useEffect(() => {
         if (status !== "unpaid") return;
@@ -53,8 +59,28 @@ export default function PaymentUploaderCard({ bookingId, paymentDeadline, initia
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const selected = e.target.files[0];
+            const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+            if (!allowedTypes.includes(selected.type) || selected.size > 5 * 1024 * 1024) {
+                setFile(null);
+                setPreviewUrl((current) => {
+                    if (current) URL.revokeObjectURL(current);
+                    return null;
+                });
+                setResultMsg({
+                    text: "Gunakan gambar JPG, PNG, atau WebP dengan ukuran maksimal 5 MB.",
+                    isError: true,
+                });
+                e.target.value = "";
+                return;
+            }
+
+            setResultMsg(null);
             setFile(selected);
-            setPreviewUrl(URL.createObjectURL(selected));
+            setPreviewUrl((current) => {
+                if (current) URL.revokeObjectURL(current);
+                return URL.createObjectURL(selected);
+            });
         }
     };
 
@@ -63,6 +89,7 @@ export default function PaymentUploaderCard({ bookingId, paymentDeadline, initia
         setResultMsg(null);
 
         startTransition(async () => {
+            let uploadedPath: string | null = null;
             try {
                 const supabase = createClient();
                 const { data: authData } = await supabase.auth.getUser();
@@ -77,6 +104,7 @@ export default function PaymentUploaderCard({ bookingId, paymentDeadline, initia
                     .upload(filePath, file);
 
                 if (uploadError) throw uploadError;
+                uploadedPath = filePath;
 
                 const { data: urlData } = supabase.storage
                     .from("payment-receipts")
@@ -86,13 +114,24 @@ export default function PaymentUploaderCard({ bookingId, paymentDeadline, initia
                 const res = await submitPaymentProof(bookingId, urlData.publicUrl);
                 
                 if (res.success) {
+                    uploadedPath = null;
                     setStatus("pending_verification");
                     setResultMsg({ text: res.message, isError: false });
                 } else {
+                    await supabase.storage.from("payment-receipts").remove([filePath]);
+                    uploadedPath = null;
+                    if (res.paymentStatus === "expired") {
+                        setStatus("expired");
+                        setIsExpired(true);
+                    }
                     setResultMsg({ text: res.message, isError: true });
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Upload Error:", err);
+                if (uploadedPath) {
+                    const supabase = createClient();
+                    await supabase.storage.from("payment-receipts").remove([uploadedPath]);
+                }
                 setResultMsg({ 
                     text: "Gagal mengunggah foto. Pastikan koneksi stabil dan file tidak lebih dari 5MB.", 
                     isError: true 
@@ -123,6 +162,20 @@ export default function PaymentUploaderCard({ bookingId, paymentDeadline, initia
                     <h4 className="text-sm font-bold text-green-900">Pembayaran Berhasil</h4>
                     <p className="text-xs text-green-800 mt-1 font-medium">
                         Transaksi ini sudah dilunasi. Siapkan diri Anda untuk petualangan selam yang seru!
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (status === "expired") {
+        return (
+            <div className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+                <div>
+                    <h4 className="text-sm font-bold text-red-900">Waktu Pembayaran Berakhir</h4>
+                    <p className="mt-1 text-xs font-medium text-red-800">
+                        Booking telah dibatalkan dan tidak dapat menerima bukti pembayaran baru.
                     </p>
                 </div>
             </div>

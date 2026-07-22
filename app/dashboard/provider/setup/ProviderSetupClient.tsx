@@ -155,8 +155,8 @@ function hasSubmittedDocument(provider: ProviderProfileSnapshot | null, type: Ve
 function VerificationDocumentList({ provider }: { provider: ProviderProfileSnapshot | null }) {
     if (!provider?.primary_type) return null;
 
-    const requiredTypes = getRequiredDocumentTypes(provider.primary_type, provider.instructor_scope);
-    const documentTypes = getDocumentTypesForProvider(provider.primary_type, provider.instructor_scope);
+    const requiredTypes = getRequiredDocumentTypes(provider.primary_type);
+    const documentTypes = getDocumentTypesForProvider(provider.primary_type);
 
     return (
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -239,13 +239,11 @@ function UploadField({ type, required }: { type: VerificationDocumentType; requi
 
 function VerificationUploadFields({
     selectedType,
-    instructorScope,
 }: {
     selectedType: ProviderPrimaryType;
-    instructorScope: InstructorScope;
 }) {
-    const requiredTypes = getRequiredDocumentTypes(selectedType, instructorScope);
-    const documentTypes = getDocumentTypesForProvider(selectedType, instructorScope);
+    const requiredTypes = getRequiredDocumentTypes(selectedType);
+    const documentTypes = getDocumentTypesForProvider(selectedType);
 
     return (
         <div className="space-y-4">
@@ -729,7 +727,6 @@ function ProviderSetupContent({ mode, provider, notice, submitted }: ProviderSet
 
                                 <VerificationUploadFields
                                     selectedType={selectedType}
-                                    instructorScope={selectedInstructorScope}
                                 />
                             </div>
                         )}

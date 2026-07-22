@@ -4,10 +4,11 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Ship, Wrench, Users, Package, Plus, ArrowLeft, CheckCircle2, XCircle, DollarSign, Pencil } from "lucide-react";
+import { Ship, Wrench, Users, Package, Plus, ArrowLeft, CheckCircle2, XCircle, DollarSign, Pencil, Clock } from "lucide-react";
 import DeleteServiceButton from "@/components/DeleteServiceButton";
 import { getServiceTypeLabel } from "@/lib/service-types";
 import { formatRupiah } from "@/lib/formatters";
+import type { Service } from "@/lib/supabase";
 
 export default async function ProviderServicesPage({
     searchParams,
@@ -143,11 +144,14 @@ export default async function ProviderServicesPage({
                 {/* Services List â€” Mobile-First Card Stack */}
                 {services && services.length > 0 && (
                     <div className="space-y-4">
-                        {services.map((service: any) => {
+                        {(services as Service[]).map((service) => {
                             const config = typeConfig[service.type] || typeConfig.boat;
                             const TypeIcon = config.icon;
                             const capacityLabel = service.type === "gear" ? "Stok" : "Maks.";
                             const capacityUnit = service.type === "gear" ? "unit" : "orang";
+                            const scheduleComplete =
+                                !!service.default_start_time &&
+                                (service.type === "gear" || Number(service.estimated_duration_minutes) >= 30);
                             return (
                                 <div
                                     key={service.id}
@@ -178,6 +182,16 @@ export default async function ProviderServicesPage({
                                             </span>
                                         )}
                                     </div>
+
+                                    {!scheduleComplete && (
+                                        <Link
+                                            href={`/dashboard/provider/services/${service.id}/edit`}
+                                            className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-800"
+                                        >
+                                            <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                                            Lengkapi {service.type === "gear" ? "jam pengambilan" : "jam mulai dan durasi"} agar layanan dapat dipesan.
+                                        </Link>
+                                    )}
 
                                     {/* Description */}
                                     <p className="text-sm text-slate-600 line-clamp-2 mb-3">
@@ -221,4 +235,3 @@ export default async function ProviderServicesPage({
         </div>
     );
 }
-

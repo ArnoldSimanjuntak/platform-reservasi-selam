@@ -140,15 +140,6 @@ export default async function DashboardPage() {
         );
     }
 
-    // ─── Auto-Complete Logic ───────────────────────────────────
-    const todayStr = new Date().toISOString().split("T")[0];
-    await supabase
-        .from("bookings")
-        .update({ status: "completed" })
-        .eq("user_id", user.id)
-        .eq("status", "in_progress")
-        .lt("booking_date", todayStr);
-
     // ─── Customer: Fetch booking stats ─────────────────────────
     const { count: totalBookings } = await supabase
         .from("bookings")
@@ -160,7 +151,7 @@ export default async function DashboardPage() {
         .from("bookings")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id)
-        .in("status", ["pending", "confirmed"]);
+        .in("status", ["pending", "confirmed", "upcoming"]);
 
     const { count: completedBookings } = await supabase
         .from("bookings")

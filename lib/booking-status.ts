@@ -3,6 +3,7 @@ import type { BookingStatus, PaymentStatus } from "@/lib/supabase";
 export const bookingStatusLabels: Record<BookingStatus, string> = {
     pending: "Menunggu",
     confirmed: "Dikonfirmasi",
+    upcoming: "Dikonfirmasi",
     in_progress: "Berlangsung",
     completed: "Selesai",
     cancelled: "Dibatalkan",

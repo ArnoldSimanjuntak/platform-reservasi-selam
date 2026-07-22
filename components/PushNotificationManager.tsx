@@ -65,6 +65,7 @@ export default function PushNotificationManager() {
     const [currentEndpoint, setCurrentEndpoint] = useState<string | null>(null);
     const [isIOS, setIsIOS] = useState(false);
     const [isStandalone, setIsStandalone] = useState(false);
+    const showTestNotification = process.env.NEXT_PUBLIC_ENABLE_PUSH_TEST === "true";
 
     const refreshPushState = useCallback(async () => {
         if (!authState.user) {
@@ -350,7 +351,7 @@ export default function PushNotificationManager() {
 
                         {pushState !== "checking" && pushState !== "unsupported" && pushState !== "development" && pushState !== "denied" && (
                             <div className="space-y-2">
-                                {enabled && (
+                                {enabled && showTestNotification && (
                                     <button
                                         type="button"
                                         onClick={testNotifications}
@@ -364,6 +365,11 @@ export default function PushNotificationManager() {
                                         )}
                                         {isWorking ? "Mengirim..." : "Kirim Notifikasi Uji"}
                                     </button>
+                                )}
+                                {enabled && (
+                                    <p className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-semibold leading-5 text-blue-800">
+                                        Agar notifikasi muncul sebagai pop-up saat aplikasi ditutup, aktifkan opsi notifikasi mengambang atau <em>pop on screen</em>, suara, dan getaran pada pengaturan notifikasi HP.
+                                    </p>
                                 )}
                                 <button
                                     type="button"

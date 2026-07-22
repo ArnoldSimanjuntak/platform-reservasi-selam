@@ -8,6 +8,15 @@ interface BeforeInstallPromptEvent extends Event {
     userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+interface NavigatorWithPwaExtensions extends Navigator {
+    standalone?: boolean;
+    brave?: { isBrave?: () => Promise<boolean> };
+}
+
+interface WindowWithLegacyMsStream extends Window {
+    MSStream?: unknown;
+}
+
 declare global {
     interface Window {
         __deferredInstallPrompt?: BeforeInstallPromptEvent | null;
@@ -40,16 +49,20 @@ export default function InstallPrompt() {
     };
 
     useEffect(() => {
+        const navigatorWithPwa = window.navigator as NavigatorWithPwaExtensions;
+
         if (
             window.matchMedia("(display-mode: standalone)").matches ||
-            (window.navigator as any).standalone === true
+            navigatorWithPwa.standalone === true
         ) {
             setIsInstalled(true);
             return;
         }
 
-        const detectedIOS = /iPad|iPhone|iPod/.test(window.navigator.userAgent) && !(window as any).MSStream;
-        const detectedBrave = !!(window.navigator as any).brave?.isBrave;
+        const detectedIOS =
+            /iPad|iPhone|iPod/.test(window.navigator.userAgent) &&
+            !(window as WindowWithLegacyMsStream).MSStream;
+        const detectedBrave = Boolean(navigatorWithPwa.brave?.isBrave);
         setIsIOS(detectedIOS);
         setIsBrave(detectedBrave);
 

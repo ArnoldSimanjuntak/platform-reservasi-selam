@@ -83,6 +83,9 @@ export async function createService(
     const maxCapacityStr = formData.get("max_capacity") as string;
     const description = (formData.get("description") as string)?.trim();
     const rawDiveSiteCategory = (formData.get("dive_site_category") as string)?.trim() || null;
+    const defaultStartTime = (formData.get("default_start_time") as string)?.trim() || null;
+    const estimatedDurationValue = (formData.get("estimated_duration_minutes") as string)?.trim();
+    const meetingInstructions = (formData.get("meeting_instructions") as string)?.trim() || null;
     const imageFile = formData.get("image") as File | null;
 
     if (!name || name.length < 3) {
@@ -122,6 +125,32 @@ export async function createService(
                 ? "Stok unit alat harus minimal 1."
                 : "Kapasitas maksimal harus minimal 1 orang.",
         };
+    }
+
+    const estimatedDurationMinutes = estimatedDurationValue
+        ? parseInt(estimatedDurationValue, 10)
+        : null;
+    if (!defaultStartTime || !/^([01]\d|2[0-3]):[0-5]\d$/.test(defaultStartTime)) {
+        return {
+            success: false,
+            message: type === "gear"
+                ? "Jam pengambilan alat wajib diisi dengan format yang benar."
+                : "Jam mulai layanan wajib diisi dengan format yang benar.",
+        };
+    }
+    if (type !== "gear") {
+        if (
+            estimatedDurationMinutes === null ||
+            !Number.isInteger(estimatedDurationMinutes) ||
+            estimatedDurationMinutes < 30 ||
+            estimatedDurationMinutes > 1440
+        ) {
+            return { success: false, message: "Estimasi durasi harus antara 30 sampai 1.440 menit." };
+        }
+    }
+
+    if (meetingInstructions && meetingInstructions.length > 500) {
+        return { success: false, message: "Petunjuk titik temu maksimal 500 karakter." };
     }
 
     // â”€â”€â”€ 4. Upload gambar ke Supabase Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -184,6 +213,9 @@ export async function createService(
         dive_site_category: type === "gear" ? null : rawDiveSiteCategory,
         image_url: imageUrl,
         is_available: true,
+        default_start_time: defaultStartTime,
+        estimated_duration_minutes: type === "gear" ? null : estimatedDurationMinutes,
+        meeting_instructions: meetingInstructions,
     });
 
     if (insertError) {
@@ -225,6 +257,9 @@ export async function updateService(
     const maxCapacityStr = formData.get("max_capacity") as string;
     const description = (formData.get("description") as string)?.trim();
     const rawDiveSiteCategory = (formData.get("dive_site_category") as string)?.trim() || null;
+    const defaultStartTime = (formData.get("default_start_time") as string)?.trim() || null;
+    const estimatedDurationValue = (formData.get("estimated_duration_minutes") as string)?.trim();
+    const meetingInstructions = (formData.get("meeting_instructions") as string)?.trim() || null;
     const imageFile = formData.get("image") as File | null;
     const isAvailable = formData.get("is_available") === "true";
 
@@ -265,6 +300,32 @@ export async function updateService(
                 ? "Stok unit alat harus minimal 1."
                 : "Kapasitas maksimal harus minimal 1 orang.",
         };
+    }
+
+    const estimatedDurationMinutes = estimatedDurationValue
+        ? parseInt(estimatedDurationValue, 10)
+        : null;
+    if (!defaultStartTime || !/^([01]\d|2[0-3]):[0-5]\d$/.test(defaultStartTime)) {
+        return {
+            success: false,
+            message: type === "gear"
+                ? "Jam pengambilan alat wajib diisi dengan format yang benar."
+                : "Jam mulai layanan wajib diisi dengan format yang benar.",
+        };
+    }
+    if (type !== "gear") {
+        if (
+            estimatedDurationMinutes === null ||
+            !Number.isInteger(estimatedDurationMinutes) ||
+            estimatedDurationMinutes < 30 ||
+            estimatedDurationMinutes > 1440
+        ) {
+            return { success: false, message: "Estimasi durasi harus antara 30 sampai 1.440 menit." };
+        }
+    }
+
+    if (meetingInstructions && meetingInstructions.length > 500) {
+        return { success: false, message: "Petunjuk titik temu maksimal 500 karakter." };
     }
 
     const { data: userRecord } = await supabase
@@ -363,6 +424,9 @@ export async function updateService(
         description: description || null,
         dive_site_category: type === "gear" ? null : rawDiveSiteCategory,
         is_available: isAvailable,
+        default_start_time: defaultStartTime,
+        estimated_duration_minutes: type === "gear" ? null : estimatedDurationMinutes,
+        meeting_instructions: meetingInstructions,
     };
 
     if (imageUrl) {

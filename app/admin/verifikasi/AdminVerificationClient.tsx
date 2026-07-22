@@ -382,14 +382,8 @@ export default function AdminVerificationClient({
                     const isThisRemoving = removingId === provider.id;
                     const isThisPending = pendingId === provider.id && isPending;
                     const isActionable = activeTab === "pending";
-                    const documentTypes = getDocumentTypesForProvider(
-                        provider.primary_type,
-                        provider.instructor_scope
-                    );
-                    const requiredDocumentTypes = getRequiredDocumentTypes(
-                        provider.primary_type,
-                        provider.instructor_scope
-                    );
+                    const documentTypes = getDocumentTypesForProvider(provider.primary_type);
+                    const requiredDocumentTypes = getRequiredDocumentTypes(provider.primary_type);
                     const missingDocuments = getMissingRequiredDocumentTypes(provider);
                     const canApprove = missingDocuments.length === 0;
 

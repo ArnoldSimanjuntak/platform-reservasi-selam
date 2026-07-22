@@ -7,6 +7,7 @@ import { formatRupiah } from "@/lib/formatters";
 
 interface ServiceCardProps {
     service: Service;
+    detailQuery?: string;
 }
 
 function getServiceIcon(type: Service["type"]) {
@@ -15,14 +16,15 @@ function getServiceIcon(type: Service["type"]) {
     return Ship;
 }
 
-export default function ServiceCard({ service }: ServiceCardProps) {
+export default function ServiceCard({ service, detailQuery }: ServiceCardProps) {
     const previewImage = service.image_url || "/images/lembeh-map.jpg";
     const ServiceIcon = getServiceIcon(service.type);
+    const detailHref = `/services/${service.id}${detailQuery ? `?${detailQuery}` : ""}`;
 
     return (
         <article className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg">
             <Link
-                href={`/services/${service.id}`}
+                href={detailHref}
                 className="relative block aspect-[4/3] overflow-hidden bg-slate-100"
                 aria-label={`Lihat detail ${service.name}`}
             >
@@ -49,7 +51,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
             <div className="flex flex-1 flex-col p-5">
                 <div className="min-w-0">
                     <h3 className="line-clamp-2 text-lg font-extrabold leading-snug text-slate-900">
-                        <Link href={`/services/${service.id}`} className="hover:text-primary">
+                        <Link href={detailHref} className="hover:text-primary">
                             {service.name}
                         </Link>
                     </h3>
@@ -69,7 +71,7 @@ export default function ServiceCard({ service }: ServiceCardProps) {
                         <p className="truncate text-lg font-extrabold text-deepSea">{formatRupiah(service.price)}</p>
                     </div>
                     <Link
-                        href={`/services/${service.id}`}
+                        href={detailHref}
                         className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-primary transition-colors hover:bg-primary hover:text-white"
                         aria-label={`Buka ${service.name}`}
                     >

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     Calendar,
     Users,
@@ -9,19 +9,20 @@ import {
     Plus,
     ArrowRight,
     Loader2,
-    Info,
     CheckCircle2,
     AlertTriangle,
     XCircle,
     MapPin,
     Clock,
+    Phone,
+    MessageSquareText,
 } from "lucide-react";
 import { createBooking, getRemainingSlots, getGearAvailableStock } from "@/app/actions/booking";
 import { createClient } from "@/lib/supabase/client";
 import type { BookingResult } from "@/app/actions/booking";
 import type { DiveSite } from "@/lib/supabase";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import { formatRupiah, getLocalDateString } from "@/lib/formatters";
+import { buildWhatsAppUrl, formatRupiah, getLocalDateString } from "@/lib/formatters";
 import {
     getDistanceTier,
     getDistanceTierDescription,
@@ -44,6 +45,11 @@ interface BookingFormProps {
         latitude: number;
         longitude: number;
     } | null;
+    initialDiveSiteId?: string;
+    initialDate?: string;
+    initialGuests?: number;
+    initialRentalDays?: number;
+    providerContact?: string | null;
 }
 
 const distanceTierClasses: Record<DistanceTier, string> = {
@@ -62,18 +68,54 @@ export default function BookingForm({
     isGear = false,
     diveSites = [],
     providerBase = null,
+    initialDiveSiteId,
+    initialDate,
+    initialGuests,
+    initialRentalDays,
+    providerContact,
 }: BookingFormProps) {
     const router = useRouter();
-    const [guests, setGuests] = useState(1);
-    const [date, setDate] = useState("");
-    const [rentalDays, setRentalDays] = useState(1);
-    const [selectedDiveSiteId, setSelectedDiveSiteId] = useState<string>("");
+    const searchParams = useSearchParams();
+    const [guests, setGuests] = useState(() => Math.max(1, Math.min(initialGuests ?? 1, maxCapacity)));
+    const [date, setDate] = useState(initialDate ?? "");
+    const [rentalDays, setRentalDays] = useState(() => Math.max(1, Math.min(initialRentalDays ?? 1, 30)));
+    const [customerContact, setCustomerContact] = useState("");
+    const [notes, setNotes] = useState("");
+    const [draftRestored, setDraftRestored] = useState(false);
+    const [selectedDiveSiteId, setSelectedDiveSiteId] = useState<string>(initialDiveSiteId ?? "");
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<BookingResult | null>(null);
     const [remainingSlots, setRemainingSlots] = useState<number | null>(null);
     const [isCheckingSlots, setIsCheckingSlots] = useState(false);
     // â”€â”€ Auth state: dimulai dari nilai SSR, lalu disinkronkan via client â”€â”€
     const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(initialIsLoggedIn);
+
+    useEffect(() => {
+        try {
+            const storedDraft = sessionStorage.getItem(`sulutdive-booking-draft-${serviceId}`);
+            if (storedDraft) {
+                const draft = JSON.parse(storedDraft) as { customerContact?: string; notes?: string };
+                setCustomerContact(draft.customerContact || "");
+                setNotes(draft.notes || "");
+            }
+        } catch {
+            // Draft bersifat tambahan; booking tetap dapat digunakan jika storage diblokir.
+        } finally {
+            setDraftRestored(true);
+        }
+    }, [serviceId]);
+
+    useEffect(() => {
+        if (!draftRestored) return;
+        try {
+            sessionStorage.setItem(
+                `sulutdive-booking-draft-${serviceId}`,
+                JSON.stringify({ customerContact, notes })
+            );
+        } catch {
+            // Abaikan jika browser memblokir sessionStorage.
+        }
+    }, [customerContact, draftRestored, notes, serviceId]);
 
     // â”€â”€ Sinkronisasi Auth: selalu verifikasi via getUser() + pantau perubahan sesi â”€â”€
     useEffect(() => {
@@ -111,6 +153,8 @@ export default function BookingForm({
 
     // Fetch remaining slots / gear stock when date or rental days changes
     useEffect(() => {
+        let cancelled = false;
+
         if (!date) {
             setRemainingSlots(null);
             return;
@@ -119,26 +163,45 @@ export default function BookingForm({
         setIsCheckingSlots(true);
         setResult(null);
 
-        if (isGear) {
-            // Gear: cek stok dengan mempertimbangkan overlap tanggal sewa
-            getGearAvailableStock(serviceId, date, rentalDays).then((res) => {
-                setRemainingSlots(res.available);
+        const checkAvailability = async () => {
+            const response = isGear
+                ? await getGearAvailableStock(serviceId, date, rentalDays)
+                : await getRemainingSlots(serviceId, date);
+
+            if (cancelled) return;
+            if (response.error) {
+                setRemainingSlots(null);
+                setResult({
+                    success: false,
+                    message: "Ketersediaan belum dapat diperiksa. Periksa koneksi lalu coba lagi.",
+                });
                 setIsCheckingSlots(false);
-                if (res.available > 0 && guests > res.available) {
-                    setGuests(Math.min(guests, res.available));
-                }
-            });
-        } else {
-            // Boat / Instructor: cek kapasitas per hari
-            getRemainingSlots(serviceId, date).then((res) => {
-                setRemainingSlots(res.remaining);
+                return;
+            }
+
+            const available = "available" in response ? response.available : response.remaining;
+            setRemainingSlots(available);
+            setGuests((current) => available > 0 && current > available
+                ? available
+                : current
+            );
+            setIsCheckingSlots(false);
+        };
+
+        void checkAvailability().catch(() => {
+            if (!cancelled) {
+                setRemainingSlots(null);
+                setResult({
+                    success: false,
+                    message: "Ketersediaan belum dapat diperiksa. Periksa koneksi lalu coba lagi.",
+                });
                 setIsCheckingSlots(false);
-                if (res.remaining > 0 && guests > res.remaining) {
-                    setGuests(Math.min(guests, res.remaining));
-                }
-            });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
     }, [date, serviceId, rentalDays, isGear]);
 
     const selectedSite = isBoat ? diveSites.find(s => s.id === selectedDiveSiteId) : null;
@@ -174,7 +237,16 @@ export default function BookingForm({
 
         // Jika tidak login, redirect ke halaman login
         if (!isLoggedIn) {
-            router.push(`/auth/login?redirectTo=/services/${serviceId}`);
+            const returnParams = new URLSearchParams(searchParams.toString());
+            if (date) returnParams.set("date", date); else returnParams.delete("date");
+            returnParams.set("pax", String(guests));
+            if (isBoat && selectedDiveSiteId) returnParams.set("dive_site", selectedDiveSiteId);
+            else returnParams.delete("dive_site");
+            if (isGear) returnParams.set("rental_days", String(rentalDays));
+            else returnParams.delete("rental_days");
+            const currentQuery = returnParams.toString();
+            const returnTo = `/services/${serviceId}${currentQuery ? `?${currentQuery}` : ""}`;
+            router.push(`/auth/login?redirectTo=${encodeURIComponent(returnTo)}`);
             return;
         }
 
@@ -202,6 +274,15 @@ export default function BookingForm({
             return;
         }
 
+        const contactDigits = customerContact.replace(/\D/g, "");
+        if (contactDigits.length < 9 || contactDigits.length > 15) {
+            setResult({
+                success: false,
+                message: "Masukkan nomor WhatsApp aktif agar provider dapat menghubungi Anda.",
+            });
+            return;
+        }
+
         startTransition(async () => {
             try {
                 const bookingResult = await createBooking(
@@ -209,7 +290,9 @@ export default function BookingForm({
                     date,
                     guests,
                     isBoat ? selectedDiveSiteId : undefined, // server coalesces to null
-                    isGear ? rentalDays : undefined
+                    isGear ? rentalDays : undefined,
+                    customerContact,
+                    notes
                 );
                 
                 // Jika server bilang user tidak login padahal client pikir sudah login
@@ -222,6 +305,11 @@ export default function BookingForm({
                 setResult(bookingResult);
 
                 if (bookingResult.success) {
+                    try {
+                        sessionStorage.removeItem(`sulutdive-booking-draft-${serviceId}`);
+                    } catch {
+                        // Tidak mengganggu penyelesaian booking.
+                    }
                     // Perbarui sisa slot setelah Booking berhasil
                     setRemainingSlots(bookingResult.remainingSlots ?? null);
 
@@ -391,6 +479,50 @@ export default function BookingForm({
                 </div>
             </div>
 
+            <div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3.5">
+                <div>
+                    <label htmlFor="customer-contact" className="block text-sm font-bold text-[#111827]">
+                        Nomor WhatsApp Pemesan
+                    </label>
+                    <div className="relative mt-2">
+                        <Phone className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
+                        <input
+                            id="customer-contact"
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            value={customerContact}
+                            onChange={(event) => setCustomerContact(event.target.value)}
+                            placeholder="Contoh: 081234567890"
+                            maxLength={20}
+                            disabled={isPending}
+                            className="w-full rounded-lg border border-blue-100 bg-white py-2.5 pl-10 pr-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
+                    </div>
+                    <p className="mt-1 text-[11px] font-medium text-slate-500">
+                        Digunakan provider untuk konfirmasi titik temu dan jadwal kedatangan.
+                    </p>
+                </div>
+                <div>
+                    <label htmlFor="booking-notes" className="block text-sm font-bold text-[#111827]">
+                        Catatan Tambahan <span className="font-medium text-slate-400">(opsional)</span>
+                    </label>
+                    <div className="relative mt-2">
+                        <MessageSquareText className="absolute left-3.5 top-3 h-4 w-4 text-primary" />
+                        <textarea
+                            id="booking-notes"
+                            value={notes}
+                            onChange={(event) => setNotes(event.target.value)}
+                            placeholder="Contoh: membawa perlengkapan sendiri atau kebutuhan khusus."
+                            maxLength={500}
+                            rows={2}
+                            disabled={isPending}
+                            className="w-full resize-none rounded-lg border border-blue-100 bg-white py-2.5 pl-10 pr-3 text-sm font-medium text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
+                    </div>
+                </div>
+            </div>
+
             {/* â”€â”€â”€ Remaining Capacity Indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
             {date && (
                 <div
@@ -530,10 +662,21 @@ export default function BookingForm({
                 )}
             </button>
 
-            <button className="w-full py-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-deepSea font-medium transition-colors text-sm flex items-center justify-center gap-2">
-                <Info className="w-4 h-4" />
-                Hubungi Support (WA)
-            </button>
+            {buildWhatsAppUrl(providerContact, `Halo, saya ingin bertanya mengenai layanan ${serviceName} di SulutDive.`) ? (
+                <a
+                    href={buildWhatsAppUrl(providerContact, `Halo, saya ingin bertanya mengenai layanan ${serviceName} di SulutDive.`) ?? undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-deepSea"
+                >
+                    <Phone className="h-4 w-4" />
+                    Hubungi Provider (WhatsApp)
+                </a>
+            ) : (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-center text-xs font-semibold text-amber-800">
+                    Kontak provider belum tersedia.
+                </p>
+            )}
         </div>
     );
 }

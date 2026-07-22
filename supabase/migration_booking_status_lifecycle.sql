@@ -59,17 +59,13 @@ ALTER TABLE bookings ADD CONSTRAINT bookings_status_check
   CHECK (status IN ('pending', 'upcoming', 'in_progress', 'completed', 'cancelled'));
 
 -- =============================================
--- STEP 4: Function — Auto-transition booking statuses
+-- STEP 4: Function — Expire bookings without changing actual activity
 -- =============================================
 -- This function should be called periodically (via pg_cron, edge function,
 -- or application-level cron) to keep statuses in sync with real dates.
 --
--- Logic:
---   • 'pending'  + booking_date = today        → stays 'pending' (needs confirmation)
---   • 'upcoming' + booking_date = today         → 'in_progress'
---   • 'upcoming' + booking_date < today         → 'completed'  (missed transition)
---   • 'in_progress' + booking_date < today      → 'completed'
---   • 'pending'  + booking_date < today         → 'cancelled'  (expired, never confirmed)
+-- Status in_progress/completed ditentukan oleh tombol provider agar waktu
+-- aktual mulai dan selesai tidak dipalsukan oleh pergantian tanggal otomatis.
 --
 -- Returns: number of rows updated.
 
@@ -79,49 +75,32 @@ DECLARE
   v_updated INTEGER := 0;
   v_count INTEGER;
 BEGIN
-  -- 1. upcoming → in_progress (dive day is today)
   UPDATE bookings
-  SET status = 'in_progress', updated_at = NOW()
-  WHERE status = 'upcoming'
-    AND booking_date = CURRENT_DATE;
-  GET DIAGNOSTICS v_count = ROW_COUNT;
-  v_updated := v_updated + v_count;
+  SET payment_status = 'expired', status = 'cancelled', updated_at = NOW()
+  WHERE status = 'pending'
+    AND payment_status = 'unpaid'
+    AND payment_deadline IS NOT NULL
+    AND payment_deadline < NOW();
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
 
-  -- 2. upcoming → completed (dive day already passed, missed in_progress)
-  UPDATE bookings
-  SET status = 'completed', updated_at = NOW()
-  WHERE status = 'upcoming'
-    AND booking_date < CURRENT_DATE;
-  GET DIAGNOSTICS v_count = ROW_COUNT;
-  v_updated := v_updated + v_count;
-
-  -- 3. in_progress → completed (dive day is over)
-  UPDATE bookings
-  SET status = 'completed', updated_at = NOW()
-  WHERE status = 'in_progress'
-    AND booking_date < CURRENT_DATE;
-  GET DIAGNOSTICS v_count = ROW_COUNT;
-  v_updated := v_updated + v_count;
-
-  -- 4. pending → cancelled (never confirmed, date passed)
   UPDATE bookings
   SET status = 'cancelled', updated_at = NOW()
   WHERE status = 'pending'
-    AND booking_date < CURRENT_DATE;
+    AND booking_date < ((NOW() AT TIME ZONE 'Asia/Makassar')::date);
   GET DIAGNOSTICS v_count = ROW_COUNT;
   v_updated := v_updated + v_count;
 
   RETURN v_updated;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION update_booking_statuses() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION update_booking_statuses() TO service_role;
 
 -- =============================================
 -- STEP 5: Update capacity functions
 -- =============================================
--- The carrying capacity functions should exclude 'cancelled' AND 'completed'
--- bookings, since completed dives no longer occupy future capacity.
--- (In practice 'completed' bookings are always in the past, but this is
--- defensive coding for correctness.)
+-- Booking completed tetap memakai kapasitas pada tanggal booking.
 
 CREATE OR REPLACE FUNCTION check_carrying_capacity(
   p_service_id UUID,
@@ -145,11 +124,17 @@ BEGIN
   FROM bookings
   WHERE service_id = p_service_id
     AND booking_date = p_booking_date
-    AND status NOT IN ('cancelled', 'completed');
+    AND status <> 'cancelled'
+    AND NOT (
+      status = 'pending'
+      AND payment_status = 'unpaid'
+      AND payment_deadline IS NOT NULL
+      AND payment_deadline < NOW()
+    );
 
   RETURN (v_current_total + p_participants) <= v_max_capacity;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 CREATE OR REPLACE FUNCTION get_remaining_capacity(
   p_service_id UUID,
@@ -172,11 +157,17 @@ BEGIN
   FROM bookings
   WHERE service_id = p_service_id
     AND booking_date = p_booking_date
-    AND status NOT IN ('cancelled', 'completed');
+    AND status <> 'cancelled'
+    AND NOT (
+      status = 'pending'
+      AND payment_status = 'unpaid'
+      AND payment_deadline IS NOT NULL
+      AND payment_deadline < NOW()
+    );
 
   RETURN GREATEST(v_max_capacity - v_current_total, 0);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- =============================================
 -- STEP 6: (Optional) Schedule with pg_cron

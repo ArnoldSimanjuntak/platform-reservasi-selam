@@ -17,7 +17,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-function createDiveSiteIcon(_zone?: number) {
+function createDiveSiteIcon() {
     return L.divIcon({
         className: "",
         html: `
@@ -123,10 +123,14 @@ export default function MapLeaflet() {
                 if (providersResult.data) {
                     setProviders(providersResult.data as ProviderMapPin[]);
                 }
-            } catch (err: any) {
-                if (signal.aborted || err?.name === "AbortError" || String(err).includes("aborted")) return;
+            } catch (err: unknown) {
+                if (
+                    signal.aborted ||
+                    (err instanceof Error && err.name === "AbortError") ||
+                    String(err).includes("aborted")
+                ) return;
 
-                const errorMsg = err?.message || JSON.stringify(err);
+                const errorMsg = err instanceof Error ? err.message : String(err);
                 console.error("Map Data Error:", errorMsg);
                 setError("Gagal memuat data peta. Silakan muat ulang.");
             } finally {
@@ -179,7 +183,7 @@ export default function MapLeaflet() {
                 <Marker
                     key={`site-${site.id}`}
                     position={[site.latitude!, site.longitude!]}
-                    icon={createDiveSiteIcon(site.zone_level)}
+                    icon={createDiveSiteIcon()}
                 >
                     <Popup minWidth={280} maxWidth={340}>
                         <div className="p-1">

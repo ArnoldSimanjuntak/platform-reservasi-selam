@@ -21,6 +21,8 @@ import {
     ShieldCheck,
     ToggleLeft,
     CheckCircle2,
+    Clock3,
+    Timer,
 } from "lucide-react";
 import { createService, updateService } from "@/app/actions/service";
 import type { CreateServiceResult } from "@/app/actions/service";
@@ -36,6 +38,9 @@ export interface ServiceFormInitialValue {
     dive_site_category: string | null;
     image_url: string | null;
     is_available: boolean | null;
+    default_start_time: string | null;
+    estimated_duration_minutes: number | null;
+    meeting_instructions: string | null;
 }
 
 interface NewServiceFormProps {
@@ -338,6 +343,68 @@ export default function NewServiceForm({
                                     </p>
                                 )}
                             </div>
+                        </div>
+
+                        <div className={`grid grid-cols-1 gap-4 ${selectedType === "gear" ? "" : "sm:grid-cols-2"}`}>
+                                <div>
+                                    <label htmlFor="default_start_time" className="block text-sm font-bold text-slate-900 mb-2">
+                                        {selectedType === "gear" ? "Jam Pengambilan" : "Jam Mulai"} <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <Clock3 className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+                                        <input
+                                            id="default_start_time"
+                                            name="default_start_time"
+                                            type="time"
+                                            required
+                                            defaultValue={initialService?.default_start_time?.slice(0, 5) ?? "08:00"}
+                                            className="block w-full rounded-xl border-2 border-gray-200 bg-gray-50 py-3.5 pl-11 pr-3 font-medium text-slate-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                                        />
+                                    </div>
+                                </div>
+                                {selectedType !== "gear" && <div>
+                                    <label htmlFor="estimated_duration_minutes" className="block text-sm font-bold text-slate-900 mb-2">
+                                        Estimasi Durasi <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <Timer className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+                                        <input
+                                            id="estimated_duration_minutes"
+                                            name="estimated_duration_minutes"
+                                            type="number"
+                                            required
+                                            min={30}
+                                            max={1440}
+                                            step={15}
+                                            defaultValue={initialService?.estimated_duration_minutes ?? 240}
+                                            className="block w-full rounded-xl border-2 border-gray-200 bg-gray-50 py-3.5 pl-11 pr-16 font-medium text-slate-900 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                                        />
+                                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">menit</span>
+                                    </div>
+                                </div>}
+                            </div>
+
+                        <div>
+                            <label htmlFor="meeting_instructions" className="block text-sm font-bold text-slate-900 mb-2">
+                                {selectedType === "gear" ? "Petunjuk Pengambilan Alat" : "Petunjuk Titik Temu"}
+                            </label>
+                            <div className="relative">
+                                <MapPin className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500" />
+                                <textarea
+                                    id="meeting_instructions"
+                                    name="meeting_instructions"
+                                    rows={3}
+                                    maxLength={500}
+                                    defaultValue={initialService?.meeting_instructions ?? ""}
+                                    placeholder={selectedType === "gear"
+                                        ? "Contoh: Ambil alat di loket provider dan tunjukkan ID booking."
+                                        : "Contoh: Hadir 30 menit lebih awal di dermaga dan hubungi kru saat tiba."}
+                                    className="block w-full resize-none rounded-xl border-2 border-gray-200 bg-gray-50 py-3.5 pl-11 pr-3 font-medium text-slate-900 placeholder-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                                />
+                            </div>
+                            <p className="mt-1.5 text-xs font-medium text-slate-500">
+                                Alamat pangkalan mengikuti profil provider. Tambahkan petunjuk kedatangan yang perlu diketahui customer.
+                            </p>
                         </div>
 
                         {/* â”€â”€ Kategori Dive Site â”€â”€ */}

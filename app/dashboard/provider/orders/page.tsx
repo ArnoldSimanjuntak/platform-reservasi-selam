@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, ClipboardList, Wifi } from "lucide-react";
 import ProviderOrderFeed from "@/components/ProviderOrderFeed";
 import { getServiceTypeLabel } from "@/lib/service-types";
+import { refreshExpiredBookings } from "@/lib/booking-maintenance";
 
 export default async function ProviderOrdersPage() {
     const supabase = await createClient();
@@ -18,7 +19,7 @@ export default async function ProviderOrdersPage() {
     // ─── Ambil provider milik user ini ────────────────────────
     const { data: provider } = await supabase
         .from("providers")
-        .select("id, name, primary_type")
+        .select("id, name, primary_type, verification_status, is_active")
         .eq("owner_user_id", user.id)
         .single();
 
@@ -26,9 +27,15 @@ export default async function ProviderOrdersPage() {
         redirect("/dashboard/provider/setup");
     }
 
+    if (provider.verification_status !== "verified" || provider.is_active !== true) {
+        redirect("/dashboard/provider/setup");
+    }
+
+    await refreshExpiredBookings();
+
     return (
         <div className="min-h-screen pt-24 pb-12 px-4" style={{ background: "linear-gradient(180deg, #f0f7ff 0%, #f9fafb 40%)" }}>
-            <div className="container mx-auto max-w-2xl">
+            <div className="container mx-auto max-w-4xl">
                 {/* Header */}
                 <div className="mb-8">
                     <Link

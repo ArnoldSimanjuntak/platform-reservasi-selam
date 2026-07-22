@@ -7,7 +7,6 @@ import {
     Anchor,
     Clock,
     TrendingUp,
-    Users,
     CheckCircle2,
     ShieldAlert,
 } from "lucide-react";

@@ -130,14 +130,7 @@ export default function AuthNavigationProvider({
         abortControllerRef.current = null;
         setAuthState(initialAuthState);
         lastRefreshAtRef.current = Date.now();
-    }, [
-        initialAuthState.isLoading,
-        initialAuthState.providerVerified,
-        initialAuthState.role,
-        initialAuthState.user?.email,
-        initialAuthState.user?.id,
-        initialAuthState.user?.name,
-    ]);
+    }, [initialAuthState]);
 
     useEffect(() => {
         mountedRef.current = true;

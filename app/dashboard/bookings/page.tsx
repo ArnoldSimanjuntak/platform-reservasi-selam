@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Calendar, CreditCard, ChevronLeft, Anchor, Users, Package, Clock } from "lucide-react";
+import { Calendar, CreditCard, ChevronLeft, Anchor, Users, Package, Clock, MapPin, Phone, MessageSquareText } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import type { BookingStatus } from "@/lib/supabase";
 import PaymentUploaderCard from "@/components/PaymentUploaderCard";
 import { bookingStatusLabels } from "@/lib/booking-status";
-import { formatRupiah } from "@/lib/formatters";
+import { buildWhatsAppUrl, formatDateTimeId, formatRupiah } from "@/lib/formatters";
+import { refreshExpiredBookings } from "@/lib/booking-maintenance";
 
 export const revalidate = 0;
 
@@ -14,6 +15,7 @@ function getStatusBadge(status: BookingStatus) {
     const badges: Record<string, { label: string; bg: string; text: string }> = {
         completed: { label: bookingStatusLabels.completed, bg: "bg-green-50 border-green-200", text: "text-green-700" },
         confirmed: { label: bookingStatusLabels.confirmed, bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
+        upcoming: { label: bookingStatusLabels.upcoming, bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
         in_progress: { label: bookingStatusLabels.in_progress, bg: "bg-amber-50 border-amber-200", text: "text-amber-700" },
         pending: { label: bookingStatusLabels.pending, bg: "bg-gray-100 border-gray-200", text: "text-gray-700" },
         cancelled: { label: bookingStatusLabels.cancelled, bg: "bg-red-50 border-red-200", text: "text-red-600" },
@@ -26,6 +28,10 @@ function getStatusBadge(status: BookingStatus) {
     );
 }
 
+function getRelation<T>(value: T | T[] | null): T | null {
+    return Array.isArray(value) ? value[0] ?? null : value;
+}
+
 export default async function BookingsHistoryPage() {
     const supabase = await createClient();
     const {
@@ -35,6 +41,8 @@ export default async function BookingsHistoryPage() {
     if (!user) {
         redirect("/auth/login");
     }
+
+    await refreshExpiredBookings();
 
     const { data: bookings, error } = await supabase
         .from("bookings")
@@ -47,15 +55,38 @@ export default async function BookingsHistoryPage() {
             total_price,
             payment_status,
             payment_deadline,
+            customer_name,
+            customer_contact,
+            meeting_point,
+            meeting_instructions,
+            provider_contact,
+            scheduled_start_at,
+            scheduled_end_at,
+            started_at,
+            completed_at,
+            notes,
             created_at,
+            dive_site:dive_sites ( name ),
             service:services (
                 name,
                 type,
-                image_url
+                image_url,
+                provider:providers ( name, location, contact )
             )
         `)
         .eq("user_id", user.id)
         .order("booking_date", { ascending: false });
+
+    const normalizedBookings = bookings?.map((booking) => {
+        const service = getRelation(booking.service);
+        return {
+            ...booking,
+            dive_site: getRelation(booking.dive_site),
+            service: service
+                ? { ...service, provider: getRelation(service.provider) }
+                : null,
+        };
+    });
 
     const formatDate = (dateString: string) =>
         new Date(dateString).toLocaleDateString("id-ID", {
@@ -90,8 +121,8 @@ export default async function BookingsHistoryPage() {
                             <p className="text-red-700 font-semibold mb-1">Gagal memuat riwayat booking.</p>
                             <p className="text-red-500 text-sm">{error.message}</p>
                         </div>
-                    ) : bookings && bookings.length > 0 ? (
-                        bookings.map((booking: any) => (
+                    ) : normalizedBookings && normalizedBookings.length > 0 ? (
+                        normalizedBookings.map((booking) => (
                             <div
                                 key={booking.id}
                                 className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow flex flex-col sm:flex-row gap-4"
@@ -207,7 +238,75 @@ export default async function BookingsHistoryPage() {
                                             </div>
                                         );
                                     })()}
-                                    
+
+                                    {(() => {
+                                        const provider = booking.service?.provider;
+                                        const providerContact = booking.provider_contact || provider?.contact;
+                                        const meetingPoint = booking.meeting_point || provider?.location;
+                                        const whatsappUrl = buildWhatsAppUrl(
+                                            providerContact,
+                                            `Halo ${provider?.name || "Provider"}, saya ingin mengonfirmasi booking SulutDive dengan ID ${booking.id.slice(0, 8)} untuk ${formatDate(booking.booking_date)}.`
+                                        );
+                                        return (
+                                            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="h-4 w-4 text-primary" />
+                                                    <h4 className="text-sm font-extrabold text-slate-900">Informasi Kedatangan</h4>
+                                                </div>
+                                                <div className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+                                                    <div>
+                                                        <p className="font-bold uppercase tracking-wide text-slate-400">Provider &amp; Pangkalan</p>
+                                                        <p className="mt-1 font-bold text-slate-800">{provider?.name || "Provider layanan"}</p>
+                                                        <p className="mt-0.5 text-slate-600">{meetingPoint || "Lokasi pangkalan belum dicantumkan"}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold uppercase tracking-wide text-slate-400">Tujuan</p>
+                                                        <p className="mt-1 font-bold text-slate-800">{booking.dive_site?.name || (booking.service?.type === "gear" ? "Pengambilan alat" : "Tidak ada spot khusus")}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold uppercase tracking-wide text-slate-400">Jadwal</p>
+                                                        <p className="mt-1 font-bold text-slate-800">
+                                                            {booking.scheduled_start_at ? formatDateTimeId(booking.scheduled_start_at) : formatDate(booking.booking_date)}
+                                                        </p>
+                                                        {booking.scheduled_end_at && <p className="mt-0.5 text-slate-600">Perkiraan selesai {formatDateTimeId(booking.scheduled_end_at)}</p>}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold uppercase tracking-wide text-slate-400">Waktu Aktual</p>
+                                                        <p className="mt-1 text-slate-700">Mulai: {formatDateTimeId(booking.started_at)}</p>
+                                                        <p className="text-slate-700">Selesai: {formatDateTimeId(booking.completed_at)}</p>
+                                                    </div>
+                                                </div>
+                                                {(booking.meeting_instructions || booking.notes) && (
+                                                    <div className="mt-3 flex items-start gap-2 rounded-lg bg-white p-3 text-xs text-slate-700">
+                                                        <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                                        <div>
+                                                            {booking.meeting_instructions && <p><strong>Petunjuk provider:</strong> {booking.meeting_instructions}</p>}
+                                                            {booking.notes && <p className="mt-1"><strong>Catatan Anda:</strong> {booking.notes}</p>}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <p className="mt-3 text-xs font-semibold leading-5 text-blue-800">
+                                                    {booking.status === "upcoming" || booking.status === "confirmed"
+                                                        ? "Datang sekitar 30 menit sebelum jadwal dan konfirmasikan kedatangan kepada provider."
+                                                        : booking.status === "pending"
+                                                            ? "Selesaikan pembayaran dan tunggu konfirmasi provider sebelum datang ke pangkalan."
+                                                            : "Hubungi provider jika Anda memerlukan informasi operasional tambahan."}
+                                                </p>
+                                                {whatsappUrl && (
+                                                    <a
+                                                        href={whatsappUrl}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-emerald-700"
+                                                    >
+                                                        <Phone className="h-4 w-4" />
+                                                        Hubungi Provider
+                                                    </a>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
                                     {/* Payment Upload Component (Conditionally Injected) */}
                                     {(booking.payment_status === "unpaid" || booking.payment_status === "pending_verification") && booking.status === "pending" && (
                                         <PaymentUploaderCard 

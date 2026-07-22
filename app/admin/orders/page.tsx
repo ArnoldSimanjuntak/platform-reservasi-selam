@@ -1,15 +1,17 @@
 import Link from "next/link";
-import { AlertCircle, ArrowLeft, CheckCircle2, ClipboardList, Clock, TrendingUp, XCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, ClipboardList, Clock, Phone, TrendingUp, XCircle } from "lucide-react";
 import { getAdminContext } from "@/lib/supabase/admin";
 import { getServiceTypeLabel } from "@/lib/service-types";
 import { bookingStatusLabels, paymentStatusLabels } from "@/lib/booking-status";
-import { formatDateId, formatRupiah } from "@/lib/formatters";
+import { buildWhatsAppUrl, formatDateId, formatRupiah } from "@/lib/formatters";
+import { refreshExpiredBookings } from "@/lib/booking-maintenance";
 
 export const dynamic = "force-dynamic";
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
     pending: { label: bookingStatusLabels.pending, bg: "bg-amber-100", text: "text-amber-700" },
     confirmed: { label: bookingStatusLabels.confirmed, bg: "bg-blue-100", text: "text-blue-700" },
+    upcoming: { label: bookingStatusLabels.upcoming, bg: "bg-blue-100", text: "text-blue-700" },
     in_progress: { label: bookingStatusLabels.in_progress, bg: "bg-indigo-100", text: "text-indigo-700" },
     completed: { label: bookingStatusLabels.completed, bg: "bg-emerald-100", text: "text-emerald-700" },
     cancelled: { label: bookingStatusLabels.cancelled, bg: "bg-red-100", text: "text-red-700" },
@@ -21,14 +23,16 @@ function getRelation<T>(value: T | T[] | null): T | null {
 
 export default async function AdminOrdersPage() {
     const { adminDb } = await getAdminContext();
+    await refreshExpiredBookings();
+
     const { data: bookings, error } = await adminDb
         .from("bookings")
         .select(`
             id, status, payment_status, total_price, booking_date,
-            total_participants, created_at,
+            total_participants, customer_name, created_at,
             service:services (
                 name, type,
-                provider:providers ( name )
+                provider:providers ( name, contact, location )
             )
         `)
         .order("created_at", { ascending: false })
@@ -50,7 +54,7 @@ export default async function AdminOrdersPage() {
                 <div>
                     <h1 className="flex items-center gap-2 text-2xl font-black text-[#023E8A]">
                         <ClipboardList className="h-6 w-6 text-[#0077B6]" />
-                        Semua Pesanan Platform
+                        Semua Pesanan Aplikasi
                     </h1>
                     <p className="mt-0.5 text-sm text-slate-500">
                         {allBookings.length} transaksi tercatat &bull; {pendingCount} menunggu konfirmasi
@@ -103,11 +107,26 @@ export default async function AdminOrdersPage() {
                                 {allBookings.map((booking) => {
                                     const service = getRelation(booking.service);
                                     const provider = service ? getRelation(service.provider) : null;
+                                    const whatsappUrl = buildWhatsAppUrl(
+                                        provider?.contact,
+                                        `Halo ${provider?.name || "Provider"}, Admin SulutDive ingin menghubungi Anda mengenai booking ${booking.id.slice(0, 8)}.`
+                                    );
                                     const status = STATUS_CONFIG[booking.status] ?? STATUS_CONFIG.pending;
                                     return (
                                         <tr key={booking.id} className="transition-colors hover:bg-slate-50">
-                                            <td className="max-w-52 truncate px-5 py-4 font-bold text-slate-900">{service?.name ?? "-"}</td>
-                                            <td className="px-5 py-4 text-slate-600">{provider?.name ?? "-"}</td>
+                                            <td className="max-w-52 px-5 py-4">
+                                                <p className="truncate font-bold text-slate-900">{service?.name ?? "-"}</p>
+                                                <p className="mt-1 truncate text-xs font-semibold text-slate-500">Customer: {booking.customer_name || "Belum tercatat"}</p>
+                                            </td>
+                                            <td className="px-5 py-4 text-slate-600">
+                                                <p className="font-semibold text-slate-800">{provider?.name ?? "-"}</p>
+                                                {whatsappUrl && (
+                                                    <a href={whatsappUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:underline">
+                                                        <Phone className="h-3 w-3" />
+                                                        {provider?.contact}
+                                                    </a>
+                                                )}
+                                            </td>
                                             <td className="px-5 py-4 text-xs font-bold text-slate-600">{service?.type ? getServiceTypeLabel(service.type) : "-"}</td>
                                             <td className="px-5 py-4 text-slate-600">{formatDateId(booking.booking_date)}</td>
                                             <td className="px-5 py-4 text-center text-slate-600">{booking.total_participants}</td>

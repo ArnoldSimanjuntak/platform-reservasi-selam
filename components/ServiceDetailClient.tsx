@@ -12,6 +12,8 @@ import {
     Users,
     Package,
     Tag,
+    Phone,
+    CalendarClock,
 } from "lucide-react";
 import type { Service, DiveSite } from "@/lib/supabase";
 import BookingForm from "@/components/BookingForm";
@@ -19,16 +21,29 @@ import AddToTripButton from "@/components/AddToTripButton";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { getServiceTypeLabel } from "@/lib/service-types";
-import { formatRupiah } from "@/lib/formatters";
+import { buildWhatsAppUrl, formatRupiah } from "@/lib/formatters";
 
 interface ServiceDetailClientProps {
     service: Service;
     initialIsLoggedIn: boolean;
     initialUserRole?: string;
     diveSites?: DiveSite[];
+    initialDiveSiteId?: string;
+    initialDate?: string;
+    initialPax?: number;
+    initialRentalDays?: number;
 }
 
-export default function ServiceDetailClient({ service, initialIsLoggedIn, initialUserRole = "customer", diveSites = [] }: ServiceDetailClientProps) {
+export default function ServiceDetailClient({
+    service,
+    initialIsLoggedIn,
+    initialUserRole = "customer",
+    diveSites = [],
+    initialDiveSiteId,
+    initialDate,
+    initialPax,
+    initialRentalDays,
+}: ServiceDetailClientProps) {
     const [userRole, setUserRole] = useState<string>(initialUserRole);
 
     useEffect(() => {
@@ -65,6 +80,15 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
     const isBoat = service.type === "boat";
     const heroImage = service.image_url || "/images/lembeh-map.jpg";
     const serviceTypeLabel = getServiceTypeLabel(service.type);
+    const providerWhatsappUrl = buildWhatsAppUrl(
+        service.provider?.contact,
+        `Halo, saya ingin bertanya mengenai layanan ${service.name} di SulutDive.`
+    );
+    const durationLabel = service.estimated_duration_minutes
+        ? service.estimated_duration_minutes >= 60
+            ? `${Math.floor(service.estimated_duration_minutes / 60)} jam${service.estimated_duration_minutes % 60 ? ` ${service.estimated_duration_minutes % 60} menit` : ""}`
+            : `${service.estimated_duration_minutes} menit`
+        : null;
     const providerBase =
         service.provider &&
         typeof service.provider.latitude === "number" &&
@@ -75,6 +99,13 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                 longitude: service.provider.longitude,
             }
             : null;
+    const hasServiceSchedule =
+        !!service.default_start_time &&
+        (isGear || Number(service.estimated_duration_minutes) >= 30);
+    const canAcceptBookings =
+        hasServiceSchedule &&
+        !!service.provider?.location?.trim() &&
+        !!providerWhatsappUrl;
 
     const serviceFacts = [
         {
@@ -127,9 +158,7 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
             ? ["Lokasi pengambilan atau pengembalian alat mengikuti informasi dari provider dan sebaiknya dikonfirmasi sebelum hari sewa."]
             : []),
         "Fasilitas tambahan hanya berlaku jika dicantumkan langsung pada deskripsi layanan.",
-        service.provider?.contact
-            ? `Kontak provider: ${service.provider.contact}`
-            : "Kontak provider belum dicantumkan.",
+        service.meeting_instructions || "Petunjuk kedatangan akan dikonfirmasi melalui nomor WhatsApp provider.",
     ];
 
     return (
@@ -205,6 +234,46 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                             </div>
                         </div>
 
+                        <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-6 shadow-sm md:p-8">
+                            <div className="flex items-center gap-3">
+                                <div className="rounded-xl bg-white p-2.5 text-primary shadow-sm">
+                                    <CalendarClock className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-deepSea">Informasi Kedatangan</h2>
+                                    <p className="text-xs font-medium text-slate-500">Periksa sebelum menyelesaikan booking.</p>
+                                </div>
+                            </div>
+                            <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+                                <div className="rounded-xl border border-blue-100 bg-white p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Pangkalan / Dermaga</p>
+                                    <p className="mt-1 font-bold text-slate-800">{service.provider?.location || "Belum dicantumkan"}</p>
+                                </div>
+                                <div className="rounded-xl border border-blue-100 bg-white p-4">
+                                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Jadwal Layanan</p>
+                                    <p className="mt-1 font-bold text-slate-800">
+                                        {service.default_start_time
+                                            ? `${service.default_start_time.slice(0, 5)} WITA${durationLabel ? ` · sekitar ${durationLabel}` : ""}`
+                                            : isGear ? "Mengikuti waktu pengambilan yang disepakati" : "Konfirmasi jadwal kepada provider"}
+                                    </p>
+                                </div>
+                            </div>
+                            <p className="mt-4 text-sm leading-6 text-slate-600">
+                                {service.meeting_instructions || "Customer disarankan menghubungi provider untuk memastikan titik temu dan hadir sekitar 30 menit sebelum jadwal."}
+                            </p>
+                            {providerWhatsappUrl && (
+                                <a
+                                    href={providerWhatsappUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
+                                >
+                                    <Phone className="h-4 w-4" />
+                                    Hubungi {service.provider?.name || "Provider"}
+                                </a>
+                            )}
+                        </div>
+
                         {/* Booking Notes */}
                         <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100">
                             <h2 className="text-2xl font-bold text-deepSea mb-6">Catatan Pemesanan</h2>
@@ -255,17 +324,31 @@ export default function ServiceDetailClient({ service, initialIsLoggedIn, initia
                                     ) : (
                                         /* ─── Booking Form Normal ─── */
                                         <>
-                                            <BookingForm
-                                                serviceId={service.id}
-                                                serviceName={service.name}
-                                                price={service.price}
-                                                maxCapacity={service.max_capacity}
-                                                initialIsLoggedIn={initialIsLoggedIn}
-                                                isBoat={isBoat}
-                                                isGear={isGear}
-                                                diveSites={diveSites}
-                                                providerBase={providerBase}
-                                            />
+                                            {canAcceptBookings ? (
+                                                <BookingForm
+                                                    serviceId={service.id}
+                                                    serviceName={service.name}
+                                                    price={service.price}
+                                                    maxCapacity={service.max_capacity}
+                                                    initialIsLoggedIn={initialIsLoggedIn}
+                                                    isBoat={isBoat}
+                                                    isGear={isGear}
+                                                    diveSites={diveSites}
+                                                    providerBase={providerBase}
+                                                    initialDiveSiteId={initialDiveSiteId}
+                                                    initialDate={initialDate}
+                                                    initialGuests={initialPax}
+                                                    initialRentalDays={initialRentalDays}
+                                                    providerContact={service.provider?.contact}
+                                                />
+                                            ) : (
+                                                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                                                    <p className="font-extrabold">Layanan belum siap menerima booking</p>
+                                                    <p className="mt-1">
+                                                        Provider perlu melengkapi jadwal, durasi, lokasi pertemuan, dan nomor kontak terlebih dahulu.
+                                                    </p>
+                                                </div>
+                                            )}
 
                                             <AddToTripButton
                                                 serviceId={service.id}
